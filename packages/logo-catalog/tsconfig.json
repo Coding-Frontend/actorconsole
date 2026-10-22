@@ -1,0 +1,11 @@
+{
+  "extends": "@actorconsole/config/tsconfig/library.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"],
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["src/**/*"]
+}

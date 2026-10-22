@@ -1,0 +1,34 @@
+title = "ActorConsole secret scanning"
+
+[extend]
+useDefault = true
+
+# Exact synthetic credentials in named fixtures; real secrets in tests still fail.
+[[allowlists]]
+description = "Synthetic CI and mocked payment credentials"
+condition = "AND"
+regexTarget = "secret"
+paths = [
+  '''(?:^|/)\.github/workflows/ci\.yml$''',
+  '''(?:^|/)apps/api/test/lib/(?:billing-providers|payment-gateway-settings)\.test\.ts$''',
+]
+regexes = [
+  '''^test-encryption-key-with-enough-entropy-1234567890$''',
+  '''^test_key_12345678901234567890$''',
+  '''^secret12345678901234567890$''',
+  '''^sk_test_(?:1234567890|environment)$''',
+]
+
+[[allowlists]]
+description = "Published RFC 6238 test vector"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''(?:^|/)packages/shared/src/totp\.test\.ts$''']
+regexes = ['''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ$''']
+
+[[allowlists]]
+description = "Workspace-key placeholder in documentation"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''(?:^|/)apps/web/src/lib/documentation\.ts$''']
+regexes = ['''^al_your_workspace_credential$''']

@@ -1,0 +1,30 @@
+{
+  "name": "@actorconsole/apify",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Typed wrapper around the apify-client npm package for ActorConsole.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@actorconsole/db": "workspace:*",
+    "@actorconsole/shared": "workspace:*",
+    "apify-client": "^2.23.4",
+    "ioredis": "5.11.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@actorconsole/config": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}

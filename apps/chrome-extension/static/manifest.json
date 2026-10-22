@@ -1,0 +1,81 @@
+{
+  "manifest_version": 3,
+  "name": "ActorConsole Apify Connector",
+  "short_name": "ActorConsole",
+  "version": "0.6.10",
+  "description": "Connect an Apify personal account or organization to an ActorConsole workspace.",
+  "homepage_url": "http://localhost:8080",
+  "incognito": "not_allowed",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "scripting"
+  ],
+  "optional_permissions": [
+    "cookies"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*",
+    "http://localhost:4000/*",
+    "https://console.apify.com/*",
+    "https://console-backend.apify.com/*",
+    "https://api.apify.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open ActorConsole connector",
+    "default_icon": {
+      "16": "icon-96.png",
+      "32": "icon-96.png",
+      "48": "icon-96.png",
+      "128": "icon-128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "icons": {
+    "16": "icon-96.png",
+    "32": "icon-96.png",
+    "48": "icon-96.png",
+    "128": "icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:8080/*"
+      ],
+      "js": [
+        "content-script.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://console.apify.com/*",
+        "https://console-backend.apify.com/*"
+      ],
+      "js": [
+        "apify-resume-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://console.apify.com/*",
+        "https://console-backend.apify.com/*"
+      ],
+      "js": [
+        "apify-resume-relay.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

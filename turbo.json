@@ -1,0 +1,113 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "**/.env.*local",
+    ".env",
+    ".env.development",
+    ".env.production",
+    "scripts/check-web-boundary.mjs"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "AUTH_SECRET",
+    "AUTH_URL",
+    "AUTH_TRUST_HOST",
+    "AUTH_GITHUB_ID",
+    "AUTH_GITHUB_SECRET",
+    "OPENAI_API_KEY",
+    "API_BASE_URL",
+    "API_PORT",
+    "WEB_BASE_URL",
+    "CORS_ORIGINS",
+    "ADMIN_API_KEY",
+    "APP_ENCRYPTION_KEY",
+    "APIFY_API_BASE_URL",
+    "APIFY_API_TOKEN",
+    "GITHUB_APP_ID",
+    "GITHUB_APP_PRIVATE_KEY",
+    "GITHUB_APP_CLIENT_ID",
+    "GITHUB_APP_CLIENT_SECRET",
+    "GITHUB_APP_WEBHOOK_SECRET",
+    "GITHUB_APP_SLUG",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET",
+    "RAZORPAY_PLAN_ID_PRO",
+    "RESEND_API_KEY",
+    "RESEND_FROM_EMAIL",
+    "MCP_TRANSPORT",
+    "MCP_PORT",
+    "MCP_API_KEY",
+    "ACTORCONSOLE_API_KEY",
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_API_BASE_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "NEXT_PUBLIC_APP_NAME",
+    "NEXT_PUBLIC_FIREBASE_API_KEY",
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+    "NEXT_PUBLIC_FIREBASE_APP_ID",
+    "WEBSITE_LOGO_STORAGE_PATH",
+    "SENTRY_AUTH_TOKEN",
+    "SENTRY_ORG",
+    "SENTRY_PROJECT",
+    "SENTRY_RELEASE",
+    "WORKER_CONCURRENCY",
+    "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
+    "NEXT_PUBLIC_CHROME_EXTENSION_URL",
+    "ACTORCONSOLE_EXTENSION_WEB_ORIGIN",
+    "ACTORCONSOLE_EXTENSION_API_ORIGIN",
+    "METRICS_TOKEN",
+    "RESEND_WEBHOOK_SECRET",
+    "OPTIMIZATION_WORKER_CONCURRENCY",
+    "OTEL_SDK_DISABLED",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_HEADERS",
+    "SUPPORT_EMAIL",
+    "API_HOST",
+    "MCP_HOST",
+    "MCP_INTERNAL_URL"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": [
+        "^lint"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**"
+      ]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

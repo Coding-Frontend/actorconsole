@@ -1,0 +1,32 @@
+{
+  "name": "@actorconsole/ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AI prompts and provider integrations for ActorConsole.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@actorconsole/db": "workspace:*",
+    "@actorconsole/shared": "workspace:*",
+    "@google/genai": "^2.16.0",
+    "https-proxy-agent": "^7.0.6",
+    "node-fetch": "^3.3.2",
+    "openai": "^6.49.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@actorconsole/config": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}

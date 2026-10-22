@@ -1,0 +1,41 @@
+{
+  "name": "@actorconsole/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ActorConsole background worker — schedules, immutable build sync, usage alerts, and snapshots.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "node --env-file=.env --import=tsx --watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@actorconsole/ai": "workspace:*",
+    "@actorconsole/apify": "workspace:^",
+    "@actorconsole/db": "workspace:*",
+    "@actorconsole/logo-catalog": "workspace:*",
+    "@actorconsole/shared": "workspace:*",
+    "@sentry/node": "^10.62.0",
+    "bullmq": "^5.79.2",
+    "cron-parser": "^4.9.0",
+    "ioredis": "^5.11.1",
+    "nodemailer": "7.0.7",
+    "octokit": "^4.1.4",
+    "resend": "^4.8.0"
+  },
+  "devDependencies": {
+    "@actorconsole/config": "workspace:*",
+    "@types/node": "^22.20.0",
+    "@types/nodemailer": "7.0.4",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}

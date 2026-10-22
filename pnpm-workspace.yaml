@@ -1,0 +1,33 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+overrides:
+  ioredis: 5.11.1
+
+allowBuilds:
+  '@firebase/util': true
+  '@google/genai': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@sentry/cli': true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
+
+# Hoist commonly-duplicated deps to keep types portable across workspace boundaries.
+publicHoistPattern:
+  - "@auth/*"
+  - "@apify/*"
+  - "next-auth"
+  - "razorpay"
+  - "ioredis"
+  - "resend"
+  - "stripe"
+  - "apify-client"
+  - "bullmq"
+  - "firebase"
+  - "firebase-admin"

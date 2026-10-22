@@ -1,0 +1,21 @@
+{
+  "name": "@actorconsole/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared tsconfig, eslint, tailwind presets for ActorConsole.",
+  "files": [
+    "eslint",
+    "tailwind",
+    "tsconfig"
+  ],
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit --module preserve --moduleResolution bundler --target ES2022 --skipLibCheck tailwind/tailwind.config.ts",
+    "clean": "rm -rf .turbo"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,2086 @@
+// ActorConsole Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// Auth.js core tables
+// =====================================================
+
+model User {
+  id                    String    @id @default(cuid())
+  name                  String?
+  username              String?   @unique
+  email                 String    @unique
+  emailVerified         DateTime?
+  image                 String?
+  bio                   String?   @db.Text
+  role                  UserRole  @default(USER)
+  plan                  Plan      @default(FREE)
+  suspendedAt           DateTime?
+  bannedReason          String?
+  totpEnabled           Boolean   @default(false)
+  totpSecretEncrypted   String?   @db.Text
+  totpRecoveryCodes     Json      @default("[]")
+  deletionRequestedAt   DateTime?
+  deletionScheduledFor  DateTime?
+  deletionOriginalEmail String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  accounts                  Account[]
+  sessions                  Session[]
+  passwordCredential        PasswordCredential?
+  authCodes                 AuthCode[]
+  apifyTokens               ApifyToken[]
+  apifyExtensionSessions    ApifyExtensionSession[]
+  apifyExtensionDevices     ApifyExtensionDevice[]
+  githubTokens              GithubToken[]
+  installations             GithubInstallation[]
+  subscriptions             Subscription[]
+  bulkPublishSchedules      BulkPublishSchedule[]
+  bulkActorStatusOperations BulkActorStatusOperation[]
+  actors                    Actor[]
+  notifications             Notification[]
+  payments                  Payment[]
+  blogPosts                 BlogPost[]
+  apiKeys                   ApiKey[]
+  notificationPrefs         NotificationPreference[]
+  announcementDismissals    AnnouncementDismissal[]
+  couponRedemptions         CouponRedemption[]
+  createdCoupons            Coupon[]                   @relation("CreatedCoupon")
+  usageRecords              UsageRecord[]
+  billingAddresses          BillingAddress?
+  loginEvents               LoginEvent[]
+  onboardingState           OnboardingState[]
+  auditLogsAsActor          AuditLog[]                 @relation("AuditLogActor")
+  auditLogsAsAdmin          AuditLog[]                 @relation("AuditLogAdmin")
+  policyAcceptances         PolicyAcceptance[]
+  keywordWatches            KeywordWatch[]
+  keywordSearches           KeywordSearch[]
+  twoFactorChallenges       TwoFactorChallenge[]
+  impersonationsCreated     ImpersonationSession[]     @relation("ImpersonationAdmin")
+  impersonationsTargeted    ImpersonationSession[]     @relation("ImpersonationTarget")
+
+  // Latest acceptance for the two gating policies (denormalized for fast checks).
+  termsAcceptedAt   DateTime?
+  privacyAcceptedAt DateTime?
+  termsVersion      String?
+  privacyVersion    String?
+
+  // Support tickets — requester and assigned admin.
+  tickets          Ticket[]         @relation("TicketRequester")
+  assignedTickets  Ticket[]         @relation("TicketAssignee")
+  changelogEntries ChangelogEntry[]
+
+  newsletterSubscriptions NewsletterSubscriber[]
+
+  businessProfiles      BusinessProfile[]
+  actorOptimizationRuns ActorOptimizationRun[]
+  websiteLogosReviewed  WebsiteLogo[]          @relation("WebsiteLogoReviewer")
+
+  @@index([email])
+  @@index([role])
+  @@index([deletionScheduledFor])
+}
+
+// =====================================================
+// Business profiles / isolated workspaces
+// =====================================================
+
+model BusinessProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  slug      String
+  plan      Plan     @default(FREE)
+  apifyActorCount Int?
+  apifyMonthlyUsers Int?
+  apifyMonthlyUsersComplete Boolean @default(false)
+  planUsageCheckedAt DateTime?
+  industry  String?
+  website   String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actors                    Actor[]
+  bulkPublishSchedules      BulkPublishSchedule[]
+  bulkActorStatusOperations BulkActorStatusOperation[]
+  apifyTokens               ApifyToken[]
+  apifyExtensionSessions    ApifyExtensionSession[]
+  keywordWatches            KeywordWatch[]
+  keywordSearches           KeywordSearch[]
+  onboardingStates          OnboardingState[]
+  subscriptions             Subscription[]
+  payments                  Payment[]
+  apiKeys                   ApiKey[]
+  notifications             Notification[]
+  notificationPreference    NotificationPreference?
+  actorOptimizationRuns     ActorOptimizationRun[]
+  tickets                   Ticket[]
+  financialCache            WorkspaceFinancialCache?
+  storeWatches              StoreWatch[]
+
+  @@unique([userId, slug])
+  @@index([userId, isDefault, createdAt])
+}
+
+// Last successful Apify account-level financial response for cached-first
+// Usage, Costs, and Revenue dashboards. Redis remains the hot cache; this row
+// survives cache expiry and deployments so financial values do not disappear
+// while a background Console refresh is running.
+model WorkspaceFinancialCache {
+  id                String   @id @default(cuid())
+  businessProfileId String   @unique
+  payload           Json
+  syncedAt          DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([syncedAt])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id                     String    @id @default(cuid())
+  sessionToken           String    @unique
+  userId                 String
+  expires                DateTime
+  createdAt              DateTime  @default(now())
+  impersonatedById       String?
+  impersonationExpiresAt DateTime?
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PasswordCredential {
+  userId       String   @id
+  passwordHash String   @db.VarChar(255)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum AuthCodePurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+model AuthCode {
+  id        String          @id @default(cuid())
+  userId    String
+  purpose   AuthCodePurpose
+  tokenHash String          @db.VarChar(64)
+  expiresAt DateTime
+  attempts  Int             @default(0)
+  usedAt    DateTime?
+  createdAt DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, expiresAt])
+  @@index([createdAt])
+}
+
+// =====================================================
+// Plan / Billing
+// =====================================================
+
+enum Plan {
+  FREE
+  PRO
+}
+
+model Subscription {
+  id                     String    @id @default(cuid())
+  userId                 String?
+  businessProfileId      String?   @unique
+  provider               String    @default("razorpay")
+  billingMode            String?
+  source                 String    @default("gateway")
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  providerProductId      String?
+  providerCheckoutId     String?
+  razorpayCustomerId     String?   @unique
+  razorpaySubscriptionId String?   @unique
+  razorpayPlanId         String?
+  status                 String
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean   @default(false)
+  shortUrl               String?
+  notes                  String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  businessProfile BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+  payments        Payment[]
+
+  @@unique([provider, providerSubscriptionId])
+  @@index([userId])
+  @@index([status])
+  @@index([razorpaySubscriptionId])
+  @@index([provider, providerCustomerId])
+}
+
+model Payment {
+  id                String    @id @default(cuid())
+  subscriptionId    String?
+  userId            String?
+  businessProfileId String?
+  provider          String    @default("razorpay")
+  billingMode       String?
+  providerOrderId   String?
+  providerPaymentId String?
+  providerInvoiceId String?
+  razorpayOrderId   String?   @unique
+  razorpayPaymentId String?   @unique
+  razorpayInvoiceId String?
+  amount            Decimal   @db.Decimal(13, 3)
+  currency          String    @default("INR")
+  status            String
+  method            String?
+  description       String?
+  refundedAmount    Decimal?  @db.Decimal(13, 3)
+  notes             Json?
+  createdAt         DateTime  @default(now())
+  capturedAt        DateTime?
+
+  subscription    Subscription?    @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  businessProfile BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerPaymentId])
+  @@index([userId])
+  @@index([businessProfileId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId, status, createdAt])
+  @@index([provider, providerOrderId])
+}
+
+// =====================================================
+// Payment Gateways (admin-controlled toggles)
+// =====================================================
+
+model PaymentGateway {
+  id        String   @id @default(cuid())
+  key       String   @unique // "stripe", "razorpay", "dodo"
+  name      String // Display name: "Stripe", "Razorpay", "Dodo Payments"
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  config    Json? // Gateway-specific JSON settings
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
+// =====================================================
+// AI Providers (admin-controlled priority and credentials)
+// =====================================================
+
+model AiProvider {
+  id                 String    @id @default(cuid()) @db.VarChar(36)
+  key                String    @unique @db.VarChar(64)
+  type               String    @db.VarChar(64)
+  name               String    @db.VarChar(128)
+  enabled            Boolean   @default(false)
+  priority           Int
+  autoDisableOnError Boolean   @default(true)
+  disabledAt         DateTime?
+  disabledReason     String?   @db.Text
+  model              String    @db.VarChar(191)
+  baseUrl            String    @db.VarChar(1000)
+  useProxy           Boolean   @default(false)
+  lastTestedAt       DateTime?
+  testStatus         String?   @db.VarChar(32)
+  testMessage        String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  credentials AiProviderCredential[]
+
+  @@index([enabled, priority])
+}
+
+model AiProviderCredential {
+  id              String    @id @default(cuid()) @db.VarChar(36)
+  providerId      String    @db.VarChar(36)
+  label           String    @db.VarChar(191)
+  encryptedApiKey String    @db.Text
+  enabled         Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  lastUsedAt      DateTime?
+  cooldownUntil   DateTime?
+  authErrorAt     DateTime?
+  lastTestedAt    DateTime?
+  testStatus      String?   @db.VarChar(32)
+  testMessage     String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  provider AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, enabled, cooldownUntil])
+  @@index([providerId, lastUsedAt])
+}
+
+model AiProxyConfig {
+  id                String    @id @default("default") @db.VarChar(36)
+  protocol          String    @default("http") @db.VarChar(16)
+  host              String    @default("") @db.VarChar(255)
+  port              Int       @default(8080)
+  username          String    @default("") @db.VarChar(500)
+  encryptedPassword String?   @db.Text
+  lastTestedAt      DateTime?
+  testStatus        String?   @db.VarChar(32)
+  testMessage       String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// =====================================================
+// Integrations (per-user + global)
+// =====================================================
+
+model ApifyToken {
+  id                       String    @id @default(cuid())
+  userId                   String
+  businessProfileId        String
+  apifyUserId              String?
+  consoleUserId            String?
+  apifyUsername            String?
+  encryptedToken           String?   @db.Text
+  encryptedUiToken         String?   @db.Text
+  encryptedCookies         String?   @db.Text
+  scopes                   Json      @default("[]")
+  apiTokenStatus           String    @default("NOT_CONFIGURED")
+  uiTokenStatus            String    @default("NOT_CONFIGURED")
+  cookiesStatus            String    @default("NOT_CONFIGURED")
+  insightsBootstrapPending Boolean   @default(false)
+  insightsBootstrapError   String?   @db.Text
+  validatedAt              DateTime?
+  validationError          String?   @db.Text
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([businessProfileId])
+  @@index([userId])
+  @@index([apifyUserId])
+  @@index([consoleUserId])
+}
+
+// Short-lived, one-time browser-extension handoffs. This table never stores
+// Apify cookies; the challenge only authorizes the authenticated web page to
+// submit a cookie directly into the existing encrypted ApifyToken flow.
+model ApifyExtensionSession {
+  id                String    @id @default(cuid())
+  userId            String
+  businessProfileId String
+  challengeHash     String    @db.VarChar(64)
+  expiresAt         DateTime
+  consumedAt        DateTime?
+  deviceId          String?
+  apifyAccountId    String?
+  apifyAccountType  String?
+  createdAt         DateTime  @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  device          ApifyExtensionDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, expiresAt])
+  @@index([businessProfileId, consumedAt, expiresAt])
+  @@index([deviceId])
+}
+
+// Scoped browser-extension pairing. Only the hash is stored server-side;
+// the extension keeps the bearer credential in trusted local storage.
+model ApifyExtensionDevice {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String?   @unique @db.VarChar(64)
+  claimHash    String?   @unique @db.VarChar(64)
+  pairChallengeHash String? @db.VarChar(64)
+  claimExpiresAt DateTime?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  handoffs     ApifyExtensionSession[]
+
+  @@index([userId, expiresAt])
+}
+
+model GithubInstallation {
+  id             String       @id @default(cuid())
+  userId         String
+  installationId BigInt       @unique
+  accountLogin   String
+  accountType    String
+  suspendedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  repos          GithubRepo[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model GithubRepo {
+  id             String   @id @default(cuid())
+  installationId String
+  repoId         BigInt   @unique
+  fullName       String
+  defaultBranch  String   @default("main")
+  actorId        String?
+  createdAt      DateTime @default(now())
+
+  installation GithubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  actor        Actor?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  pullRequests PullRequest[]
+
+  @@index([installationId])
+}
+
+// =====================================================
+// Admin-managed global Integration credentials
+// =====================================================
+// Stores encrypted credentials for third-party services.
+// Admin can CRUD via the admin panel; app reads via getIntegration(key).
+
+model Integration {
+  id           String    @id @default(cuid())
+  key          String    @unique
+  label        String
+  description  String?
+  category     String
+  value        String?   @db.Text
+  isSecret     Boolean   @default(true)
+  lastTestedAt DateTime?
+  testStatus   String?
+  testMessage  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([category])
+}
+
+// =====================================================
+// Feature Flags
+// =====================================================
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(false)
+  description String?
+  rolloutPct  Int      @default(100)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// =====================================================
+// Admin-managed plan marketing copy
+// =====================================================
+
+model PlanMarketingFeature {
+  id        String   @id @default(cuid())
+  plan      Plan
+  label     String   @db.VarChar(500)
+  sortOrder Int      @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([plan, label])
+  @@index([plan, enabled, sortOrder])
+}
+
+model PlanMarketingFeatureConfig {
+  plan      Plan     @id
+  managed   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =====================================================
+// Actors (Phase 1+)
+// =====================================================
+
+model Actor {
+  id                         String    @id @default(cuid())
+  userId                     String
+  businessProfileId          String
+  apifyActorId               String
+  username                   String
+  actorName                  String
+  title                      String?
+  description                String?   @db.Text
+  currentCopy                Json?
+  currentImageUrl            String?
+  websiteIdentityId          String?
+  websiteConfidence          Float?
+  websiteMethod              String?
+  websiteEvidence            Json?
+  websiteClassifiedAt        DateTime?
+  websiteAdminOverride       Boolean   @default(false)
+  websiteClassificationError String?   @db.Text
+  currentPricing             Json?
+  // Absent from the last complete owned-Actor inventory; keep historical data.
+  apifyRemovedAt             DateTime?
+  lastOperationalSyncAt            DateTime?
+  lastRunSyncAt              DateTime?
+  lastInsightSyncAt          DateTime?
+  insightSyncStatus          String?
+  insightSyncError           String?   @db.Text
+  storeIsPublic              Boolean?
+  storeIsDeprecated          Boolean?
+  storeNotice                String?
+  storeStatusSyncedAt        DateTime?
+  publishReady               Boolean?
+  hasDescription             Boolean?
+  hasCategories              Boolean?
+  hasReadme                  Boolean?
+  hasInputSchema             Boolean?
+  hasOutputSchema            Boolean?
+  hasKeyValueSchema          Boolean?
+  hasTaggedBuild             Boolean?
+  hasPublicProfile           Boolean?
+  hasVerifiedEmail           Boolean?
+  hasNonDisposableEmail      Boolean?
+  readinessSyncedAt          DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  user                User                           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  businessProfile     BusinessProfile                @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  snapshots           ActorSnapshot[]
+  insightSnapshots    ActorInsightSnapshot[]
+  copyVariants        CopyVariant[]
+  pricingHistory      PricingHistory[]
+  bulkPublishItems    BulkPublishScheduleActor[]
+  bulkStatusItems     BulkActorStatusOperationItem[]
+  reviews             Review[]
+  usageDaily          UsageDaily[]
+  runSnapshots        ActorRunSnapshot[]
+  repos               GithubRepo[]
+  optimizationResults ActorOptimizationResult[]
+  websiteIdentity     WebsiteIdentity?               @relation(fields: [websiteIdentityId], references: [id], onDelete: SetNull)
+  logoRecommendations ActorLogoRecommendation[]
+  tickets             Ticket[]
+  intelligenceKey     ActorIntelligenceKey?
+  issues              ActorIssue[]
+  externalCosts       ActorExternalCost[]
+  telemetryRuns       ActorTelemetryRun[]
+  runRule             ActorRunRule?
+  gateUsers           ActorGateUser[]
+  gateAdmissions      ActorGateAdmission[]
+
+  @@unique([businessProfileId, apifyActorId])
+  @@index([userId])
+  @@index([businessProfileId])
+  @@index([userId, businessProfileId])
+  @@index([businessProfileId, apifyRemovedAt])
+  @@index([businessProfileId, publishReady])
+  @@index([businessProfileId, storeIsPublic])
+  @@index([businessProfileId, storeIsDeprecated])
+  @@index([businessProfileId, storeNotice])
+  @@index([businessProfileId, hasDescription])
+  @@index([businessProfileId, hasCategories])
+  @@index([businessProfileId, hasReadme])
+  @@index([businessProfileId, hasInputSchema])
+  @@index([businessProfileId, hasOutputSchema])
+  @@index([businessProfileId, hasKeyValueSchema])
+  @@index([businessProfileId, hasTaggedBuild])
+  @@index([businessProfileId, hasPublicProfile])
+  @@index([username, actorName])
+  @@index([websiteIdentityId])
+  @@index([businessProfileId, updatedAt])
+  // Composite for "list my actors, newest first":
+  // `where: { userId }` + `orderBy: { createdAt: "desc" }` hits the
+  // userId column for filtering, then the desc sort avoids an extra
+  // sort step on the result set. Used by GET /actors, /dashboard,
+  // and the admin panel.
+  @@index([userId, createdAt])
+}
+
+// A bulk, read-only AI audit. Results remain proposals until the owning user
+// explicitly approves individual fields for application to Apify.
+model ActorOptimizationRun {
+  id                     String    @id @default(cuid())
+  userId                 String
+  businessProfileId      String
+  kind                   String    @default("GENERATE_IMPROVEMENTS")
+  requestedFields        Json?
+  status                 String    @default("QUEUED")
+  totalCount             Int
+  completedCount         Int       @default(0)
+  failedCount            Int       @default(0)
+  appliedCount           Int       @default(0)
+  createdAt              DateTime  @default(now())
+  startedAt              DateTime?
+  completedAt            DateTime?
+  approvedAt             DateTime?
+  appliedAt              DateTime?
+  approvalIdempotencyKey String?
+  approvalRequestHash    String?
+
+  user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile           @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  results         ActorOptimizationResult[]
+
+  @@index([businessProfileId, createdAt])
+  @@index([businessProfileId, kind, createdAt])
+  @@index([userId, status, createdAt])
+}
+
+model ActorOptimizationResult {
+  id                 String    @id @default(cuid())
+  runId              String
+  actorId            String
+  status             String    @default("QUEUED")
+  metadataFingerprint  String?
+  currentState       Json?
+  proposedState      Json?
+  issues             Json?
+  currentBreakdown   Json?
+  proposedBreakdown  Json?
+  currentScore       Int?
+  proposedScore      Int?
+  improvementPoints  Int?
+  improvementPercent Float?
+  approvedFields     Json?
+  approvedAt         DateTime?
+  appliedAt          DateTime?
+  error              String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  run   ActorOptimizationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  actor Actor                @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, actorId])
+  @@index([runId, status])
+  @@index([actorId, createdAt])
+}
+
+model ActorSnapshot {
+  id           String   @id @default(cuid())
+  actorId      String
+  capturedAt   DateTime
+  runs30d      Int?
+  usersTotal   Int?
+  monthlyUsers Int?
+  rating       Float?
+  pricing      Json?
+  searchRank   Int?
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, capturedAt])
+  @@index([actorId, capturedAt])
+}
+
+model ActorInsightSnapshot {
+  id                 String   @id @default(cuid())
+  actorId            String
+  capturedOn         DateTime
+  capturedAt         DateTime @default(now())
+  periodStart        DateTime
+  syncStatus         String   @default("COMPLETE")
+  totalRuns          Int?
+  succeededRuns      Int?
+  failedRuns         Int?
+  abortedRuns        Int?
+  timedOutRuns       Int?
+  resultCount        Int?
+  successRate        Float?
+  activeUsers        Int?
+  totalUsers         Int?
+  uniqueStoreViewers Int?
+  consolePageViews   Int?
+  usersWithRun       Int?
+  costUsd            Float?
+  revenueUsd         Float?
+  profitUsd          Float?
+  profitMargin       Float?
+  qualityScore       Float?
+  qualityPercentile  Float?
+  runStatistics      Json?
+  userStatistics     Json?
+  acquisition        Json?
+  monetization       Json?
+  quality            Json?
+  errors             Json?
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, capturedOn])
+  @@index([actorId, periodStart, capturedOn])
+  @@index([syncStatus, capturedAt])
+}
+
+// Public Apify Store catalog. These rows are platform-wide and deliberately
+// separate from workspace-owned Actor records and credentials.
+model StoreActor {
+  id                         String    @id @default(cuid())
+  apifyActorId               String    @unique
+  username                   String
+  actorName                  String
+  title                      String?
+  description                String?   @db.Text
+  pictureUrl                 String?   @db.Text
+  websiteIdentityId          String?
+  websiteConfidence          Float?
+  websiteMethod              String?
+  websiteEvidence            Json?
+  websiteClassifiedAt        DateTime?
+  websiteAdminOverride       Boolean   @default(false)
+  websiteClassificationError String?   @db.Text
+  ownerName                  String?
+  ownerPictureUrl            String?   @db.Text
+  isPublic                   Boolean   @default(true)
+  isDeprecated               Boolean   @default(false)
+  apifyCreatedAt             DateTime?
+  firstPublishedAt           DateTime?
+  apifyModifiedAt            DateTime?
+  totalRuns                  Int?
+  totalUsers                 Int?
+  users7Days                 Int?
+  users30Days                Int?
+  users90Days                Int?
+  runs30Days                 Int?
+  reviewCount                Int?
+  reviewRating               Float?
+  bookmarkCount              Int?
+  categories                 Json?
+  metaLabels                 Json?
+  pricingInfos               Json?
+  firstSeenAt                DateTime  @default(now())
+  lastSeenAt                 DateTime  @default(now())
+  detailsSyncedAt            DateTime?
+  detailsSyncError           String?   @db.Text
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  snapshots       StoreActorSnapshot[]
+  watches         StoreWatch[]
+  websiteIdentity WebsiteIdentity?     @relation(fields: [websiteIdentityId], references: [id], onDelete: SetNull)
+
+  @@unique([username, actorName])
+  @@index([username])
+  @@index([users30Days])
+  @@index([firstPublishedAt])
+  @@index([apifyCreatedAt])
+  @@index([lastSeenAt])
+  @@index([detailsSyncedAt])
+  @@index([websiteIdentityId])
+}
+
+// A single canonical website or service (for example Google Maps rather than
+// the broader Google company) shared by public and workspace-owned Actors.
+model WebsiteIdentity {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  canonicalDomain String?
+  aliases         Json     @default("[]")
+  status          String   @default("ACTIVE")
+  currentLogoId   String?  @unique
+  logoError       String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  currentLogo WebsiteLogo?  @relation("CurrentWebsiteLogo", fields: [currentLogoId], references: [id], onDelete: SetNull)
+  logos       WebsiteLogo[] @relation("WebsiteLogos")
+  actors      Actor[]
+  storeActors StoreActor[]
+
+  @@index([canonicalDomain])
+  @@index([status, updatedAt])
+}
+
+// Immutable logo versions. WebsiteIdentity.currentLogoId selects the active
+// version, which makes URL-based browser caching and rollback deterministic.
+model WebsiteLogo {
+  id                String    @id @default(cuid())
+  websiteIdentityId String
+  storagePath       String
+  sourceUrl         String?   @db.Text
+  sourceDomain      String?
+  sourceKind        String
+  checksum          String
+  contentType       String
+  width             Int
+  height            Int
+  byteSize          Int
+  reviewStatus      String    @default("PENDING")
+  reviewNotes       String?   @db.Text
+  reviewedById      String?
+  reviewedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  websiteIdentity WebsiteIdentity           @relation("WebsiteLogos", fields: [websiteIdentityId], references: [id], onDelete: Cascade)
+  currentFor      WebsiteIdentity?          @relation("CurrentWebsiteLogo")
+  reviewedBy      User?                     @relation("WebsiteLogoReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  recommendations ActorLogoRecommendation[]
+
+  @@unique([websiteIdentityId, checksum])
+  @@index([websiteIdentityId, createdAt])
+  @@index([reviewStatus, createdAt])
+}
+
+model ActorLogoRecommendation {
+  id          String    @id @default(cuid())
+  actorId     String
+  logoId      String
+  status      String    @default("PENDING")
+  error       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  appliedAt   DateTime?
+  dismissedAt DateTime?
+
+  actor Actor       @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  logo  WebsiteLogo @relation(fields: [logoId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, logoId])
+  @@index([actorId, status])
+  @@index([logoId, status])
+}
+
+model StoreActorSnapshot {
+  id           String   @id @default(cuid())
+  storeActorId String
+  capturedAt   DateTime
+  totalRuns    Int?
+  totalUsers   Int?
+  users30Days  Int?
+  runs30Days   Int?
+  reviewCount  Int?
+  reviewRating Float?
+
+  storeActor StoreActor @relation(fields: [storeActorId], references: [id], onDelete: Cascade)
+
+  @@unique([storeActorId, capturedAt])
+  @@index([storeActorId, capturedAt])
+}
+
+model StoreCatalogSync {
+  id              String    @id @default(cuid())
+  operation       String
+  status          String
+  expectedCount   Int?
+  processedCount  Int       @default(0)
+  createdCount    Int       @default(0)
+  updatedCount    Int       @default(0)
+  matchedCount    Int       @default(0)
+  unresolvedCount Int       @default(0)
+  failedCount     Int       @default(0)
+  retryCount      Int       @default(0)
+  checkpoint      String?
+  error           String?   @db.Text
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  @@index([operation, startedAt])
+  @@index([status, startedAt])
+}
+
+// =====================================================
+// Keyword research history and watchlists
+// =====================================================
+
+model KeywordWatch {
+  id                String    @id @default(cuid())
+  userId            String
+  businessProfileId String
+  keyword           String
+  normalizedKeyword String
+  searchCount       Int       @default(0)
+  latestResultCount Int       @default(0)
+  difficultyScore   Float?
+  repeatUseRate     Float?
+  lastSearchedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([businessProfileId, normalizedKeyword])
+  @@index([userId])
+  @@index([userId, updatedAt])
+}
+
+model KeywordSearch {
+  id                String   @id @default(cuid())
+  userId            String
+  businessProfileId String
+  keyword           String
+  normalizedKeyword String
+  resultCount       Int
+  difficultyScore   Float?
+  repeatUseRate     Float?
+  createdAt         DateTime @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([businessProfileId, normalizedKeyword, createdAt])
+  @@index([userId, normalizedKeyword, createdAt])
+  @@index([normalizedKeyword, createdAt])
+}
+
+model CopyVariant {
+  id            String   @id @default(cuid())
+  actorId       String
+  field         String
+  value         String   @db.Text
+  generatedBy   String
+  promptContext Json?
+  scoreRuns     Int?
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, field])
+}
+
+model PricingHistory {
+  id        String   @id @default(cuid())
+  actorId   String
+  model     String
+  amount    Decimal? @db.Decimal(12, 6)
+  currency  String?  @default("USD")
+  payload   Json?
+  changedBy String
+  reason    String?
+  changedAt DateTime @default(now())
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, changedAt])
+}
+
+// Workspace-level publishing queue. This intentionally owns
+// an ordered set of Actors so a single daily execution can stop immediately
+// when Apify reports its account-wide 24-hour publication limit.
+model BulkPublishSchedule {
+  id                String    @id @default(cuid())
+  userId            String
+  businessProfileId String
+  name              String
+  cronExpr          String
+  dailyLimit        Int       @default(5)
+  enabled           Boolean   @default(false)
+  idempotencyKey    String?
+  lastRunAt         DateTime?
+  nextRunAt         DateTime?
+  quotaBlockedUntil DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile            @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  actors          BulkPublishScheduleActor[]
+  runs            BulkPublishScheduleRun[]
+
+  @@unique([businessProfileId, idempotencyKey])
+  @@index([userId, businessProfileId])
+  @@index([enabled, nextRunAt])
+  @@index([businessProfileId, enabled])
+}
+
+model BulkPublishScheduleActor {
+  scheduleId      String
+  actorId         String
+  position        Int
+  status          String    @default("PENDING")
+  attemptCount    Int       @default(0)
+  lastAttemptAt   DateTime?
+  lastPublishedAt DateTime?
+  lastError       String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  schedule BulkPublishSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  actor    Actor               @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@id([scheduleId, actorId])
+  @@unique([scheduleId, position])
+  @@index([scheduleId, status, position])
+  @@index([actorId])
+}
+
+model BulkPublishScheduleRun {
+  id             String    @id @default(cuid())
+  scheduleId     String
+  status         String
+  attemptedCount Int       @default(0)
+  publishedCount Int       @default(0)
+  stoppedReason  String?
+  result         Json?
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  schedule BulkPublishSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId, createdAt])
+  @@index([status, createdAt])
+}
+
+// Durable history for immediate Actor Store lifecycle changes. These records
+// intentionally do not carry cron fields: they execute once, immediately, but
+// are displayed alongside recurring publishing schedules for auditability.
+model BulkActorStatusOperation {
+  id                String    @id @default(cuid())
+  userId            String
+  businessProfileId String
+  action            String
+  status            String    @default("QUEUED")
+  jobId             String?   @unique
+  underMaintenance  Boolean?
+  isDeprecated      Boolean?
+  actorCount        Int
+  completedCount    Int       @default(0)
+  succeededCount    Int       @default(0)
+  failedCount       Int       @default(0)
+  error             String?   @db.Text
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user            User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile                @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  items           BulkActorStatusOperationItem[]
+
+  @@index([userId, businessProfileId, createdAt])
+  @@index([businessProfileId, status, createdAt])
+}
+
+model BulkActorStatusOperationItem {
+  id           String    @id @default(cuid())
+  operationId  String
+  actorId      String?
+  apifyActorId String
+  label        String
+  position     Int
+  status       String    @default("QUEUED")
+  error        String?   @db.Text
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  operation BulkActorStatusOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  actor     Actor?                   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([operationId, position])
+  @@index([operationId, status, position])
+  @@index([actorId])
+}
+
+// =====================================================
+// Code review (Phase 3+)
+// =====================================================
+
+model PullRequest {
+  id            String    @id @default(cuid())
+  repoId        String
+  prNumber      Int
+  title         String
+  state         String
+  headSha       String
+  baseSha       String
+  reviewStatus  String?
+  reviewSummary Json?
+  postedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  repo    GithubRepo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  reviews Review[]
+
+  @@unique([repoId, prNumber])
+  @@index([state])
+}
+
+model Review {
+  id         String    @id @default(cuid())
+  prId       String
+  actorId    String?
+  filePath   String
+  line       Int?
+  severity   String
+  message    String    @db.Text
+  suggestion String?   @db.Text
+  postedAt   DateTime?
+  createdAt  DateTime  @default(now())
+
+  pullRequest PullRequest @relation(fields: [prId], references: [id], onDelete: Cascade)
+  actor       Actor?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([prId])
+}
+
+// =====================================================
+// Apify account usage costs. The physical table and column names are retained
+// for compatibility with existing installations created before the billing
+// API's cost semantics were corrected in the application.
+// =====================================================
+
+model UsageDaily {
+  id             String   @id @default(cuid())
+  actorId        String
+  date           DateTime @db.Date
+  usageCostUsd   Decimal  @map("grossUsd") @db.Decimal(12, 2)
+  runs           Int
+  successfulRuns Int      @default(0)
+  failedRuns     Int      @default(0)
+  abortedRuns    Int      @default(0)
+  timedOutRuns   Int      @default(0)
+  resultCount    Int      @default(0)
+  adjustmentUsd  Decimal? @map("chargebacks") @db.Decimal(12, 2)
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, date])
+  @@index([actorId, date])
+  @@map("RevenueDaily")
+}
+
+// Private operational history synchronized from the connected Apify account.
+// These rows are always reached through the owning Actor and workspace scope.
+model ActorRunSnapshot {
+  id           String    @id @default(cuid())
+  actorId      String
+  apifyRunId   String
+  buildId      String?
+  status       String
+  origin       String?
+  resultCount  Int       @default(0)
+  usageCostUsd Decimal?  @db.Decimal(12, 4)
+  startedAt    DateTime
+  finishedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, apifyRunId])
+  @@index([actorId, startedAt])
+  @@index([actorId, status, startedAt])
+}
+
+// =====================================================
+// Notifications
+// =====================================================
+
+model Notification {
+  id                String    @id @default(cuid())
+  userId            String
+  businessProfileId String
+  type              String
+  title             String
+  body              String?   @db.Text
+  link              String?
+  dedupeKey         String?   @unique
+  readAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userId, businessProfileId, readAt])
+  @@index([businessProfileId, createdAt])
+}
+
+// =====================================================
+// Webhook Delivery Log (admin-visible)
+// =====================================================
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  source      String
+  eventType   String
+  externalId  String?
+  payload     Json
+  status      String
+  statusCode  Int?
+  responseMs  Int?
+  error       String?  @db.Text
+  signatureOk Boolean?
+  createdAt   DateTime @default(now())
+  attemptedAt DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([source, createdAt])
+  @@index([status])
+  @@index([externalId])
+}
+
+// =====================================================
+// Audit Log (admin actions)
+// =====================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String? // nullable: service-to-service (API key) admin actions also log
+  actorId   String?
+  action    String
+  resource  String?
+  before    Json?
+  after     Json?
+  ip        String?
+  userAgent String?
+  source    String? // "ui" (real admin user) or "api-key" (service-to-service)
+  createdAt DateTime @default(now())
+
+  admin User? @relation("AuditLogAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  actor User? @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([adminId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([action])
+  @@index([source, createdAt])
+}
+
+// =====================================================
+// Blog / CMS (admin-managed)
+// =====================================================
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model BlogPost {
+  id             String         @id @default(cuid())
+  slug           String         @unique @db.VarChar(200)
+  title          String         @db.VarChar(200)
+  excerpt        String?        @db.Text
+  content        String         @db.Text
+  coverImage     String?        @db.Text
+  authorId       String
+  status         BlogPostStatus @default(DRAFT)
+  publishedAt    DateTime?
+  seoTitle       String?        @db.VarChar(200)
+  seoDescription String?        @db.Text
+  tags           Json           @default("[]")
+  readingMinutes Int?
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([status, publishedAt])
+  @@index([slug])
+}
+
+// =====================================================
+// Application Error Log (admin-visible)
+// =====================================================
+
+model AppError {
+  id          String   @id @default(cuid())
+  source      String
+  message     String   @db.Text
+  stack       String?  @db.Text
+  context     Json?
+  severity    String   @default("error")
+  fingerprint String?
+  createdAt   DateTime @default(now())
+
+  @@index([source, createdAt])
+  @@index([severity])
+  @@index([fingerprint])
+}
+
+// =====================================================
+// Analytics Events (admin-visible usage)
+// =====================================================
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  name       String
+  properties Json?
+  source     String
+  sessionId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
+}
+
+// =====================================================
+// GitHub PAT (per-user, optional on top of OAuth)
+// =====================================================
+
+model GithubToken {
+  id              String    @id @default(cuid())
+  userId          String
+  // The resolved GitHub login (e.g. "octocat") — used for display + admin lookups.
+  githubLogin     String
+  encryptedToken  String    @db.Text
+  // Last 4 chars of the plaintext token, for UI display ("…a1b2").
+  tokenLast4      String
+  // Scopes the token requested when we probed it; informational only.
+  scopes          Json      @default("[]")
+  // Set when the user re-validates the token (e.g. after a 401 from GitHub).
+  lastValidatedAt DateTime?
+  // Set when probing the token against GitHub failed.
+  invalidAt       DateTime?
+  invalidReason   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@index([userId])
+  @@index([githubLogin])
+}
+
+// =====================================================
+// Legal Policies (Terms, Privacy, Cookies, Refund, AUP, DPA)
+// =====================================================
+
+enum PolicySlug {
+  TERMS
+  PRIVACY
+  COOKIES
+  REFUND
+  AUP
+  DPA
+}
+
+enum PolicyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Policy {
+  id          String       @id @default(cuid())
+  slug        PolicySlug
+  title       String
+  body        String       @db.Text
+  version     String
+  status      PolicyStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdById String?
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  acceptances PolicyAcceptance[]
+
+  @@unique([slug, version])
+  @@index([slug, status])
+  @@index([slug, publishedAt])
+}
+
+model PolicyAcceptance {
+  id         String     @id @default(cuid())
+  userId     String
+  policyId   String
+  policySlug PolicySlug
+  version    String
+  acceptedAt DateTime   @default(now())
+  ip         String?
+  userAgent  String?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, policySlug])
+  @@index([policyId])
+}
+
+// =====================================================
+// Support Tickets
+// =====================================================
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESPONDED
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  ACCOUNT
+  FEATURE_REQUEST
+  OTHER
+}
+
+enum TicketAuthorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+model Ticket {
+  id                String         @id @default(cuid())
+  // Human-facing number, e.g. AL-42
+  number            Int            @unique @default(autoincrement())
+  userId            String // requester
+  businessProfileId String?
+  actorId           String?
+  subject           String
+  status            TicketStatus   @default(OPEN)
+  priority          TicketPriority @default(NORMAL)
+  category          TicketCategory
+  assignedToId      String?
+  lastReplyAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  closedAt          DateTime?
+
+  user            User             @relation("TicketRequester", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo      User?            @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  businessProfile BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+  actor           Actor?           @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  messages        TicketMessage[]
+
+  @@index([userId, status])
+  @@index([businessProfileId, status])
+  @@index([actorId, status])
+  @@index([assignedToId, status])
+  @@index([status, priority])
+  @@index([createdAt])
+}
+
+model TicketMessage {
+  id          String           @id @default(cuid())
+  ticketId    String
+  authorId    String? // null when authorType = SYSTEM
+  authorType  TicketAuthorType
+  body        String           @db.Text
+  // Inline attachments; URLs already uploaded somewhere else.
+  attachments Json?
+  createdAt   DateTime         @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+// =====================================================
+// Personal API Tokens
+// =====================================================
+
+model ApiKey {
+  id                String    @id @default(cuid())
+  userId            String
+  businessProfileId String
+  name              String
+  keyHash           String    @unique
+  keyPreview        String?   @db.VarChar(16)
+  scopes            Json      @default("[\"read\",\"write\"]")
+  actorIds          Json      @default("[]")
+  lastUsedAt        DateTime?
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  rotatedAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userId, businessProfileId])
+  @@index([businessProfileId, revokedAt, expiresAt])
+}
+
+// =====================================================
+// Two-factor authentication and temporary impersonation
+// =====================================================
+
+model TwoFactorChallenge {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model ImpersonationSession {
+  id           String    @id @default(cuid())
+  adminId      String
+  targetUserId String
+  tokenHash    String    @unique
+  sessionId    String?   @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  admin  User @relation("ImpersonationAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  target User @relation("ImpersonationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, createdAt])
+  @@index([targetUserId, expiresAt])
+}
+
+// =====================================================
+// Notification Preferences
+// =====================================================
+
+model NotificationPreference {
+  id                String  @id @default(cuid())
+  userId            String
+  businessProfileId String  @unique
+  marketing         Boolean @default(true)
+  product           Boolean @default(true)
+  billing           Boolean @default(true)
+  security          Boolean @default(true)
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// =====================================================
+// In-App Announcements
+// =====================================================
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  body      String    @db.Text
+  emoji     String?
+  linkUrl   String?
+  linkLabel String?
+  startsAt  DateTime  @default(now())
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  dismissals AnnouncementDismissal[]
+}
+
+// =====================================================
+// Changelog Entries (admin-managed, public-facing)
+// =====================================================
+
+enum ChangelogEntryType {
+  FEATURE
+  FIX
+  PERF
+  SECURITY
+  UI
+  CHORE
+}
+
+enum ChangelogCategory {
+  RELEASE
+  IMPROVEMENT
+  RETIRED
+}
+
+model ChangelogEntry {
+  id             String             @id @default(cuid())
+  version        String             @db.VarChar(64)
+  releaseDate    DateTime           @db.Date
+  versionSummary String?            @db.VarChar(500)
+  type           ChangelogEntryType
+  text           String             @db.Text
+  title          String?            @db.VarChar(240)
+  slug           String?            @unique @db.VarChar(200)
+  body           String?            @db.MediumText
+  category       ChangelogCategory  @default(IMPROVEMENT)
+  tags           ChangelogEntryTag[]
+  sortOrder      Int                @default(0)
+  isPublished    Boolean            @default(false)
+  publishedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([version, sortOrder])
+  @@index([isPublished, releaseDate])
+  @@index([isPublished, category, releaseDate])
+}
+
+model ChangelogEntryTag {
+  entryId String
+  tag     String @db.VarChar(64)
+  entry   ChangelogEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, tag])
+  @@index([tag, entryId])
+}
+
+model AnnouncementDismissal {
+  id             String   @id @default(cuid())
+  userId         String
+  announcementId String
+  dismissedAt    DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, announcementId])
+}
+
+// =====================================================
+// Coupon / Promo Codes
+// =====================================================
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  label         String?
+  discountType  String // PERCENTAGE, FIXED_AMOUNT
+  discountValue Decimal   @db.Decimal(12, 2)
+  maxUses       Int?
+  usedCount     Int       @default(0)
+  minAmount     Decimal?  @db.Decimal(12, 2)
+  appliesToPlan String?
+  expiresAt     DateTime?
+  isActive      Boolean   @default(true)
+  createdById   String?
+  createdAt     DateTime  @default(now())
+
+  createdBy   User?              @relation("CreatedCoupon", fields: [createdById], references: [id])
+  redemptions CouponRedemption[]
+
+  @@index([code, isActive])
+}
+
+model CouponRedemption {
+  id             String   @id @default(cuid())
+  couponId       String
+  userId         String
+  subscriptionId String?
+  discountAmount Decimal  @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+  @@index([userId])
+}
+
+// =====================================================
+// Usage Records
+// =====================================================
+
+model UsageRecord {
+  id       String @id @default(cuid())
+  userId   String
+  metric   String
+  quantity Int
+  month    Int
+  year     Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, metric, month, year])
+  @@index([userId, metric, month, year])
+}
+
+// =====================================================
+// Billing Address
+// =====================================================
+
+model BillingAddress {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  company   String?
+  gstin     String?
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String   @default("IN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =====================================================
+// Login History
+// =====================================================
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  ip        String?
+  userAgent String?
+  location  String?
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// =====================================================
+// Email Log
+// =====================================================
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  to         String
+  subject    String
+  template   String?
+  status     String // sent, failed, bounced
+  providerId String?
+  eventType  String?
+  error      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([to])
+  @@index([createdAt])
+  @@index([providerId, status])
+}
+
+// =====================================================
+// FAQ
+// =====================================================
+
+model FaqItem {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String   @db.Text
+  category  String
+  order     Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, order])
+}
+
+// =====================================================
+// Status Page Incidents
+// =====================================================
+
+model Incident {
+  id         String    @id @default(cuid())
+  title      String
+  status     String // investigating, identified, monitoring, resolved
+  severity   String // minor, major, critical
+  message    String    @db.Text
+  updates    Json?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// =====================================================
+// Newsletter Subscribers
+// =====================================================
+
+model NewsletterSubscriber {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  name           String?
+  userId         String? // linked if the subscriber has an account
+  status         NewsletterStatus @default(ACTIVE)
+  token          String           @unique // unsubscribe token (random, unguessable)
+  subscribedAt   DateTime         @default(now())
+  unsubscribedAt DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user       User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deliveries NewsletterDelivery[]
+
+  @@index([status])
+  @@index([token])
+  @@index([email])
+}
+
+model NewsletterCampaign {
+  id              String                   @id @default(cuid())
+  idempotencyKey  String                   @unique
+  subject         String                   @db.VarChar(200)
+  title           String                   @db.VarChar(200)
+  articles        Json
+  status          NewsletterCampaignStatus @default(QUEUED)
+  totalRecipients Int                      @default(0)
+  sentCount       Int                      @default(0)
+  failedCount     Int                      @default(0)
+  createdById     String?
+  error           String?                  @db.Text
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  deliveries NewsletterDelivery[]
+
+  @@index([status, createdAt])
+}
+
+model NewsletterDelivery {
+  id           String                   @id @default(cuid())
+  campaignId   String
+  subscriberId String
+  email        String
+  status       NewsletterDeliveryStatus @default(PENDING)
+  providerId   String?
+  error        String?                  @db.Text
+  sentAt       DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  campaign   NewsletterCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriber NewsletterSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, subscriberId])
+  @@index([campaignId, status])
+}
+
+enum NewsletterStatus {
+  ACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+}
+
+enum NewsletterCampaignStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum NewsletterDeliveryStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+// =====================================================
+// Onboarding State
+// =====================================================
+
+// Actor intelligence: workspace watchlists and actor-scoped SDK data.
+model StoreWatch {
+  id String @id @default(cuid())
+  businessProfileId String
+  storeActorId String
+  baseline Json
+  alertsEnabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  checkedAt DateTime @default(now())
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  storeActor StoreActor @relation(fields: [storeActorId], references: [id], onDelete: Cascade)
+  @@unique([businessProfileId, storeActorId])
+}
+
+model ActorIntelligenceKey {
+  id String @id @default(cuid())
+  actorId String @unique
+  keyHash String @unique
+  prefix String
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime?
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+}
+
+model ActorIssue {
+  id String @id @default(cuid())
+  actorId String
+  fingerprint String @db.VarChar(64)
+  name String @db.VarChar(200)
+  message String @db.Text
+  stack String? @db.Text
+  context Json?
+  status String @default("OPEN")
+  severity String @default("error")
+  eventCount Int @default(1)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  events ActorErrorEvent[]
+  @@unique([actorId, fingerprint])
+  @@index([actorId, status, lastSeenAt])
+}
+
+model ActorErrorEvent {
+  id String @id @default(cuid())
+  issueId String
+  eventId String @db.VarChar(100)
+  runId String? @db.VarChar(100)
+  context Json?
+  occurredAt DateTime @default(now())
+  issue ActorIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  @@unique([issueId, eventId])
+  @@index([occurredAt])
+}
+
+model ActorExternalCost {
+  id String @id @default(cuid())
+  actorId String
+  eventId String @db.VarChar(100)
+  runId String? @db.VarChar(100)
+  source String @db.VarChar(100)
+  amountUsd Decimal @db.Decimal(14, 6)
+  incurredAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  @@unique([actorId, eventId])
+  @@index([actorId, incurredAt])
+}
+
+model ActorTelemetryRun {
+  id String @id @default(cuid())
+  actorId String
+  runId String @db.VarChar(100)
+  customerHash String? @db.VarChar(64)
+  paid Boolean @default(false)
+  status String @db.VarChar(30)
+  memoryAllocatedMb Int?
+  memoryPeakMb Float?
+  durationSeconds Float?
+  reportedAt DateTime @default(now())
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  @@unique([actorId, runId])
+  @@index([actorId, reportedAt])
+}
+
+model ActorRunRule {
+  id String @id @default(cuid())
+  actorId String @unique
+  settings Json
+  updatedAt DateTime @updatedAt
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+}
+
+model ActorGateUser {
+  id String @id @default(cuid())
+  actorId String
+  customerHash String @db.VarChar(64)
+  totalRuns Int @default(0)
+  firstSeenAt DateTime @default(now())
+  lastAdmittedAt DateTime?
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  @@unique([actorId, customerHash])
+}
+
+model ActorGateAdmission {
+  id String @id @default(cuid())
+  actorId String
+  runId String @db.VarChar(100)
+  customerHash String @db.VarChar(64)
+  admitted Boolean
+  paid Boolean @default(false)
+  reason String @db.VarChar(100)
+  retryAfterSeconds Int?
+  createdAt DateTime @default(now())
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  @@unique([actorId, runId])
+  @@index([actorId, customerHash, admitted, createdAt])
+}
+
+model OnboardingState {
+  id                         String    @id @default(cuid())
+  userId                     String
+  businessProfileId          String
+  profileComplete            Boolean   @default(false)
+  apifyConnected             Boolean   @default(false)
+  actorImported              Boolean   @default(false)
+  scheduleCreated            Boolean   @default(false)
+  githubConnected            Boolean   @default(false)
+  credentialMode             String    @default("LIMITED")
+  credentialsStepCompletedAt DateTime?
+  planStepCompletedAt        DateTime?
+  completedAt                DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([businessProfileId])
+  @@index([userId])
+}

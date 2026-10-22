@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "display": "Library",
+    "extends": "./base.json",
+    "compilerOptions": {
+        "outDir": "dist",
+        "rootDir": "src",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "noEmit": false,
+        "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    }
+}

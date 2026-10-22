@@ -1,0 +1,34 @@
+{
+  "name": "@actorconsole/chrome-extension",
+  "version": "0.6.10",
+  "private": true,
+  "description": "Connect an Apify Console browser session to an ActorConsole workspace.",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build.mjs --watch",
+    "build": "node scripts/build.mjs",
+    "package:store": "pnpm build && node scripts/package.mjs",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:browser": "pnpm build && node scripts/smoke-resume.mjs && node scripts/smoke-sidebar-account.mjs",
+    "test:watch": "vitest",
+    "clean": "node scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "@actorconsole/config": "workspace:*",
+    "@types/chrome": "^0.1.36",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.1",
+    "fflate": "^0.8.2",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.12.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "license": "MIT"
+}

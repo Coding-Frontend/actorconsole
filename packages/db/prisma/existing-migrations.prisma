@@ -1,0 +1,47 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChangelogEntryType {
+  FEATURE
+  FIX
+  PERF
+  SECURITY
+  UI
+  CHORE
+}
+
+// The first two historical migrations created only these tables. This schema
+// is used as the safe migration-diff baseline so the additive full-schema
+// migration never drops their seeded production data.
+model ChangelogEntry {
+  id             String               @id @db.VarChar(36)
+  version        String               @db.VarChar(64)
+  releaseDate    DateTime             @db.Date
+  versionSummary String?              @db.VarChar(500)
+  type           ChangelogEntryType   @default(FEATURE)
+  text           String               @db.Text
+  sortOrder      Int                  @default(0)
+  isPublished    Boolean              @default(false)
+  publishedAt    DateTime?
+  createdById    String?              @db.VarChar(36)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime
+
+  @@index([version, sortOrder])
+  @@index([isPublished, releaseDate])
+}
+
+model PaymentGateway {
+  id        String   @id @db.VarChar(36)
+  key       String   @unique @db.VarChar(64)
+  name      String   @db.VarChar(128)
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([enabled, sortOrder])
+}

@@ -1,0 +1,108 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+.pnpm-store/
+
+# testing
+coverage/
+test-results/
+
+# next.js
+.next/
+out/
+
+# production
+build/
+dist/
+dist-pages/
+dist-pages-preview/
+
+# environment files (keep examples versioned)
+.env*
+!.env.example
+!.env.*.example
+
+# turbo
+.turbo/
+
+# vercel
+.vercel/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+
+# prisma
+packages/db/prisma/dev.db
+packages/db/prisma/*.db-journal
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+!.vscode/mcp.json.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# misc
+*.pem
+.cache/
+.wrangler/
+.data/
+
+brag*/
+
+# Local tooling, private audit output and generated releases
+.claude/
+.claude.json
+.codex/
+.agents/
+.cursor/
+.mcp.json
+.mcp*.local.json
+.impeccable/
+.21st/
+*.local.json
+*.key
+*.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+*.zip
+*.tar
+*.tar.gz
+*.sql.gz
+*.dump
+*.sqlite
+*.sqlite3
+backups/
+.deploy/known_hosts
+docs/production-qa-*
+docs/navigation-qa-*
+docs/production-audit-*
+docs/publishing-readiness-release-*
+
+.vercel
+
+apps/chrome-extension/store-assets/
+
+*.tgz
+*.har
+playwright-report/

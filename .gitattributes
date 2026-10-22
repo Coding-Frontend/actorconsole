@@ -1,0 +1,15 @@
+# Normalize source in the public repository while retaining binary assets.
+* text=auto eol=lf
+
+# Environment files must never be included in git-archive deployment payloads,
+# even if one was accidentally tracked in an older revision.
+.env* export-ignore
+**/.env* export-ignore
+.env.example -export-ignore
+.env.*.example -export-ignore
+**/.env.example -export-ignore
+**/.env.*.example -export-ignore
+
+# A Windows git archive must keep scripts executable by Bash on the VPS.
+*.sh text eol=lf
+.deploy/actorconsole-deploy text eol=lf

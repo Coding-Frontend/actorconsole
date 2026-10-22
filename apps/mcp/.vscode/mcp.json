@@ -1,0 +1,27 @@
+{
+  "servers": {
+    "actorconsole": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": ["--filter", "@actorconsole/mcp", "dev"],
+      "env": {
+        "ACTORCONSOLE_API_KEY": "${input:actorconsole_mcp_key}",
+        "API_BASE_URL": "${input:actorconsole_api_url}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "actorconsole_mcp_key",
+      "type": "promptString",
+      "description": "Workspace MCP credential from ActorConsole Dashboard → MCP access",
+      "password": true
+    },
+    {
+      "id": "actorconsole_api_url",
+      "type": "promptString",
+      "description": "ActorConsole API base URL",
+      "default": "http://localhost:4000"
+    }
+  ]
+}

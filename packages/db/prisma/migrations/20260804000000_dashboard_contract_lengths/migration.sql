@@ -1,0 +1,10 @@
+ALTER TABLE `User`
+  MODIFY `bio` TEXT NULL;
+
+ALTER TABLE `BlogPost`
+  MODIFY `slug` VARCHAR(200) NOT NULL,
+  MODIFY `title` VARCHAR(200) NOT NULL,
+  MODIFY `excerpt` TEXT NULL,
+  MODIFY `coverImage` TEXT NULL,
+  MODIFY `seoTitle` VARCHAR(200) NULL,
+  MODIFY `seoDescription` TEXT NULL;

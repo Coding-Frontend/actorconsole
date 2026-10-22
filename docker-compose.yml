@@ -1,0 +1,86 @@
+services:
+  # Legacy fixed-port backend stack. The production receiver uses docker-compose.vps.yml.
+  # The Next.js web app is deployed to Vercel and is
+  # intentionally not part of this Compose file.
+  # ---------------------------------------------------------------------------
+  # Redis — BullMQ queue backend + caching
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: actorconsole-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - actorconsole-net
+
+  # ---------------------------------------------------------------------------
+  # api — Hono REST API (port 4000, bound to loopback — nginx proxied)
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      target: api
+    container_name: actorconsole-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    env_file: .env.production
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - actorconsole-net
+
+  # ---------------------------------------------------------------------------
+  # worker — BullMQ background job processor (no exposed ports)
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      target: worker
+    container_name: actorconsole-worker
+    restart: unless-stopped
+    env_file: .env.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - actorconsole-net
+
+  # ---------------------------------------------------------------------------
+  # mcp — MCP server in HTTP mode (port 4100, loopback only)
+  # ---------------------------------------------------------------------------
+  mcp:
+    build:
+      context: .
+      target: mcp
+    container_name: actorconsole-mcp
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4100:4100"
+    env_file: .env.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - actorconsole-net
+
+networks:
+  actorconsole-net:
+    driver: bridge
+
+volumes:
+  redis_data:

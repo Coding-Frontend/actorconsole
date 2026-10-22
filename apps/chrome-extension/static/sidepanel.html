@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ActorConsole connections</title>
+    <link rel="stylesheet" href="react-flow.css" />
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body data-mode="loading">
+    <section id="welcome-screen" class="welcome-screen" aria-labelledby="welcome-title">
+      <div class="welcome-content">
+        <img class="welcome-mark" src="icon-192.png" width="72" height="72" alt="" />
+        <h1 id="welcome-title">Welcome to ActorConsole</h1>
+        <p id="welcome-description" class="welcome-description">Sign in to connect your Apify accounts and manage your workspaces.</p>
+        <button id="pair-actorconsole" class="welcome-button" type="button" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.4 2.4 3.6 5.4 3.6 9s-1.2 6.6-3.6 9M12 3c-2.4 2.4-3.6 5.4-3.6 9s1.2 6.6 3.6 9"></path></svg>
+          <span id="pair-label">Sign in with ActorConsole</span>
+        </button>
+        <p id="welcome-status" class="welcome-status" role="status" hidden></p>
+        <p id="welcome-saved-account" class="welcome-saved-account" hidden></p>
+        <button id="welcome-unpair" class="welcome-disconnect" type="button" hidden>Sign out of extension</button>
+      </div>
+    </section>
+
+    <main id="connector-app" hidden>
+      <header class="graph-toolbar">
+        <div class="brand"><img src="icon-96.png" width="32" height="32" alt="" /><div><h1>Connections</h1><p>ActorConsole ↔ Apify</p></div></div>
+        <div class="toolbar-actions">
+          <button id="refresh-connections" class="toolbar-button" type="button" title="Reload Apify account list" aria-label="Reload Apify account list"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg></button>
+          <div class="view-switch" role="group" aria-label="Connection view">
+            <button id="view-box" type="button" aria-pressed="true" aria-label="Workspace list view" title="Workspace list view"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18"/></svg></button>
+            <button id="view-graph" type="button" aria-pressed="false" aria-label="Connection map view" title="Connection map view"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="6" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="20" cy="18" r="2"/><path d="M6 6c6 0 6 12 12 12M6 18c6 0 6-12 12-12"/></svg></button>
+          </div>
+        </div>
+      </header>
+      <section class="actorconsole-card account-session" aria-labelledby="actorconsole-title" aria-live="polite">
+        <div class="account-session-heading">
+          <h2 id="actorconsole-title">ActorConsole account</h2>
+          <button id="unpair-actorconsole" class="account-signout" type="button" title="Sign out of this extension" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5H5v14h4M12 12h9m-3-3 3 3-3 3"/></svg>Sign out</button>
+        </div>
+        <div class="box-identity"><span class="account-avatar" aria-hidden="true"><img id="actorconsole-photo" alt="" referrerpolicy="no-referrer" hidden /><span id="actorconsole-initial">?</span></span><div><p id="actorconsole-name" class="account-name">Not signed in</p><p id="actorconsole-username" class="account-username" hidden></p><p id="actorconsole-email" class="account-username">Sign in with ActorConsole.</p></div></div>
+      </section>
+      <section class="status-card" aria-live="polite">
+        <div class="status-heading"><span class="status-dot" aria-hidden="true"></span><p id="status" class="status">Checking connection…</p></div>
+        <p id="detail" class="detail">Loading workspaces and Apify accounts.</p>
+        <p id="workspace" class="workspace" hidden></p>
+        <button id="connect" class="primary" type="button" hidden>Allow cookie access and finish</button>
+        <p id="consent" class="consent" hidden>Chrome will ask for temporary cookie access. The extension checks both Console domains and removes access after the connection attempt.</p>
+      </section>
+      <div class="verification-strip"><p id="verification-summary" role="status">Saved links are checked when this sidebar opens.</p><button id="verify-all-connections" type="button" title="Check every saved workspace connection">Verify all</button></div>
+
+      <section id="box-view" class="box-view" aria-label="Account and workspace list">
+        <section id="box-workspace-stage" class="workspaces-card" aria-labelledby="workspaces-title">
+          <div class="section-heading"><h2 id="workspaces-title">Choose a workspace</h2><span id="workspace-count" class="section-caption"></span></div>
+          <p id="workspaces-note" class="domain-note">Your ActorConsole workspaces appear here.</p>
+          <div id="workspaces-list" class="workspaces-list"></div>
+          <button id="box-add-workspace" class="box-add-workspace" type="button">+ Add workspace</button>
+        </section>
+        <details class="account-details"><summary><span>Apify account</span><small id="account-summary-detail">Sign-in needed</small></summary>
+        <section class="account-card" aria-labelledby="account-title" aria-live="polite">
+          <div class="section-heading"><h2 id="account-title">Signed in to Apify</h2><span id="account-pill" class="account-pill">Waiting for session</span></div>
+          <div class="box-identity"><span id="account-avatar" class="account-avatar" aria-hidden="true"><img id="account-photo" alt="" referrerpolicy="no-referrer" hidden /><span id="account-initial">?</span></span><div><p id="account-name" class="account-name">No account detected</p><p id="account-username" class="account-username">Open Apify Console to sign in</p></div></div>
+          <p id="account-detail" class="account-detail"></p>
+          <button id="open-apify" class="endpoint-link" type="button">Open Apify Console ↗</button>
+        </section>
+        </details>
+      </section>
+
+      <dialog id="connection-dialog" class="connection-dialog" aria-labelledby="connection-dialog-title">
+        <div class="dialog-shell">
+          <div class="dialog-header"><h2 id="connection-dialog-title">Manage connection</h2><button id="close-connection-dialog" class="dialog-close" type="button" aria-label="Close connection dialog">×</button></div>
+          <section id="box-workspace-picker-stage" class="dialog-stage" hidden>
+            <p id="dialog-selected-account" class="dialog-context"></p>
+            <p class="domain-note">Choose the ActorConsole workspace for this Apify account.</p>
+            <div id="dialog-workspaces-list" class="workspaces-list"></div>
+            <button id="dialog-add-workspace" class="box-add-workspace" type="button">+ Create a workspace for this account</button>
+          </section>
+          <section id="box-account-stage" class="dialog-stage" aria-labelledby="target-title" hidden>
+            <p id="box-selected-workspace" class="dialog-context"></p>
+            <div class="section-heading"><h3 id="target-title">Apify accounts</h3><span id="target-count" class="section-caption"></span></div>
+            <p id="target-note" class="domain-note">Open Apify Console to load your accounts.</p>
+            <div id="target-list" class="target-list" role="group" aria-label="Apify account to connect"></div>
+            <div class="account-stage-actions"><button id="box-open-apify" class="check-action" type="button">Open Apify Console ↗</button><button id="box-refresh-accounts" class="check-action" type="button">Refresh accounts</button></div>
+          </section>
+          <section id="box-connection-stage" class="dialog-stage" aria-labelledby="connection-dialog-title" hidden>
+            <button id="box-back-accounts" class="step-back connection-back" type="button">← Change Apify account</button>
+            <div class="connection-participants" aria-label="Selected connection">
+              <div><span>ActorConsole workspace</span><strong id="box-connection-workspace"></strong></div>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h8m-3-3 3 3-3 3M16 16H8m3-3-3 3 3 3"/></svg>
+              <div><span>Apify account</span><strong id="box-connection-account"></strong></div>
+            </div>
+            <div class="connection-health" aria-live="polite">
+              <div class="connection-health-heading">
+                <h3 id="box-connection-status" class="connection-status-title">Checking saved connection…</h3>
+                <button id="box-check-action" class="connection-recheck-button" type="button" aria-label="Recheck connection" title="Recheck connection" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.1"/><path d="M20 4v7h-7"/></svg></button>
+              </div>
+              <p id="box-connection-detail" class="connection-explanation"></p>
+            </div>
+            <div class="connection-facts" aria-label="Connection health" aria-live="polite">
+              <div><span>Account link</span><strong id="box-link-state">Checking</strong></div>
+              <div><span>Console session</span><strong id="box-console-state">Checking</strong></div>
+              <div><span>API access</span><strong id="box-api-state">Checking</strong></div>
+            </div>
+            <p id="box-check-result" class="check-result" hidden></p>
+            <div id="box-primary-actions" class="connection-primary-actions"></div>
+            <details id="box-api-key-note" class="connection-help" hidden><summary>How this API key works</summary><p>ActorConsole creates or reuses a dedicated member API key for this workspace and stores it encrypted.</p></details>
+            <div id="box-related-actions" class="connection-related-actions"><button id="box-open-actorconsole" type="button">Open workspace ↗</button><button id="box-open-apify-account" type="button">Open Apify account ↗</button></div>
+            <details id="box-more-actions" class="connection-more" hidden><summary>More actions</summary><div id="box-extra-actions" class="connection-extra-actions"><button id="box-connect-action" type="button" hidden>Connect account</button><button id="box-import-api-key" type="button" hidden>Create API key for ActorConsole</button><button id="box-refresh-action" type="button" hidden>Reconnect Console session</button><button id="box-settings-action" type="button" hidden>Enter API key manually</button><button id="box-disconnect-action" class="danger-action" type="button" hidden>Disconnect workspace</button></div></details>
+          </section>
+          <p id="dialog-feedback" class="dialog-feedback" role="status" hidden></p>
+        </div>
+      </dialog>
+
+      <section id="graph-view" class="graph-view" aria-label="Workspace connection graph" hidden>
+        <div class="graph-heading"><div><h2>Connection map</h2><p>ActorConsole workspaces flow horizontally into Apify accounts.</p></div><span>Pan &amp; zoom</span></div>
+        <p id="graph-summary" class="graph-summary">Loading connection map…</p>
+        <div class="connection-graph">
+          <div id="connection-flow-root" class="connection-flow-root"></div>
+          <div class="graph-legend" aria-label="Connection statuses"><span><i class="legend-line actor"></i> ActorConsole</span><span><i class="legend-line linked"></i> Verified now</span><span><i class="legend-line neutral"></i> Saved, not checked</span><span><i class="legend-line attention"></i> Needs action</span><span><i class="legend-line apify"></i> Apify</span></div>
+        </div>
+      </section>
+
+      <dialog id="workspace-dialog" class="connection-dialog" aria-labelledby="workspace-dialog-title">
+      <form id="create-workspace-form" class="create-workspace-form">
+        <div class="dialog-header"><h2 id="workspace-dialog-title">Add a workspace</h2><button id="close-create-workspace" class="dialog-close" type="button" aria-label="Close workspace form">×</button></div>
+        <label for="workspace-name">Workspace name</label><input id="workspace-name" maxlength="100" autocomplete="off" required />
+        <label class="checkbox-label"><input id="connect-new-workspace" type="checkbox" /> Connect the selected Apify account after creation</label>
+        <p id="workspace-connect-note" class="form-note"></p>
+        <button id="create-workspace" class="primary" type="submit">Create workspace</button>
+      </form>
+      </dialog>
+      <dialog id="disconnect-dialog" class="connection-dialog" aria-labelledby="disconnect-dialog-title">
+        <div class="dialog-shell">
+          <h2 id="disconnect-dialog-title" class="confirm-title">Disconnect Apify?</h2>
+          <p id="disconnect-description" class="domain-note"></p>
+          <div class="confirm-actions"><button id="cancel-disconnect" class="check-action" type="button">Keep connection</button><button id="confirm-disconnect" class="danger-confirm" type="button">Disconnect</button></div>
+        </div>
+      </dialog>
+      <details class="domains" aria-labelledby="domains-title">
+        <summary><span id="domains-title">Session diagnostics</span><span class="disclosure-mark" aria-hidden="true"></span></summary>
+        <dl class="diagnostic-list">
+          <div class="domain-row"><dt><strong>Console page</strong><small>console.apify.com</small></dt><dd id="console-status" class="domain-state">Not detected</dd></div>
+          <div class="domain-row"><dt><strong>Console backend</strong><small>console-backend.apify.com</small></dt><dd id="backend-status" class="domain-state">Not detected</dd></div>
+          <div class="domain-row"><dt><strong>ApifyRT cookie</strong><small>Checked only when you request it</small></dt><dd id="cookie-status" class="domain-state">Not checked</dd></div>
+        </dl>
+        <p id="session-note" class="domain-note">Open Apify Console and reload it to detect your session.</p>
+        <button id="check-cookie" class="endpoint-link diagnostic-action" type="button" hidden>Check ApifyRT cookie</button>
+      </details>
+      <footer><a href="__ACTORCONSOLE_WEB_ORIGIN__/chrome-extension/privacy" target="_blank" rel="noreferrer">Privacy and data use</a><span>API key stays in ActorConsole</span></footer>
+    </main>
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

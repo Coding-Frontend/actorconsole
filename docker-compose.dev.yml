@@ -1,0 +1,29 @@
+# Local infrastructure only. Application processes run with pnpm.
+services:
+  mysql:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Run node scripts/setup-local-env.mjs}
+      MARIADB_DATABASE: actorconsole
+      MARIADB_USER: actorconsole
+      MARIADB_PASSWORD: ${MYSQL_APP_PASSWORD:?Run node scripts/setup-local-env.mjs}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_dev:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  mysql_dev:

@@ -1,0 +1,65 @@
+{
+  "name": "actorconsole",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Operations tooling for Apify Actor builders.",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@actorconsole/web",
+    "dev:api": "dotenv -e .env -- turbo run dev --filter=@actorconsole/api",
+    "dev:mcp": "turbo run dev --filter=@actorconsole/mcp",
+    "dev:worker": "turbo run dev --filter=@actorconsole/worker",
+    "build": "turbo run build && node scripts/fix-esm-imports.mjs apps/api/dist apps/worker/dist apps/mcp/dist packages/shared/dist packages/db/dist packages/apify/dist packages/ai/dist",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "node scripts/test-coverage.mjs",
+    "test:e2e": "playwright test",
+    "db:generate": "dotenv -e .env -- pnpm --filter @actorconsole/db generate",
+    "db:push": "dotenv -e .env -- pnpm --filter @actorconsole/db push",
+    "db:studio": "dotenv -e .env -- pnpm --filter @actorconsole/db studio",
+    "db:seed:admin": "dotenv -e .env -- tsx scripts/seed-admin.ts",
+    "db:seed:content": "dotenv -e .env -- tsx scripts/seed-policies.ts",
+    "db:seed:dev": "dotenv -e .env.development -- npx tsx scripts/seed-policies.ts",
+    "db:backup": "./scripts/backup-db.sh",
+    "db:restore": "./scripts/restore-db.sh",
+    "db:reset:dev": "dotenv -e .env.development -- pnpm --filter @actorconsole/db push --force-reset",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "setup:local": "node scripts/setup-local-env.mjs",
+    "secrets:check": "gitleaks git --redact=100 --log-opts=--all",
+    "test:scripts": "node --test scripts/*.test.mjs",
+    "build:backend": "dotenv -e .env -- turbo run build --filter=@actorconsole/api --filter=@actorconsole/worker",
+    "db:migrate": "dotenv -e .env -- pnpm --filter @actorconsole/db migrate:deploy"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "overrides": {
+      "ioredis": "5.11.1"
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.20.0",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-unused-imports": "^4.3.0",
+    "globals": "^16.3.0",
+    "prettier": "^3.9.1",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "tsx": "^4.22.4",
+    "turbo": "^2.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}

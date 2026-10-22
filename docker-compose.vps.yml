@@ -1,0 +1,183 @@
+# Production VPS backend: API, worker, MCP and Redis. Next.js runs on Vercel.
+# Leave COMPOSE_PROFILES unset. web-fallback is for an explicit migration/rollback.
+#
+# Normal releases use .deploy/actorconsole-deploy (deployment.instructions.md).
+# For diagnostics/repair, use project actorconsole-vps and the current release's
+# .env.production. Set ACTORCONSOLE_IMAGE_TAG=sha-<first-12-characters-of-REVISION>
+# before Compose commands; do not accidentally use an old/default latest tag.
+#
+# The service ports inside the Docker network remain 4000/4100/8080. The
+# host-side ports are intentionally configurable so this stack can coexist
+# with an existing deployment.
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - actorconsole-net
+
+  api:
+    image: actorconsole-vps-api:${ACTORCONSOLE_IMAGE_TAG:-latest}
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-4200}:4000"
+    env_file:
+      - .env.production
+    environment:
+      # The isolated stack owns its Redis instance. DATABASE_URL is supplied
+      # from the existing .env.production URL with only its host rewritten to
+      # host.docker.internal so containers can reach the VPS MariaDB service.
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+      MCP_INTERNAL_URL: ${MCP_INTERNAL_URL:-http://mcp:4100}
+      MCP_API_KEY: ${MCP_API_KEY}
+      MCP_TRANSPORT: http
+      MCP_PORT: 4100
+      WEBSITE_LOGO_STORAGE_PATH: ${WEBSITE_LOGO_STORAGE_PATH:-/var/lib/actorconsole/assets}
+    volumes:
+      - website_logo_assets:/var/lib/actorconsole/assets
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - actorconsole-net
+
+  worker:
+    image: actorconsole-vps-worker:${ACTORCONSOLE_IMAGE_TAG:-latest}
+    build:
+      context: .
+      target: worker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+      WEBSITE_LOGO_STORAGE_PATH: ${WEBSITE_LOGO_STORAGE_PATH:-/var/lib/actorconsole/assets}
+    volumes:
+      - website_logo_assets:/var/lib/actorconsole/assets
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - actorconsole-net
+
+  mcp:
+    image: actorconsole-vps-mcp:${ACTORCONSOLE_IMAGE_TAG:-latest}
+    build:
+      context: .
+      target: mcp
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MCP_HOST_PORT:-4201}:4100"
+    env_file:
+      - .env.production
+    environment:
+      API_BASE_URL: ${MCP_API_BASE_URL:?Set MCP_API_BASE_URL to your public HTTPS API origin}
+      ACTORCONSOLE_API_KEY: ${ACTORCONSOLE_API_KEY}
+      MCP_API_KEY: ${MCP_API_KEY}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 4100
+      MCP_TRANSPORT: http
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - actorconsole-net
+
+  web:
+    profiles: ["web-fallback"]
+    image: actorconsole-vps-web:${ACTORCONSOLE_IMAGE_TAG:-latest}
+    build:
+      context: .
+      target: web
+      args:
+        API_BASE_URL: ${WEB_API_BASE_URL:-http://api:4000}
+        NEXT_PUBLIC_API_URL: ${WEB_PUBLIC_API_BASE_URL:-/api}
+        NEXT_PUBLIC_API_BASE_URL: ${WEB_PUBLIC_API_BASE_URL:-/api}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?Set NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID}
+        NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_HOST_PORT:-4202}:8080"
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 8080
+      API_BASE_URL: ${WEB_API_BASE_URL:-http://api:4000}
+      NEXT_PUBLIC_API_URL: ${WEB_PUBLIC_API_BASE_URL:-/api}
+      NEXT_PUBLIC_API_BASE_URL: ${WEB_PUBLIC_API_BASE_URL:-/api}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?Set NEXT_PUBLIC_SITE_URL}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-ActorConsole}
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID}
+      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('node:http').get('http://127.0.0.1:8080/', r => { r.resume(); r.on('end', () => process.exit(r.statusCode >= 200 && r.statusCode < 400 ? 0 : 1)); }).on('error', () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - actorconsole-net
+
+networks:
+  actorconsole-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.250.240.0/24
+
+volumes:
+  redis_data:
+  website_logo_assets:

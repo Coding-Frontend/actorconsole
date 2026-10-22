@@ -1,0 +1,197 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Avoid running duplicate workflows on PRs from forks
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Use a stable Node + pnpm
+  NODE_VERSION: "22"
+  PNPM_VERSION: "9.15.0"
+  TURBO_TOKEN: ""
+  TURBO_TEAM: ""
+
+jobs:
+  # ----- typecheck + tests -------------------------------------------------
+  test:
+    name: typecheck + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      # Production uses MariaDB 10.11. Running migrations against the same
+      # engine catches dialect differences (notably JSON defaults).
+      mysql:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: actorconsole
+          MARIADB_DATABASE: actorconsole_test
+          MARIADB_USER: actorconsole
+          MARIADB_PASSWORD: actorconsole
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: mysql://actorconsole:actorconsole@localhost:3306/actorconsole_test?connection_limit=5
+      REDIS_URL: redis://localhost:6379
+      AUTH_SECRET: test-secret-only-for-ci-do-not-use-in-prod-12345
+      AUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      ANTHROPIC_API_KEY: sk-test-not-real
+      APIFY_API_TOKEN: apify-test-not-real
+      GITHUB_APP_ID: "0"
+      GITHUB_APP_PRIVATE_KEY: "test"
+      GITHUB_APP_WEBHOOK_SECRET: test-webhook-secret
+      GITHUB_APP_SLUG: actorconsole-test
+      RAZORPAY_KEY_ID: rzp_test
+      RAZORPAY_KEY_SECRET: rzp_test_secret
+      RAZORPAY_WEBHOOK_SECRET: rzp_test_webhook
+      RAZORPAY_PLAN_ID_PRO: plan_pro_test
+      RESEND_API_KEY: re_test
+      RESEND_FROM_EMAIL: test@actorconsole.test
+      ADMIN_API_KEY: test-admin-key
+      APP_ENCRYPTION_KEY: test-encryption-key-with-enough-entropy-1234567890
+      ACTORCONSOLE_API_KEY: test-actorconsole-key
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      CORS_ORIGINS: http://localhost:3000
+      API_BASE_URL: http://localhost:4000
+      API_PORT: "4000"
+      WEB_BASE_URL: http://localhost:3000
+      MCP_PORT: "4001"
+      MCP_TRANSPORT: http
+      MCP_API_KEY: test-mcp-key
+      WORKER_CONCURRENCY: "2"
+      APIFY_API_BASE_URL: https://api.apify.com/v2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @actorconsole/db generate
+
+      - name: Apply migrations
+        run: pnpm --filter @actorconsole/db migrate:deploy
+        env:
+          DATABASE_URL: mysql://actorconsole:actorconsole@localhost:3306/actorconsole_test?connection_limit=5
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test with coverage gate
+        run: pnpm test:coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            **/coverage/**
+            !**/node_modules/**
+          retention-days: 14
+
+  # Runs against a configured preview/staging deployment. Keep the URL in a
+  # repository variable so credentials and deployment topology stay outside
+  # the repository.
+  e2e:
+    name: browser smoke tests
+    if: ${{ vars.E2E_BASE_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build
+    env:
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+
+  # ----- build sanity check ------------------------------------------------
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test
+    env:
+      AUTH_SECRET: test-secret-only-for-ci-do-not-use-in-prod-12345
+      APP_ENCRYPTION_KEY: test-encryption-key-with-enough-entropy-1234567890
+      DATABASE_URL: mysql://actorconsole:actorconsole@localhost:3306/actorconsole_ci
+      AUTH_URL: https://app.example.com
+      AUTH_TRUST_HOST: "true"
+      API_BASE_URL: https://api.example.com
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_API_BASE_URL: /api
+      NEXT_PUBLIC_SITE_URL: https://app.example.com
+      NEXT_PUBLIC_APP_NAME: ActorConsole
+      NEXT_PUBLIC_FIREBASE_API_KEY: ci-test-firebase-key
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: actorconsole-test.firebaseapp.com
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: actorconsole-test
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: actorconsole-test.appspot.com
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      NEXT_PUBLIC_FIREBASE_APP_ID: ci-test-firebase-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @actorconsole/db generate
+      - run: pnpm build

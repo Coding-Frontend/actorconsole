@@ -1,0 +1,56 @@
+name: Deploy backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full 40-character commit SHA that passed CI
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.ENABLE_VPS_CD == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - name: Validate revision
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: '[[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision }}
+          persist-credentials: false
+      - name: Configure verified host and restricted key
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$VPS_SSH_PRIVATE_KEY"
+          test -n "$VPS_SSH_KNOWN_HOSTS"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/actorconsole_deploy
+          printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/actorconsole_deploy ~/.ssh/known_hosts
+      - name: Deploy selected revision
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$VPS_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_-]*$ ]]
+          test "$(git rev-parse HEAD)" = "$REVISION"
+          git archive --format=tar.gz HEAD |
+            ssh -T -i ~/.ssh/actorconsole_deploy -o BatchMode=yes \
+              -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              "$VPS_USER@$VPS_HOST" "$REVISION"

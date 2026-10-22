@@ -1,0 +1,1788 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── ActorConsole design system ──────────────────────────────────
+   A builder's operations studio: paper, ink, a hot orange signal,
+   and a restrained cobalt trace for technical context.
+   Every named color below is semantic and theme-aware.
+*/
+
+@layer base {
+  :root {
+    --background: 38 27% 94%; /* warm paper canvas */
+    --foreground: 225 18% 12%; /* blue-black ink */
+
+    --card: 38 100% 99%; /* quiet paper */
+    --card-foreground: 225 18% 12%;
+
+    --popover: 38 100% 99%;
+    --popover-foreground: 225 18% 12%;
+
+    --primary: 225 18% 12%;
+    --primary-foreground: 38 100% 99%;
+
+    --secondary: 38 17% 89%;
+    --secondary-foreground: 225 18% 15%;
+
+    --muted: 38 20% 91%;
+    --muted-foreground: 222 9% 39%;
+
+    --accent: 224 100% 96%; /* cobalt wash */
+    --accent-foreground: 225 74% 27%;
+
+    --destructive: 3 72% 44%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 35 14% 81%;
+    --input: 35 14% 74%;
+    --ring: 14 100% 50%;
+
+    --radius: 0.25rem; /* compact workbench radius */
+
+    --warning: 34 90% 40%;
+    --warning-foreground: 24 8% 10%;
+    --success: 145 54% 32%;
+    --success-foreground: 0 0% 100%;
+
+    /* Section/panel alternation tints — Mist/Fog family */
+    --section-alt: 38 27% 96%;
+    --panel-border: 35 14% 81%;
+
+    /* ActorConsole named surfaces */
+    --color-signal-orange: #f86606;
+    --color-signal-blue: #246dff;
+    --color-signal-green: #20a34e;
+    --color-sienna-bronze: #936a3b;
+    --color-carbon: #171820;
+    --color-graphite: #5b606b;
+    --color-slate: #7e8188;
+    --color-fog: #f6f3ed;
+    --color-mist: #efede7;
+    --color-chalk: #d8d2c8;
+    --color-paper: #fffdfa;
+
+    /* SVG chart libraries consume resolved colors rather than HSL channels. */
+    --color-foreground: hsl(var(--foreground));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+    --color-border: hsl(var(--border));
+    --color-popover: hsl(var(--popover));
+    --color-popover-foreground: hsl(var(--popover-foreground));
+
+    /* Ink is intentionally fixed for inverted panels. */
+    --color-ink: #10131a;
+  }
+
+  .dark {
+    --background: 224 21% 8%; /* blue-black canvas */
+    --foreground: 38 25% 94%; /* warm white */
+
+    --card: 224 20% 11%;
+    --card-foreground: 38 25% 94%;
+
+    --popover: 224 20% 12%;
+    --popover-foreground: 38 25% 94%;
+
+    --primary: 38 25% 94%;
+    --primary-foreground: 224 21% 8%;
+
+    --secondary: 224 17% 16%;
+    --secondary-foreground: 38 25% 91%;
+
+    --muted: 224 17% 14%;
+    --muted-foreground: 218 14% 70%;
+
+    --accent: 225 63% 21%;
+    --accent-foreground: 224 100% 85%;
+
+    --destructive: 3 68% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 224 16% 27%;
+    --input: 224 16% 33%;
+    --ring: 14 100% 62%;
+
+    --warning: 38 92% 58%;
+    --warning-foreground: 24 8% 10%;
+    --success: 145 54% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --section-alt: 224 18% 10%;
+    --panel-border: 224 16% 27%;
+
+    --color-signal-orange: #ff9a67;
+    --color-signal-blue: #8faeff;
+    --color-signal-green: #70d994;
+    --color-carbon: #f6f0e8;
+    --color-graphite: #c0b8ae;
+    --color-slate: #99928a;
+    --color-fog: #171c27;
+    --color-mist: #0d1118;
+    --color-chalk: #343d4c;
+    --color-paper: #171c25;
+
+    --color-ink: #080b10;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    scroll-behavior: smooth;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-width: 320px;
+    min-height: 100vh;
+    overflow-x: clip;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1,
+      "ss01" 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Radix overlays temporarily lock the body while a select or dialog is
+     open. Modern browsers can reserve the scrollbar gutter at the root, so
+     keeping the library's fallback body margin would reserve that space a
+     second time and move the entire application shell. */
+  @supports (scrollbar-gutter: stable) {
+    html body[data-scroll-locked] {
+      margin-right: 0 !important;
+      padding-right: 0 !important;
+    }
+  }
+
+  ::selection {
+    background: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-signal-orange);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Pricing emphasis uses the resolved brand color in both themes. */
+  .plan-pro-panel,
+  .workbench-panel.plan-pro-panel {
+    border-color: var(--color-signal-orange);
+  }
+
+  .plan-pro-wash {
+    background-color: color-mix(in srgb, var(--color-signal-orange) 7%, transparent);
+  }
+
+  .app-shell {
+    --app-shell-header-height: 4rem;
+    --app-shell-content-width: 96.25rem;
+  }
+
+  .admin-shell {
+    --app-shell-content-width: 100rem;
+  }
+
+  /* The logo row and app bar share the same outer height, including the
+     bottom divider. Neither row may shrink when the navigation scrolls. */
+  .app-shell-header-row {
+    block-size: var(--app-shell-header-height, 4rem);
+    flex-shrink: 0;
+  }
+
+  .app-shell-content-container {
+    @apply mx-auto w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10;
+    max-width: var(--app-shell-content-width, 96.25rem);
+  }
+
+  .dashboard-topbar {
+    container: dashboard-topbar / inline-size;
+  }
+
+  .dashboard-workspace-search {
+    width: 2.25rem;
+  }
+
+  .dashboard-workspace-search-label,
+  .dashboard-workspace-search-shortcut {
+    display: none;
+  }
+
+  @container dashboard-topbar (min-width: 48rem) {
+    .dashboard-workspace-search {
+      width: auto;
+      min-width: 13.125rem;
+    }
+
+    .dashboard-workspace-search-label {
+      display: block;
+    }
+
+    .dashboard-workspace-search-shortcut {
+      display: inline-flex;
+    }
+  }
+
+  @container dashboard-topbar (max-width: 32rem) {
+    .dashboard-topbar .dashboard-workspace-name {
+      display: none;
+    }
+  }
+
+  .dashboard-filter-rail {
+    @apply z-20 shadow-lg backdrop-blur-xl;
+    /* Keep wheel/touch scrolling on the document. The rail is a sticky
+       surface, not a nested scroll container. */
+    overscroll-behavior: auto;
+  }
+
+  @media (min-width: 1280px) {
+    .dashboard-filter-rail {
+      position: sticky;
+      top: calc(var(--app-shell-header-height, 4rem) + 0.75rem);
+      /* Let the page own scrolling even when custom dates add another row of
+         controls. Clamping this element with overflow-y:auto made the filter
+         rail capture wheel/touch input and hide the content below it. */
+      max-height: none;
+      overflow: visible;
+    }
+
+    .dashboard-filter-controls {
+      min-width: 0;
+    }
+
+    .dashboard-filter-controls > * {
+      min-width: 0;
+    }
+  }
+
+  @media (max-width: 1279px) {
+    .dashboard-filter-rail {
+      position: relative;
+    }
+  }
+
+  /* Recharts renders legend and axis labels as inline SVG/text styles. Keep
+     those labels on the semantic theme tokens so dark mode never falls back
+     to the library's default black/gray text. */
+  .recharts-cartesian-axis-tick-value,
+  .recharts-label-list text {
+    fill: var(--color-muted-foreground) !important;
+  }
+
+  .recharts-legend-item-text,
+  .recharts-default-legend,
+  .recharts-tooltip-item-text,
+  .recharts-tooltip-label {
+    color: var(--color-muted-foreground) !important;
+  }
+}
+
+@layer components {
+  /*
+     * Keep section rhythm on its own class so page-level `pt-*` and `pb-*`
+     * utilities can intentionally tighten individual sections. A `py-*`
+     * utility wins over `pt-*`/`pb-*` at responsive breakpoints, which made
+     * the old Section component ignore its spacing overrides on desktop.
+     */
+  .section-shell {
+    padding-block: 4rem;
+  }
+
+  @media (min-width: 640px) {
+    .section-shell {
+      padding-block: 5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .section-shell {
+      padding-block: 6rem;
+    }
+  }
+}
+
+/* ── ActorConsole primitives ──────────────────────────────────── */
+
+/* Display headline — Bricolage Grotesque, shaped like a technical editorial masthead. */
+.font-display {
+  font-family: var(--font-display, "Bricolage Grotesque"), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  line-height: 0.94;
+  letter-spacing: -0.045em;
+}
+
+/* Section heading — slightly more measured than the hero face. */
+.font-display-tight {
+  font-family: var(--font-display, "Bricolage Grotesque"), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+
+/* Editorial container — keep legacy surfaces on the same site-wide width. */
+.container-editorial {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1440px;
+  padding-inline: 1rem;
+}
+
+.type-kicker {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono, "IBM Plex Mono"), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.eyebrow-line {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.65rem;
+}
+
+.eyebrow-line::before {
+  background: currentColor;
+  content: "";
+  display: inline-block;
+  height: 1px;
+  opacity: 0.7;
+  width: 1.75rem;
+}
+
+.section-rule {
+  border-top: 1px solid hsl(var(--border) / 0.82);
+}
+
+.data-stamp {
+  font-family: var(--font-mono, "IBM Plex Mono"), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+}
+
+.marketing-page {
+  background: var(--color-mist);
+  overflow: clip;
+}
+
+.docs-shell {
+  --docs-gutter: 1.25rem;
+  --blueprint-rule: hsl(var(--border) / 0.82);
+  --blueprint-rule-soft: hsl(var(--border) / 0.58);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground) / 0.72);
+}
+
+/* Documentation uses the same continuous rules as the public section frame.
+   The sidebar column spans the guide; only its navigation scrolls independently. */
+.docs-sidebar-column {
+  border-inline-end: 1px dashed var(--home-rule-strong);
+}
+
+.docs-sidebar-title {
+  border-bottom: 1px dashed var(--home-rule);
+  min-height: 4.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.docs-toolbar,
+.docs-mobile-nav,
+.docs-article-header,
+.docs-content,
+.docs-help {
+  padding-inline: var(--docs-gutter);
+}
+
+.docs-toolbar,
+.docs-mobile-nav,
+.docs-article-header {
+  border-bottom: 1px dashed var(--home-rule);
+}
+
+.docs-article-header {
+  padding-block: 3rem;
+}
+
+.docs-content {
+  min-width: 0;
+  padding-block: 2.5rem;
+}
+
+.docs-content .docs-grid {
+  border-inline-start: 1px dashed var(--home-rule-strong);
+  border-top: 1px dashed var(--home-rule-strong);
+  gap: 0;
+}
+
+.docs-content .docs-grid > * {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed var(--home-rule-strong);
+  border-inline-end: 1px dashed var(--home-rule-strong);
+  border-radius: 0;
+  box-shadow: none;
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.docs-content .docs-grid > .workbench-panel {
+  padding: 0;
+}
+
+.docs-content :is([class~="border"], .workbench-panel) {
+  border-style: dashed;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.docs-code > div:first-child {
+  border-bottom-style: dashed;
+}
+
+.docs-pagination,
+.docs-help {
+  border-top: 1px dashed var(--home-rule);
+}
+
+.docs-pagination > * {
+  min-width: 0;
+  padding: 1.5rem var(--docs-gutter);
+}
+
+.docs-pagination > * + * {
+  border-top: 1px dashed var(--home-rule);
+}
+
+.docs-help {
+  padding-block: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .docs-shell {
+    --docs-gutter: 2rem;
+  }
+
+  .docs-pagination > * + * {
+    border-inline-start: 1px dashed var(--home-rule);
+    border-top: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .docs-shell {
+    --docs-gutter: 2.5rem;
+  }
+
+  .docs-article-header {
+    padding-block: 3.5rem;
+  }
+}
+
+.docs-sidebar {
+  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-width: thin;
+}
+
+.docs-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+
+.dark .docs-shell {
+  background-color: hsl(var(--background));
+}
+
+/* Published policies use their own reading styles. The prose utility classes
+   are not available in this Tailwind build, so legal copy needs explicit type,
+   spacing, and list rules. */
+.policy-content {
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.policy-content > :first-child {
+  margin-top: 0;
+}
+
+.policy-content p {
+  margin-block: 1.1rem;
+}
+
+.policy-content > p:first-child {
+  background: hsl(var(--card) / 0.65);
+  border-left: 3px solid var(--color-signal-blue);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+  padding: 0.85rem 1rem;
+  white-space: pre-line;
+}
+
+.policy-content h2,
+.policy-content h3,
+.policy-content h4 {
+  color: hsl(var(--foreground));
+  font-family: var(--font-display, "Bricolage Grotesque"), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.policy-content h2 {
+  border-bottom: 1px solid hsl(var(--border));
+  font-size: 1.7rem;
+  margin-block: 3rem 1rem;
+  padding-bottom: 0.7rem;
+  scroll-margin-top: 7rem;
+}
+
+.policy-content h3 {
+  font-size: 1.25rem;
+  margin-block: 2rem 0.7rem;
+}
+
+.policy-content h4 {
+  font-size: 1.1rem;
+  margin-block: 1.5rem 0.5rem;
+}
+
+.policy-content h2:focus-visible {
+  outline: 2px solid var(--color-signal-orange);
+  outline-offset: 4px;
+}
+
+.policy-content ul,
+.policy-content ol {
+  margin-block: 1.25rem;
+  padding-left: 1.6rem;
+}
+
+.policy-content ul {
+  list-style: disc;
+}
+
+.policy-content ol {
+  list-style: decimal;
+}
+
+.policy-content li {
+  padding-left: 0.2rem;
+}
+
+.policy-content li + li {
+  margin-top: 0.4rem;
+}
+
+.policy-content li::marker {
+  color: var(--color-signal-orange);
+}
+
+.policy-content strong {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.policy-content a {
+  color: var(--color-signal-blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.policy-content a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.policy-content blockquote {
+  border-left: 3px solid var(--color-signal-blue);
+  color: hsl(var(--muted-foreground));
+  margin-block: 1.5rem;
+  padding-left: 1.25rem;
+}
+
+.policy-content hr {
+  border-color: hsl(var(--border));
+  margin-block: 2.5rem;
+}
+
+.policy-content pre {
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  font-size: 0.875rem;
+  margin-block: 1.5rem;
+  overflow-x: auto;
+  padding: 1rem;
+}
+
+.policy-content :not(pre) > code {
+  background: hsl(var(--muted));
+  border-radius: 2px;
+  font-size: 0.9em;
+  padding: 0.1em 0.25em;
+}
+
+.policy-table-scroll {
+  border: 1px solid hsl(var(--border));
+  margin-block: 1.5rem;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.policy-content table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 32rem;
+  width: 100%;
+}
+
+.policy-content th,
+.policy-content td {
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.policy-content th {
+  background: hsl(var(--muted) / 0.7);
+  font-weight: 600;
+}
+
+.policy-content tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (min-width: 640px) {
+  .policy-content {
+    font-size: 1.0625rem;
+    line-height: 1.8;
+  }
+}
+
+/* Blueprint surfaces are made from authored rules and shared dividers. Keep
+   the geometry visible in the layout itself instead of painting a grid over
+   the page with a background image. */
+.blueprint-page {
+  --blueprint-rule: hsl(var(--border) / 0.82);
+  --blueprint-rule-soft: hsl(var(--border) / 0.58);
+}
+
+.blueprint-page .shadow-card,
+.blueprint-page .shadow-card-hover {
+  box-shadow: none;
+}
+
+.blueprint-section {
+  position: relative;
+  border-block: 1px solid var(--blueprint-rule);
+}
+
+.blueprint-section-dark,
+.blueprint-section.bg-ink,
+.blueprint-section.bg-carbon {
+  --blueprint-rule: rgb(255 255 255 / 0.15);
+  --blueprint-rule-soft: rgb(255 255 255 / 0.1);
+}
+
+.blueprint-chrome {
+  border-block: 1px solid var(--blueprint-rule);
+}
+
+.blueprint-chrome-dark {
+  --blueprint-rule: rgb(255 255 255 / 0.15);
+  --blueprint-rule-soft: rgb(255 255 255 / 0.1);
+}
+
+.blueprint-surface {
+  border-inline: 1px solid var(--blueprint-rule);
+}
+
+.blueprint-surface-dark {
+  --blueprint-rule: rgb(255 255 255 / 0.15);
+  --blueprint-rule-soft: rgb(255 255 255 / 0.1);
+}
+
+.blueprint-frame {
+  border: 1px solid var(--blueprint-rule);
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.blueprint-bento {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--blueprint-rule);
+}
+
+.blueprint-cell {
+  border-inline-end: 1px solid var(--blueprint-rule-soft);
+  border-block-end: 1px solid var(--blueprint-rule-soft);
+}
+
+.stat-service-cell {
+  border-inline-end: 0;
+}
+
+@media (min-width: 1024px) {
+  .stat-service-cell:not(:last-child) {
+    border-inline-end: 1px solid var(--blueprint-rule-soft);
+  }
+}
+
+.tech-tag {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  border: 1px solid var(--blueprint-rule);
+  border-radius: 2px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono, "IBM Plex Mono"), ui-monospace, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  padding: 0.45rem 0.55rem;
+  text-transform: uppercase;
+}
+
+.blueprint-crosshair {
+  color: hsl(var(--border) / 0.9);
+  height: 12px;
+  pointer-events: none;
+  position: absolute;
+  width: 12px;
+}
+
+.blueprint-crosshair::before,
+.blueprint-crosshair::after {
+  background: currentColor;
+  content: "";
+  display: block;
+  position: absolute;
+}
+
+.blueprint-crosshair::before {
+  height: 1px;
+  left: 0;
+  top: 5px;
+  width: 12px;
+}
+
+.blueprint-crosshair::after {
+  height: 12px;
+  left: 5px;
+  top: 0;
+  width: 1px;
+}
+
+.blueprint-crosshair-dark {
+  color: rgb(255 255 255 / 0.35);
+}
+
+.section-index {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.6rem;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.section-index::before {
+  background: var(--color-signal-orange);
+  content: "";
+  display: inline-block;
+  height: 0.45rem;
+  width: 0.45rem;
+}
+
+.surface-rule {
+  border-block: 1px solid hsl(var(--border) / 0.85);
+}
+
+.surface-lift {
+  background: hsl(var(--card) / 0.76);
+  border: 1px solid hsl(var(--border) / 0.72);
+  box-shadow: none;
+}
+
+.surface-signal {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-signal-orange) 12%, transparent),
+      transparent 52%
+    ),
+    hsl(var(--secondary) / 0.62);
+}
+
+/* ── Marketing section frame ────────────────────────────────────
+   Each section keeps real content dividers. Dotted side rails and dashed
+   perimeter guides borrow the quiet drafting detail from the reference. */
+.home-grid-page,
+.marketing-grid-page {
+  --home-rule: hsl(var(--border) / 0.52);
+  --home-rule-strong: hsl(var(--border) / 0.78);
+  --home-dot: hsl(var(--foreground) / 0.15);
+  --site-frame-width: 84rem;
+  --site-frame-gutter: 2rem;
+  --site-header-width: var(--site-frame-width);
+  --site-header-gutter: var(--site-frame-gutter);
+  --side-rail-max-width: 5.75rem;
+  --site-header-expanded-height: 5rem;
+  --site-header-compact-height: 4.25rem;
+  --site-sticky-header-height: var(--site-header-expanded-height);
+  --frame-margin: max(
+    calc(var(--site-frame-gutter) / 2),
+    calc((100% - var(--site-frame-width)) / 2)
+  );
+  --side-rail-width: min(var(--side-rail-max-width), calc(var(--frame-margin) - 0.5rem));
+  background: hsl(var(--background));
+}
+
+:is(.home-grid-page, .marketing-grid-page):has(> .marketing-header--scrolled) {
+  --site-sticky-header-height: var(--site-header-compact-height);
+}
+
+.home-grid-section {
+  border-bottom: 1px dashed var(--home-rule);
+  position: relative;
+}
+
+:is(.home-grid-page, .marketing-grid-page) :is(.home-grid-section, .home-grid-divider),
+:is(.home-grid-page, .marketing-grid-page) > footer {
+  position: relative;
+}
+
+.marketing-content {
+  border-bottom: 1px dashed var(--home-rule);
+  position: relative;
+}
+
+/* Carry the public rails across loading, empty and error states as well as
+   complete pages. Section frames still provide their own content rules. */
+.marketing-content::before,
+.marketing-content::after,
+:is(.home-grid-page, .marketing-grid-page) :is(.home-grid-section, .home-grid-divider)::before,
+:is(.home-grid-page, .marketing-grid-page) :is(.home-grid-section, .home-grid-divider)::after,
+:is(.home-grid-page, .marketing-grid-page) > footer::before,
+:is(.home-grid-page, .marketing-grid-page) > footer::after {
+  background-image: radial-gradient(circle, var(--home-dot) 0.8px, transparent 1px);
+  background-position: 3px 3px;
+  background-size: 8px 8px;
+  content: "";
+  inset-block: 0;
+  pointer-events: none;
+  position: absolute;
+  width: var(--side-rail-width);
+}
+
+.marketing-content::before,
+.marketing-content::after {
+  /* Include the frame stroke to carry it through reserved loading/tray space. */
+  width: calc(var(--side-rail-width) + 1px);
+  z-index: 1;
+}
+
+.marketing-content::before {
+  border-right: 1px dashed var(--home-rule-strong);
+}
+
+.marketing-content::after {
+  border-left: 1px dashed var(--home-rule-strong);
+}
+
+.marketing-content::before,
+:is(.home-grid-page, .marketing-grid-page) :is(.home-grid-section, .home-grid-divider)::before,
+:is(.home-grid-page, .marketing-grid-page) > footer::before {
+  border-left: 1px dashed var(--home-rule);
+  left: calc(var(--frame-margin) - var(--side-rail-width));
+}
+
+.marketing-content::after,
+:is(.home-grid-page, .marketing-grid-page) :is(.home-grid-section, .home-grid-divider)::after,
+:is(.home-grid-page, .marketing-grid-page) > footer::after {
+  border-right: 1px dashed var(--home-rule);
+  right: calc(var(--frame-margin) - var(--side-rail-width));
+}
+
+/* One dotted field per public content slot prevents overlapping dot phases
+   and gaps when a route inserts an async wrapper or a comparison tray. */
+.marketing-content :is(.home-grid-section, .home-grid-divider, .blueprint-section)::before,
+.marketing-content :is(.home-grid-section, .home-grid-divider, .blueprint-section)::after {
+  content: none;
+}
+
+/* The content owner closes the page even when a short state reserves blank
+   space before the footer. Avoid a second stroke on the last section. */
+.marketing-content :is(.home-grid-section, .blueprint-section):last-child:not(.home-grid-frame *) {
+  border-bottom: 0;
+}
+
+.public-content-state > .home-grid-frame::before,
+.public-content-state > .home-grid-frame::after {
+  display: none;
+}
+
+.topic-rail {
+  scrollbar-width: none;
+}
+
+.topic-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.home-grid-divider {
+  border-bottom: 1px dashed var(--home-rule);
+}
+
+.home-grid-divider-inner {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  padding: clamp(0.875rem, 1.5vw, 1.5rem) clamp(1.5rem, 3vw, 3rem);
+}
+
+.home-grid-divider-rule {
+  border-top: 1px dashed var(--home-rule);
+  flex: 1;
+  height: 0;
+  min-width: 1.5rem;
+}
+
+.home-grid-frame {
+  border-inline: 1px dashed var(--home-rule-strong);
+  margin-inline: auto;
+  max-width: var(--site-frame-width);
+  width: min(calc(100% - var(--site-frame-gutter)), var(--site-frame-width));
+}
+
+.home-grid-section > .home-grid-frame,
+.home-grid-divider > .home-grid-frame,
+:is(.home-grid-page, .marketing-grid-page) > footer > .home-grid-frame {
+  position: relative;
+}
+
+.home-grid-section > .home-grid-frame::before,
+.home-grid-section > .home-grid-frame::after,
+.home-grid-divider > .home-grid-frame::before,
+.home-grid-divider > .home-grid-frame::after {
+  background: hsl(var(--background));
+  border: 1px solid var(--home-rule-strong);
+  content: "";
+  height: 7px;
+  pointer-events: none;
+  position: absolute;
+  top: -4px;
+  width: 7px;
+  z-index: 2;
+}
+
+.home-grid-section > .home-grid-frame::before,
+.home-grid-divider > .home-grid-frame::before {
+  left: -4px;
+}
+
+.home-grid-section > .home-grid-frame::after,
+.home-grid-divider > .home-grid-frame::after {
+  right: -4px;
+}
+
+/* The opening frame meets a sticky app bar. Its corner marks belong to the
+   app bar so they cannot drift upward with the first section on small scrolls. */
+:is(.home-grid-page > main, .marketing-grid-page > main, .marketing-content main)
+  > .home-grid-section:first-child
+  > .home-grid-frame::before,
+:is(.home-grid-page > main, .marketing-grid-page > main, .marketing-content main)
+  > .home-grid-section:first-child
+  > .home-grid-frame::after,
+.marketing-content main.home-grid-section > .home-grid-frame::before,
+.marketing-content main.home-grid-section > .home-grid-frame::after {
+  display: none;
+}
+
+:is(.home-grid-page > main, .marketing-grid-page > main, .marketing-content main)
+  > .home-grid-section:first-child
+  > .home-grid-frame
+  > .home-grid-row:first-child::before,
+:is(.home-grid-page > main, .marketing-grid-page > main, .marketing-content main)
+  > .home-grid-section:first-child
+  > .home-grid-frame
+  > .home-grid-row:first-child::after,
+:is(.home-grid-page > main, .marketing-grid-page > main, .marketing-content main)
+  > .home-grid-section:first-child
+  > .home-grid-frame
+  > .home-grid-row:first-child
+  > .home-grid-cell
+  + .home-grid-cell::before {
+  display: none;
+}
+
+.home-grid-page > header,
+.marketing-grid-page > header {
+  position: sticky;
+  top: 0;
+}
+
+.home-grid-page > header > div,
+.marketing-grid-page > header > div {
+  border-inline: 1px dashed var(--home-rule-strong);
+  max-width: var(--site-header-width);
+  width: calc(100% - var(--site-header-gutter));
+}
+
+.marketing-header {
+  --marketing-header-height: var(--site-sticky-header-height, 5rem);
+  transition:
+    border-color 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.marketing-header--scrolled {
+  border-bottom-style: dashed;
+  box-shadow: 0 12px 30px hsl(var(--foreground) / 0.08);
+}
+
+.marketing-header--scrolled::before {
+  background: linear-gradient(
+    to right,
+    transparent var(--frame-margin),
+    hsl(var(--background)) var(--frame-margin),
+    hsl(var(--background)) calc(100% - var(--frame-margin)),
+    transparent calc(100% - var(--frame-margin))
+  );
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.marketing-header-inner {
+  min-height: calc(var(--marketing-header-height) - 1px);
+  position: relative;
+  z-index: 1;
+  transition: min-height 260ms ease;
+}
+
+.marketing-header-frame-marks {
+  bottom: 0;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  width: min(calc(100% - var(--site-frame-gutter)), var(--site-frame-width));
+  z-index: 2;
+}
+
+.marketing-header-inner::before,
+.marketing-header-inner::after,
+.marketing-header-frame-marks::before,
+.marketing-header-frame-marks::after,
+.home-grid-footer::before,
+.home-grid-footer::after {
+  background: hsl(var(--background));
+  border: 1px solid var(--home-rule-strong);
+  bottom: -4px;
+  content: "";
+  height: 7px;
+  pointer-events: none;
+  position: absolute;
+  width: 7px;
+  z-index: 2;
+}
+
+.marketing-header-inner::before,
+.home-grid-footer::before {
+  left: -4px;
+}
+
+.marketing-header-inner::after,
+.home-grid-footer::after {
+  right: -4px;
+}
+
+/* This marker span has no border; compensate for the frame's 1px stroke. */
+.marketing-header-frame-marks::before {
+  left: -3px;
+}
+
+.marketing-header-frame-marks::after {
+  right: -3px;
+}
+
+.marketing-header-inner > * {
+  position: relative;
+  z-index: 1;
+}
+
+.marketing-header-brand {
+  height: 3rem;
+  width: min(14rem, calc(100vw - 7rem));
+  transition: width 260ms ease;
+}
+
+.marketing-header--scrolled .marketing-header-brand {
+  width: 2.5rem;
+}
+
+.marketing-header-lockup,
+.marketing-header-symbol {
+  left: 0;
+  position: absolute;
+  top: 50%;
+  transition:
+    opacity 200ms ease,
+    transform 260ms ease;
+  white-space: nowrap;
+}
+
+.marketing-header-lockup {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+
+.marketing-header-symbol {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.75);
+}
+
+.marketing-header--scrolled .marketing-header-lockup {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.9);
+}
+
+.marketing-header--scrolled .marketing-header-symbol {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.marketing-header-nav {
+  transition:
+    opacity 180ms ease,
+    transform 240ms ease,
+    visibility 240ms ease;
+}
+
+.marketing-header--scrolled .marketing-header-nav {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.5rem);
+  visibility: hidden;
+}
+
+.marketing-header-actions {
+  align-items: center;
+  justify-items: end;
+}
+
+.marketing-header-full-actions,
+.marketing-header-compact-actions {
+  grid-area: 1 / 1;
+  transition:
+    opacity 180ms ease,
+    transform 240ms ease,
+    visibility 240ms ease;
+}
+
+.marketing-header-compact-actions,
+.marketing-header--scrolled .marketing-header-full-actions {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.5rem);
+  visibility: hidden;
+}
+
+.marketing-header--scrolled .marketing-header-compact-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.marketing-grid-page .blueprint-section > .site-container,
+.marketing-grid-page .blueprint-chrome:not(.marketing-header) > .site-container,
+.marketing-grid-page section.border-b > .site-container {
+  border-inline: 1px dashed var(--home-rule-strong);
+  max-width: var(--site-frame-width);
+  width: calc(100% - var(--site-frame-gutter));
+}
+
+.marketing-grid-page .blueprint-section > .site-container {
+  border-inline-color: var(--home-rule-strong);
+}
+
+.marketing-grid-page .blueprint-section::before,
+.marketing-grid-page .blueprint-section::after {
+  background-image: radial-gradient(circle, var(--home-dot) 0.8px, transparent 1px);
+  background-position: 3px 3px;
+  background-size: 8px 8px;
+  content: "";
+  inset-block: 0;
+  pointer-events: none;
+  position: absolute;
+  /* Include the inner frame stroke so it shares the grid frame's pixel. */
+  width: calc(var(--side-rail-width) + 1px);
+  z-index: 1;
+}
+
+.marketing-grid-page .blueprint-section::before {
+  border-left: 1px dashed var(--home-rule);
+  border-right: 1px dashed var(--home-rule-strong);
+  inset-inline-start: calc(var(--frame-margin) - var(--side-rail-width));
+}
+
+.marketing-grid-page .blueprint-section::after {
+  border-left: 1px dashed var(--home-rule-strong);
+  border-right: 1px dashed var(--home-rule);
+  inset-inline-end: calc(var(--frame-margin) - var(--side-rail-width));
+}
+
+.marketing-grid-page .blueprint-section {
+  border-bottom-color: var(--home-rule);
+  border-bottom-style: dashed;
+  /* The preceding section owns the shared horizontal rule. */
+  border-top: 0;
+}
+
+.marketing-grid-page [class~="max-w-[1440px]"]:not(.marketing-header-inner) {
+  max-width: var(--site-frame-width);
+  width: calc(100% - var(--site-frame-gutter));
+}
+
+/* A theme-aware technical wash for formerly inverted marketing panels. It
+   keeps emphasis through blue/orange signal colors without introducing an
+   unrelated near-black block between ruled sections. */
+.semantic-accent-panel {
+  --blueprint-rule: hsl(var(--border) / 0.82);
+  --blueprint-rule-soft: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-signal-blue) 10%, transparent),
+      transparent 52%
+    ),
+    hsl(var(--accent) / 0.48);
+  color: hsl(var(--foreground));
+}
+
+.semantic-accent-panel [class*="text-white"] {
+  color: hsl(var(--foreground));
+}
+
+.semantic-accent-panel [class*="border-white"] {
+  border-color: hsl(var(--border) / 0.82);
+}
+
+.semantic-accent-panel [class*="bg-white/"] {
+  background-color: hsl(var(--card) / 0.58);
+}
+
+.auth-form-panel {
+  border-color: var(--home-rule-strong);
+  box-shadow: none;
+}
+
+.home-grid-row {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  position: relative;
+}
+
+/* Mark every place a section rule meets its outer frame. */
+:is(.home-grid-page, .marketing-grid-page) .home-grid-row::before,
+:is(.home-grid-page, .marketing-grid-page) .home-grid-row::after,
+:is(.home-grid-page, .marketing-grid-page) .home-grid-cell + .home-grid-cell::before,
+:is(.home-grid-page, .marketing-grid-page) .home-grid-cell + .home-grid-cell::after {
+  background: hsl(var(--background));
+  border: 1px solid var(--home-rule-strong);
+  content: "";
+  height: 7px;
+  pointer-events: none;
+  position: absolute;
+  top: -4px;
+  width: 7px;
+  z-index: 2;
+}
+
+:is(.home-grid-page, .marketing-grid-page) .home-grid-row::before {
+  left: -4px;
+}
+
+:is(.home-grid-page, .marketing-grid-page) .home-grid-row::after {
+  right: -4px;
+}
+
+.home-grid-cell {
+  min-width: 0;
+}
+
+.home-grid-cell + .home-grid-cell {
+  border-inline-start: 1px dashed var(--home-rule);
+  position: relative;
+}
+
+:is(.home-grid-page, .marketing-grid-page) .home-grid-cell + .home-grid-cell::before,
+:is(.home-grid-page, .marketing-grid-page) .home-grid-cell + .home-grid-cell::after {
+  left: -4px;
+}
+
+:is(.home-grid-page, .marketing-grid-page) .home-grid-cell + .home-grid-cell::after {
+  bottom: -4px;
+  top: auto;
+}
+
+.home-grid-row + .home-grid-row {
+  border-top: 1px dashed var(--home-rule);
+}
+
+.home-grid-kicker {
+  align-items: center;
+  color: var(--color-signal-orange);
+  display: inline-flex;
+  font-family: var(--font-mono, "IBM Plex Mono"), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  gap: 0.55rem;
+  letter-spacing: 0.11em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.home-grid-kicker::before {
+  background: currentColor;
+  border-radius: 999px;
+  content: "";
+  height: 0.42rem;
+  width: 0.42rem;
+}
+
+.home-grid-index {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono, "IBM Plex Mono"), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.home-grid-cell-hover {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.home-grid-cell-hover:hover {
+  background: hsl(var(--card) / 0.72);
+}
+
+/* Feature mockups use one semantic light palette while retaining their
+   existing high-contrast dark treatment. A few deeply nested widgets predate
+   the theme tokens, so these scoped compatibility rules keep them readable
+   without leaking into the product dashboard. */
+html:not(.dark) .feature-visual [class*="text-white"] {
+  color: hsl(var(--foreground) / 0.82);
+}
+
+html:not(.dark) .feature-visual [class*="border-white"] {
+  border-color: hsl(var(--border) / 0.76);
+}
+
+html:not(.dark) .feature-visual [class*="bg-white/"] {
+  background-color: hsl(var(--secondary) / 0.58);
+}
+
+html:not(.dark) .feature-visual [class~="bg-[#08111d]"],
+html:not(.dark) .feature-visual [class~="bg-[#0b1522]"] {
+  background-color: hsl(var(--background) / 0.82);
+}
+
+html:not(.dark) .feature-visual [class*="border-[#223047]"],
+html:not(.dark) .feature-visual [class*="border-[#2b3c54]"] {
+  border-color: hsl(var(--border) / 0.82);
+}
+
+html:not(.dark) .feature-visual [class*="text-[#e5e9ef]"],
+html:not(.dark) .feature-visual [class*="text-[#f2f5f8]"],
+html:not(.dark) .feature-visual [class*="text-[#edf1f5]"],
+html:not(.dark) .feature-visual [class*="text-[#e7edf4]"],
+html:not(.dark) .feature-visual [class*="text-[#dbe4ef]"],
+html:not(.dark) .feature-visual [class*="text-[#dbe5df]"] {
+  color: hsl(var(--foreground));
+}
+
+html:not(.dark) .feature-visual [class*="text-[#aeb9c8]"],
+html:not(.dark) .feature-visual [class*="text-[#8492a5]"],
+html:not(.dark) .feature-visual [class*="text-[#7f8da1]"],
+html:not(.dark) .feature-visual [class*="text-[#b6c9c1]"],
+html:not(.dark) .feature-visual [class*="text-[#9daabd]"],
+html:not(.dark) .feature-visual [class*="text-[#c4ccd8]"],
+html:not(.dark) .feature-visual [class*="text-[#b4bfce]"],
+html:not(.dark) .feature-visual [class*="text-[#b9c5d4]"],
+html:not(.dark) .feature-visual [class*="text-[#b8c3d1]"],
+html:not(.dark) .feature-visual [class*="text-[#9aa8b9]"] {
+  color: hsl(var(--muted-foreground));
+}
+
+html:not(.dark) .feature-visual [class*="text-[#78a9ff]"],
+html:not(.dark) .feature-visual [class*="text-[#9fc0ff]"],
+html:not(.dark) .feature-visual [class*="text-[#a8c4ff]"],
+html:not(.dark) .feature-visual [class*="text-[#b9a8ff]"] {
+  color: var(--color-signal-blue);
+}
+
+html:not(.dark) .feature-visual [class*="text-[#70d994]"] {
+  color: var(--color-signal-green);
+}
+
+html:not(.dark) .feature-visual [class*="text-[#ff9a67]"] {
+  color: var(--color-signal-orange);
+}
+
+html:not(.dark) .feature-visual [class*="bg-signal-blue"][class*="text-white"],
+html:not(.dark) .feature-visual [class*="bg-[#246dff]"][class*="text-white"] {
+  color: white;
+}
+
+html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"] {
+  color: white;
+}
+
+@media (min-width: 640px) {
+  .home-grid-page,
+  .marketing-grid-page {
+    --site-frame-gutter: 3rem;
+  }
+
+  .home-grid-frame {
+    width: min(calc(100% - var(--site-frame-gutter)), var(--site-frame-width));
+  }
+
+  .home-grid-page > header > div,
+  .marketing-grid-page > header > div {
+    width: calc(100% - var(--site-header-gutter));
+  }
+
+  .marketing-grid-page .blueprint-section > .site-container,
+  .marketing-grid-page .blueprint-chrome:not(.marketing-header) > .site-container,
+  .marketing-grid-page section.border-b > .site-container {
+    width: calc(100% - var(--site-frame-gutter));
+  }
+
+  .marketing-grid-page [class~="max-w-[1440px]"]:not(.marketing-header-inner) {
+    width: calc(100% - var(--site-frame-gutter));
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-grid-page,
+  .marketing-grid-page {
+    --site-frame-gutter: 4rem;
+  }
+
+  .home-grid-frame {
+    width: min(calc(100% - var(--site-frame-gutter)), var(--site-frame-width));
+  }
+
+  .home-grid-page > header > div,
+  .marketing-grid-page > header > div {
+    width: calc(100% - var(--site-header-gutter));
+  }
+
+  .marketing-grid-page .blueprint-section > .site-container,
+  .marketing-grid-page .blueprint-chrome:not(.marketing-header) > .site-container,
+  .marketing-grid-page section.border-b > .site-container {
+    width: calc(100% - var(--site-frame-gutter));
+  }
+
+  .marketing-grid-page [class~="max-w-[1440px]"]:not(.marketing-header-inner) {
+    width: calc(100% - var(--site-frame-gutter));
+  }
+}
+
+@media (max-width: 1279px) {
+  .home-grid-intro-row > .home-grid-cell {
+    grid-column: 1 / -1 !important;
+  }
+
+  .home-grid-intro-row > .home-grid-cell:first-child {
+    padding-bottom: 2rem;
+  }
+
+  .home-grid-intro-row > .home-grid-cell + .home-grid-cell {
+    border-inline-start: 0;
+    border-top: 1px dashed var(--home-rule);
+    padding-bottom: 3rem;
+    padding-top: 2rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .home-grid-page,
+  .marketing-grid-page {
+    --site-header-expanded-height: 4rem;
+    --site-header-compact-height: 4rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .docs-sidebar {
+    top: var(--site-sticky-header-height);
+    height: calc(100dvh - var(--site-sticky-header-height));
+    transition:
+      top 260ms ease,
+      height 260ms ease;
+  }
+}
+
+/* Above the rail breakpoint, the header encloses the content frame and
+   both dotted rails. Its borders meet the rails instead of offsetting them. */
+@media (min-width: 1536px) {
+  .home-grid-page,
+  .marketing-grid-page {
+    --site-header-width: calc(var(--site-frame-width) + 2 * var(--side-rail-max-width));
+    --site-header-gutter: 1rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .home-grid-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-grid-cell {
+    grid-column: 1 / -1 !important;
+  }
+
+  .home-grid-cell + .home-grid-cell {
+    border-inline-start: 0;
+    border-top: 1px dashed var(--home-rule);
+  }
+
+  .home-grid-footer .home-grid-row:nth-child(2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-grid-footer .home-grid-row:nth-child(2) .home-grid-cell {
+    border-inline-start: 0;
+    border-top: 0;
+    grid-column: span 1 !important;
+  }
+
+  .home-grid-footer .home-grid-row:nth-child(2) .home-grid-cell:nth-child(even) {
+    border-inline-start: 1px dashed var(--home-rule);
+  }
+
+  .home-grid-footer .home-grid-row:nth-child(2) .home-grid-cell:nth-child(n + 3) {
+    border-top: 1px dashed var(--home-rule);
+  }
+
+  /* An unpaired footer group completes the row and its horizontal rule. */
+  .home-grid-footer .home-grid-row:nth-child(2) .home-grid-cell:last-child:nth-child(odd) {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 1535px) {
+  .marketing-header--scrolled::before {
+    background: hsl(var(--background));
+  }
+
+  .marketing-content::before,
+  .marketing-content::after,
+  :is(.home-grid-page, .marketing-grid-page) :is(.home-grid-section, .home-grid-divider)::before,
+  :is(.home-grid-page, .marketing-grid-page) :is(.home-grid-section, .home-grid-divider)::after,
+  :is(.home-grid-page, .marketing-grid-page) > footer::before,
+  :is(.home-grid-page, .marketing-grid-page) > footer::after,
+  .marketing-grid-page .blueprint-section::before,
+  .marketing-grid-page .blueprint-section::after,
+  .home-grid-section > .home-grid-frame::before,
+  .home-grid-section > .home-grid-frame::after,
+  .home-grid-divider > .home-grid-frame::before,
+  .home-grid-divider > .home-grid-frame::after,
+  .marketing-header-inner::before,
+  .marketing-header-inner::after,
+  .marketing-header-frame-marks,
+  .home-grid-footer::before,
+  .home-grid-footer::after,
+  :is(.home-grid-page, .marketing-grid-page) .home-grid-row::before,
+  :is(.home-grid-page, .marketing-grid-page) .home-grid-row::after,
+  :is(.home-grid-page, .marketing-grid-page) .home-grid-cell + .home-grid-cell::before,
+  :is(.home-grid-page, .marketing-grid-page) .home-grid-cell + .home-grid-cell::after {
+    display: none;
+  }
+
+  .marketing-grid-page .blueprint-section > .site-container {
+    border-inline-color: var(--home-rule-strong);
+  }
+}
+
+/* Leaderboard metric emphasis is a continuous theme-derived wash, not a
+   bordered cell state. color-mix keeps the same treatment in both themes. */
+.leaderboard-selected-column {
+  background-color: color-mix(in srgb, var(--color-signal-blue) 14%, transparent);
+}
+
+.group:hover .leaderboard-selected-column {
+  background-color: color-mix(in srgb, var(--color-signal-blue) 20%, transparent);
+}
+
+/* The feature deck is a viewport-height presentation. The visual concepts are
+   intentionally information-dense, so give the larger widgets a controlled
+   optical reduction on shorter desktop viewports instead of clipping their
+   bottom rails inside the sticky scene. */
+@media (min-width: 1024px) and (max-height: 900px) {
+  .feature-deck-widget[data-widget-id="smart-pricing"] {
+    transform: scale(0.9);
+  }
+
+  .feature-deck-widget[data-widget-id="scheduled-publishing"] {
+    transform: scale(0.82);
+  }
+
+  .feature-deck-widget[data-widget-id="usage-analytics"] {
+    transform: scale(0.82);
+  }
+
+  .feature-deck-widget {
+    transform-origin: center;
+  }
+}
+
+/* Shared workbench primitives. Keep surfaces, controls, and states on the
+   same compact geometry even when rendered by different page shells. */
+.app-shell-main {
+  min-width: 0;
+  width: 100%;
+  overflow-x: clip;
+}
+
+.workbench-panel {
+  min-width: 0;
+  border: 1px solid hsl(var(--border) / 0.82);
+  border-radius: 3px;
+  background: hsl(var(--card));
+  box-shadow: none;
+}
+
+.workbench-control {
+  border-radius: 3px;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.workbench-control:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.22);
+}
+
+@media (min-width: 640px) {
+  .container-editorial {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-editorial {
+    padding-inline: 2rem;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-scale-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .skeleton-pulse,
+  [class*="before:animate-[shimmer"]::before {
+    animation: none !important;
+  }
+}
+
+/* Subtle scrollbar styling for table-heavy admin */
+.scroll-soft::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-soft::-webkit-scrollbar-thumb {
+  @apply bg-border rounded;
+}
+
+.scroll-soft::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
+
+.scroll-soft {
+  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-width: thin;
+}
+
+/* Legacy palette utilities sometimes combine an adaptive foreground
+   token with a deliberately fixed dark surface. Keep those pairs
+   readable in dark mode without changing their public class names. */
+.bg-ink.text-paper,
+.bg-carbon.text-paper {
+  color: #f8f6f3;
+}
+
+.dark .bg-carbon.text-paper {
+  background-color: #171513;
+}
+
+/* Shimmer keyframes for skeleton loaders */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Legacy gradient utility — collapsed to a no-op so old call sites
+   don't paint purple anywhere. */
+.text-gradient {
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  -webkit-text-fill-color: currentColor;
+  color: inherit;
+}

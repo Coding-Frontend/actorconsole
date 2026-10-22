@@ -1,0 +1,27 @@
+{
+  "name": "@actorconsole/logo-catalog",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Safe website-logo discovery, normalization, and persistent filesystem storage.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@actorconsole/config": "workspace:*",
+    "@types/node": "^22.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}

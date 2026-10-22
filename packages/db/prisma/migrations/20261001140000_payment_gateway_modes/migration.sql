@@ -1,0 +1,2 @@
+ALTER TABLE `Subscription` ADD COLUMN `billingMode` VARCHAR(191) NULL;
+ALTER TABLE `Payment` ADD COLUMN `billingMode` VARCHAR(191) NULL;

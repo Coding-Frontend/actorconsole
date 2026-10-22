@@ -1,0 +1,449 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+  min-height: 39rem;
+  position: relative;
+}
+
+.layout::after {
+  background: hsl(var(--background));
+  border: 1px solid var(--home-rule-strong);
+  content: "";
+  height: 7px;
+  left: 53%;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  width: 7px;
+  z-index: 2;
+}
+
+.layout::after {
+  bottom: -4px;
+}
+
+.copy {
+  align-self: center;
+  padding: clamp(3.5rem, 5vw, 6.5rem) clamp(2.5rem, 5vw, 6rem);
+}
+
+.copy > * {
+  animation: rise-in 700ms both;
+}
+
+.copy > :nth-child(2) {
+  animation-delay: 80ms;
+}
+
+.copy > :nth-child(3) {
+  animation-delay: 160ms;
+}
+
+.copy > :nth-child(4) {
+  animation-delay: 240ms;
+}
+
+.eyebrow,
+.panelKicker,
+.visualBottomline,
+.stepNumber,
+.panelFooter,
+.liveStatus {
+  font-family: var(--font-mono, ui-monospace), monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: var(--color-signal-orange);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.eyebrow::before {
+  background: currentColor;
+  content: "";
+  display: inline-block;
+  height: 0.4rem;
+  margin-right: 0.7rem;
+  vertical-align: 0.1rem;
+  width: 0.4rem;
+}
+
+.headline {
+  color: hsl(var(--foreground));
+  font-family: var(--font-display, ui-sans-serif), sans-serif;
+  font-size: clamp(3.1rem, 4.7vw, 5.3rem);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  margin-top: 1.5rem;
+  max-width: 14ch;
+}
+
+.headline span {
+  color: var(--color-signal-orange);
+  display: block;
+}
+
+.description {
+  color: hsl(var(--muted-foreground));
+  font-size: clamp(1rem, 1.2vw, 1.125rem);
+  line-height: 1.7;
+  margin-top: 1.75rem;
+  max-width: 36rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.visual {
+  border-left: 1px dashed var(--home-rule);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  overflow: hidden;
+  padding: 1.6rem clamp(1.5rem, 3vw, 3rem);
+  position: relative;
+}
+
+.visual::before {
+  background-image: radial-gradient(circle, hsl(var(--foreground) / 0.17) 0.8px, transparent 1px);
+  background-position: 3px 3px;
+  background-size: 10px 10px;
+  content: "";
+  inset: 0;
+  mask-image: linear-gradient(to bottom, transparent 2%, black 26%, black 74%, transparent 100%);
+  opacity: 0.4;
+  pointer-events: none;
+  position: absolute;
+}
+
+.visual::after {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-signal-orange) 14%, transparent),
+    transparent 64%
+  );
+  content: "";
+  height: 40rem;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40rem;
+}
+
+.visualBottomline {
+  align-items: center;
+  color: hsl(var(--muted-foreground) / 0.8);
+  display: flex;
+  font-size: 0.58rem;
+  gap: 0.75rem;
+  position: relative;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.footerRule {
+  border-top: 1px dashed hsl(var(--border) / 0.8);
+  flex: 1;
+  min-width: 0.5rem;
+}
+
+.visualBottomline {
+  justify-content: space-between;
+}
+
+.visualCenter {
+  display: flex;
+  justify-content: center;
+  padding-block: 2rem;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+.halo {
+  border: 1px solid hsl(var(--border) / 0.4);
+  border-radius: 50%;
+  height: 28rem;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 28rem;
+}
+
+.halo::before,
+.halo::after {
+  border: 1px solid hsl(var(--border) / 0.3);
+  border-radius: 50%;
+  content: "";
+  inset: 2.75rem;
+  position: absolute;
+}
+
+.halo::after {
+  inset: 5.5rem;
+}
+
+.workflowPanel {
+  animation: panel-in 800ms 140ms both;
+  background: hsl(var(--card) / 0.94);
+  border: 1px solid var(--home-rule-strong);
+  box-shadow: 0 22px 70px hsl(var(--foreground) / 0.07);
+  max-width: 31rem;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+.panelHeader {
+  align-items: start;
+  border-bottom: 1px dashed var(--home-rule);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1.4rem 1.5rem;
+}
+
+.panelKicker {
+  color: var(--color-signal-orange);
+  font-size: 0.58rem;
+}
+
+.panelTitle {
+  color: hsl(var(--foreground));
+  font-family: var(--font-display, ui-sans-serif), sans-serif;
+  font-size: clamp(1.4rem, 1.8vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  margin-top: 0.45rem;
+}
+
+.liveStatus {
+  align-items: center;
+  border: 1px solid var(--home-rule);
+  color: hsl(var(--muted-foreground));
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 0.52rem;
+  gap: 0.4rem;
+  padding: 0.42rem 0.5rem;
+  white-space: nowrap;
+}
+
+.liveDot {
+  animation: signal-pulse 2.5s ease-in-out infinite;
+  background: var(--color-signal-orange);
+  border-radius: 50%;
+  height: 0.36rem;
+  width: 0.36rem;
+}
+
+.steps {
+  padding: 0.55rem 1rem;
+  position: relative;
+}
+
+.step {
+  align-items: center;
+  animation: step-focus 9s ease-in-out infinite;
+  border: 1px solid transparent;
+  display: flex;
+  gap: 1rem;
+  min-height: 5.3rem;
+  padding: 0.75rem 0.8rem;
+  position: relative;
+}
+
+.step:nth-child(2) {
+  animation-delay: -6s;
+}
+
+.step:nth-child(3) {
+  animation-delay: -3s;
+}
+
+.stepNode {
+  align-items: center;
+  background: hsl(var(--card));
+  border: 1px solid var(--home-rule-strong);
+  color: var(--color-signal-orange);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 2.35rem;
+  justify-content: center;
+  position: relative;
+  width: 2.35rem;
+  z-index: 1;
+}
+
+.stepText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.stepTitle {
+  color: hsl(var(--foreground));
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.stepDetail {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.stepNumber {
+  color: hsl(var(--muted-foreground) / 0.75);
+  font-size: 0.6rem;
+}
+
+.panelFooter {
+  align-items: center;
+  border-top: 1px dashed var(--home-rule);
+  color: hsl(var(--muted-foreground) / 0.8);
+  display: flex;
+  font-size: 0.53rem;
+  gap: 0.6rem;
+  padding: 1rem 1.5rem;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes signal-pulse {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-signal-orange) 16%, transparent);
+  }
+}
+
+@keyframes step-focus {
+  0%,
+  27% {
+    background: color-mix(in srgb, var(--color-signal-orange) 9%, transparent);
+    border-color: color-mix(in srgb, var(--color-signal-orange) 30%, transparent);
+  }
+  33%,
+  100% {
+    background: transparent;
+    border-color: transparent;
+  }
+}
+
+@media (max-width: 1023px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .layout::before,
+  .layout::after {
+    display: none;
+  }
+
+  .copy {
+    padding: clamp(3.5rem, 7vw, 5.5rem);
+  }
+
+  .visual {
+    border-left: 0;
+    border-top: 1px dashed var(--home-rule);
+    min-height: 33rem;
+  }
+}
+
+@media (max-width: 1535px) {
+  .layout::after {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .layout {
+    min-height: 0;
+  }
+
+  .copy {
+    padding: 3.25rem 1.5rem 3.5rem;
+  }
+
+  .headline {
+    font-size: clamp(2.8rem, 11.5vw, 4rem);
+  }
+
+  .description {
+    line-height: 1.6;
+  }
+
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .visual {
+    min-height: 31rem;
+    padding: 1.25rem;
+  }
+
+  .visualBottomline {
+    font-size: 0.48rem;
+  }
+
+  .halo {
+    height: 22rem;
+    width: 22rem;
+  }
+
+  .panelHeader,
+  .panelFooter {
+    padding-inline: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy > *,
+  .workflowPanel,
+  .liveDot,
+  .step {
+    animation: none;
+  }
+
+  .step:first-child {
+    background: color-mix(in srgb, var(--color-signal-orange) 9%, transparent);
+    border-color: color-mix(in srgb, var(--color-signal-orange) 30%, transparent);
+  }
+}
