@@ -63,6 +63,8 @@ COPY scripts/fix-esm-imports.mjs /app/scripts/fix-esm-imports.mjs
 RUN node /app/scripts/fix-esm-imports.mjs
 
 FROM install AS builder-web
+# Type checking includes the optional Pages entry points and their public helpers.
+COPY .deploy/pages/ ./.deploy/pages/
 ARG API_BASE_URL
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_BASE_URL
