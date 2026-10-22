@@ -89,6 +89,12 @@ jobs:
       - name: Build, pack and test the installable tarball
         working-directory: apps/mcp
         run: npm run test:package
+      - name: Validate npm publication without publishing
+        if: github.event_name == 'push'
+        env:
+          TARBALL: ${{ steps.release.outputs.tarball }}
+          DIST_TAG: ${{ steps.release.outputs.dist-tag }}
+        run: npm publish "$GITHUB_WORKSPACE/.cache/npm-release/$TARBALL" --dry-run --access public --ignore-scripts --tag "$DIST_TAG" --registry https://registry.npmjs.org
       - name: Record the tested artifact digest
         id: digest
         env:
@@ -133,7 +139,7 @@ jobs:
         run: |
           [[ "$EXPECTED_SHA512" =~ ^[0-9a-f]{128}$ ]]
           printf '%s  %s\n' "$EXPECTED_SHA512" "release/$TARBALL" | sha512sum --check --strict
-          npm publish "release/$TARBALL" --access public --provenance --ignore-scripts --tag "$DIST_TAG" --registry https://registry.npmjs.org
+          npm publish "$GITHUB_WORKSPACE/release/$TARBALL" --access public --provenance --ignore-scripts --tag "$DIST_TAG" --registry https://registry.npmjs.org
       - name: Verify published integrity and provenance
         env:
           VERSION: ${{ needs.package.outputs.version }}
