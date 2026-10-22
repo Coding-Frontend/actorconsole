@@ -1,8 +1,17 @@
 {
   "name": "@actorconsole/mcp",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "ActorConsole MCP server — bridge Apify Actor management into Claude Code, Codex, Cursor.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Coding-Frontend/actorconsole.git",
+    "directory": "apps/mcp"
+  },
+  "homepage": "https://github.com/Coding-Frontend/actorconsole/tree/main/apps/mcp#readme",
+  "bugs": {
+    "url": "https://github.com/Coding-Frontend/actorconsole/issues"
+  },
   "keywords": [
     "mcp",
     "apify",
@@ -20,7 +29,8 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "type": "module",
   "main": "./dist/server.js",
