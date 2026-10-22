@@ -15,6 +15,14 @@ updates:
       # BullMQ 5 depends on ioredis 5; v6 changes the default wire protocol.
       - dependency-name: ioredis
         versions: [">=6"]
+      # Billing API changes require a tested Stripe API migration.
+      - dependency-name: stripe
+        versions: [">=23"]
+      # Queue backend and chart interaction migrations need dedicated review.
+      - dependency-name: bullmq
+        versions: [">=6"]
+      - dependency-name: recharts
+        versions: [">=3"]
     groups:
       react:
         patterns:
