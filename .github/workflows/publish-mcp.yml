@@ -90,6 +90,7 @@ jobs:
         working-directory: apps/mcp
         run: npm run test:package
       - name: Validate npm publication without publishing
+        if: github.event_name == 'push'
         env:
           TARBALL: ${{ steps.release.outputs.tarball }}
           DIST_TAG: ${{ steps.release.outputs.dist-tag }}
