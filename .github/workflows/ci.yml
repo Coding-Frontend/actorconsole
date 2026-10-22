@@ -125,6 +125,13 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Verify deployment boundaries and scripts
+        run: |
+          bash -n .deploy/actorconsole-deploy
+          python3 scripts/test-vps-release.py
+          python3 scripts/test-stage-vercel-source.py
+          pnpm test:scripts
+
       - name: Test with coverage gate
         run: pnpm test:coverage
 

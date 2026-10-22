@@ -1,6 +1,6 @@
 # Self hosted deployment
 
-Use your own server, MySQL/MariaDB database, provider accounts and domains. API, worker, MCP and Redis run with Compose; host the frontend on Pages or Next.js.
+Use your own server, MySQL/MariaDB database, provider accounts and domains. Next.js, API, worker, MCP and Redis run with Compose on the VPS. MySQL/MariaDB remains on the database host configured in the private server environment.
 
 ## Backend
 
@@ -17,7 +17,13 @@ docker compose --env-file .env.production -f docker-compose.vps.yml up -d
 
 Review draft policies before publishing in Admin. Preserve database, Redis and logo asset volumes across releases.
 
-## Frontend
+## VPS Next.js frontend
+
+The `web` service starts with the backend stack and listens on loopback port 4202 by default. It uses the standalone Next.js image as a non-root user. Only public browser configuration enters the build; runtime API calls use `WEB_API_BASE_URL=http://api:4000`. Backend database, encryption, mail and provider secrets are not passed to the web container.
+
+Use `.deploy/nginx-web.conf` as a bootstrap template, retain existing TLS certificate settings, and proxy the web hostname to `127.0.0.1:4202`. Verify `/api/health` and the backend `/health/ready` before changing DNS.
+
+## Optional Pages / Vercel hosting
 
 For Pages, fill `.env.pages.example` with your HTTPS site/API origins and public Firebase settings; save as ignored `.env.pages.local`.
 
@@ -39,8 +45,16 @@ For the extension, copy `.env.extension.example` to `apps/chrome-extension/.env.
 
 CI uses synthetic credentials. Container publication is opt-in through `ENABLE_CONTAINER_RELEASES=true` or manual dispatch.
 
-The separate backend deployment workflow is manual. Create a protected GitHub `production` environment with required reviewers. Set `ENABLE_VPS_CD=true`, variables `VPS_HOST`, `VPS_USER`, and protected secrets `VPS_SSH_PRIVATE_KEY`, `VPS_SSH_KNOWN_HOSTS` (an independently verified host entry).
+The **Deploy VPS** workflow runs after a successful CI push to `main`; it also checks the matching **Secret scan** result. Fork PRs and superseded automatic revisions cannot deploy. Manual dispatch accepts only a commit on `main` with successful CI and secret scanning.
 
-Use a dedicated deployment account and restricted key. Install `.deploy/actorconsole-deploy` as its forced SSH command. The receiver accepts a full commit SHA and an archive on stdin. Server-side `ACTORCONSOLE_DEPLOY_ROOT` and `ACTORCONSOLE_COMPOSE_PROJECT` override defaults. Keep backend secrets in `shared/.env.production`. Manually select a full SHA that passed CI.
+Create a GitHub `production` environment restricted to the `main` branch. Set repository variable `ENABLE_VPS_CD=true`, variables `VPS_HOST`, `VPS_USER`, and protected environment secrets `VPS_SSH_PRIVATE_KEY`, `VPS_SSH_KNOWN_HOSTS`. Use a dedicated SSH key restricted to the forced command `.deploy/actorconsole-deploy`. Never put the server's general SSH key in GitHub.
 
-Back up before migrations and verify `/health/ready`, login, queues and a scoped workspace request after release. See [the runbook](docs/RUNBOOK.md).
+Install `.deploy/actorconsole-deploy` as `/usr/local/sbin/actorconsole-deploy` and `.deploy/verify-vps-bundle.py` as `/usr/local/lib/actorconsole/verify-vps-bundle.py`, owned by root with mode `700`. Review updates to these trusted entry points separately from application releases. Restrict the key in `authorized_keys` with `restrict,command="/usr/local/sbin/actorconsole-deploy"`.
+
+Set these public production environment variables for the image build: `NEXT_PUBLIC_SITE_URL` and the `NEXT_PUBLIC_FIREBASE_*` values from your own installation. `NEXT_PUBLIC_CHROME_EXTENSION_URL` is optional. Set `VERIFY_PUBLIC_WEB=true` after the hostname points to this VPS to enable the external revision probe.
+
+Images for API, worker, MCP and Next.js are built in GitHub Actions. The release contains source plus a compressed image archive, a full revision, SHA-256 checksums and image revision labels. The forced-command receiver validates the bundle, requires at least 4 GiB free space, loads the prebuilt images, backs up the database, applies migrations, starts the services and verifies API/web readiness. It does not build images on the VPS. The previous application's images are retained for rollback; other projects and data volumes are untouched.
+
+Keep backend secrets in `shared/.env.production`. Preserve `APP_ENCRYPTION_KEY` and existing database credentials. The receiver switches `current` only after the running web revision matches the release. Application rollback does not undo database migrations; restoring a database is a separate, explicitly reviewed maintenance operation.
+
+Use the [runbook](docs/RUNBOOK.md) to check login, queues, public pages and scoped workspace requests after release. Keep the previous frontend available until the VPS origin and DNS cutover are verified.

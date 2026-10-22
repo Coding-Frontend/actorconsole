@@ -5,10 +5,10 @@
 #   api     — Hono REST API (port 4000)
 #   worker  — BullMQ background worker
 #   mcp     — MCP server (HTTP mode, port 4100)
-#   web     — optional Next.js 15 frontend fallback (port 8080)
+#   web     — Next.js frontend (port 8080)
 # =============================================================================
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
@@ -39,9 +39,8 @@ RUN pnpm --filter @actorconsole/db generate
 # =============================================================================
 # Builders — build only the selected deployable and its workspace dependencies.
 #
-# The web app is deployed to Vercel in production, so the VPS images must not
-# require a Next.js build or Vercel-only NEXT_PUBLIC_* values. Keeping separate
-# builder stages also makes each Docker target independently cacheable.
+# Each deployable has a separate builder so backend builds do not depend on
+# browser configuration and the frontend only receives public build settings.
 # =============================================================================
 FROM install AS builder-api
 ENV NODE_ENV=production
@@ -63,13 +62,13 @@ RUN pnpm turbo run build --filter=@actorconsole/mcp
 COPY scripts/fix-esm-imports.mjs /app/scripts/fix-esm-imports.mjs
 RUN node /app/scripts/fix-esm-imports.mjs
 
-# The web target is retained as an optional all-in-one/VPS fallback. It is not
-# used by the Vercel deployment; pass NEXT_PUBLIC_API_BASE_URL when building it.
 FROM install AS builder-web
 ARG API_BASE_URL
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_APP_NAME=ActorConsole
+ARG NEXT_PUBLIC_CHROME_EXTENSION_URL
 ARG NEXT_PUBLIC_FIREBASE_API_KEY
 ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -81,6 +80,8 @@ ENV API_BASE_URL=$API_BASE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
+ENV NEXT_PUBLIC_CHROME_EXTENSION_URL=$NEXT_PUBLIC_CHROME_EXTENSION_URL
 ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
 ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -137,35 +138,12 @@ CMD ["node", "apps/mcp/dist/index.js"]
 # web — Next.js 15 frontend
 # =============================================================================
 FROM base AS web
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_API_BASE_URL
-ARG NEXT_PUBLIC_SITE_URL
-ARG NEXT_PUBLIC_FIREBASE_API_KEY
-ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
-ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-ARG NEXT_PUBLIC_FIREBASE_APP_ID
-ARG NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
-ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
-ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
-ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
-ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
-ENV NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=$NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 ENV NODE_ENV=production
-COPY --from=builder-web /app/node_modules /app/node_modules
-COPY --from=builder-web /app/package.json /app/package.json
-COPY --from=builder-web /app/pnpm-workspace.yaml /app/pnpm-workspace.yaml
-COPY --from=builder-web /app/packages /app/packages
-COPY --from=builder-web /app/apps/web /app/apps/web
-# Next.js standalone build excludes .next/static (CSS, JS chunks) and public/.
-# Copy them into the standalone output so the server can serve them.
-COPY --from=builder-web /app/apps/web/.next/static /app/apps/web/.next/standalone/apps/web/.next/static
-COPY --from=builder-web /app/apps/web/public /app/apps/web/.next/standalone/apps/web/public
+ENV HOSTNAME=0.0.0.0
+ENV PORT=8080
+COPY --from=builder-web --chown=node:node /app/apps/web/.next/standalone /app
+COPY --from=builder-web --chown=node:node /app/apps/web/.next/static /app/apps/web/.next/static
+COPY --from=builder-web --chown=node:node /app/apps/web/public /app/apps/web/public
+USER node
 EXPOSE 8080
-CMD ["node", "apps/web/.next/standalone/apps/web/server.js"]
+CMD ["node", "apps/web/server.js"]

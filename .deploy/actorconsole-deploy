@@ -1,188 +1,114 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
-# This script is installed as a forced SSH command on the production VPS. It
-# accepts a git-archive tarball on stdin and takes the requested revision from
-# SSH_ORIGINAL_COMMAND. The deploy key therefore cannot open an interactive
-# shell or run an arbitrary command on the host.
-
-# Configure these on the server/forced command, never in a tracked credential file.
+# Forced SSH command: accepts one CI-built bundle for the supplied commit SHA.
 readonly deploy_root="${ACTORCONSOLE_DEPLOY_ROOT:-/opt/actorconsole-vps}"
 readonly releases_dir="${deploy_root}/releases"
 readonly shared_dir="${deploy_root}/shared"
 readonly project_name="${ACTORCONSOLE_COMPOSE_PROJECT:-actorconsole-vps}"
-readonly lock_file="${deploy_root}/deploy.lock"
-
 revision="${SSH_ORIGINAL_COMMAND:-}"
-if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "Refusing deployment: expected a full 40-character git revision" >&2
-  exit 2
-fi
-
-for command_name in curl docker flock node mysqldump tar; do
-  command -v "$command_name" >/dev/null 2>&1 || {
-    echo "Refusing deployment: required command is unavailable: ${command_name}" >&2
-    exit 2
-  }
+[[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { echo "Expected a full commit SHA" >&2; exit 2; }
+for command_name in curl docker flock node python3 mysqldump tar; do
+  command -v "$command_name" >/dev/null || { echo "Missing command: $command_name" >&2; exit 2; }
 done
-
 mkdir -p "$releases_dir" "$shared_dir/backups"
-chmod 700 "$deploy_root" "$releases_dir" "$shared_dir"
-exec 9>"$lock_file"
-if ! flock -n 9; then
-  echo "Another ActorConsole deployment is already running" >&2
-  exit 3
-fi
-
-archive_path="$(mktemp /tmp/actorconsole-deploy.XXXXXX.tar.gz)"
-release_id="$(date -u +%Y%m%dT%H%M%SZ)-${revision:0:7}"
-release_dir="${releases_dir}/${release_id}"
+exec 9>"${deploy_root}/deploy.lock"
+flock -n 9 || { echo "Another deployment is running" >&2; exit 3; }
+bundle_dir="$(mktemp -d /tmp/actorconsole-deploy.XXXXXX)"
+release_dir="${releases_dir}/$(date -u +%Y%m%dT%H%M%SZ)-${revision:0:12}"
 previous_release="$(readlink -f "${deploy_root}/current" 2>/dev/null || true)"
 switch_started=0
-
-cleanup() {
-  rm -f "$archive_path"
-}
-
 compose_for() {
-  local target_release="$1"
-  local target_revision="$2"
-  ACTORCONSOLE_IMAGE_TAG="sha-${target_revision:0:12}" \
-    docker compose \
-      -p "$project_name" \
-      --env-file "${target_release}/.env.production" \
-      -f "${target_release}/docker-compose.vps.yml" \
-      "${@:3}"
+  ACTORCONSOLE_IMAGE_TAG="sha-${2:0:12}" ACTORCONSOLE_REVISION="$2" \
+    docker compose -p "$project_name" --env-file "$1/.env.production" \
+      -f "$1/docker-compose.vps.yml" "${@:3}"
 }
-
+cleanup() { rm -rf -- "$bundle_dir"; }
 rollback() {
-  local exit_code=$?
+  local code=$?
   trap - ERR
-  if [[ "$switch_started" == "1" && -n "$previous_release" && -d "$previous_release" ]]; then
-    previous_revision="$(tr -d '[:space:]' < "${previous_release}/REVISION" 2>/dev/null || true)"
-    if [[ "$previous_revision" =~ ^[0-9a-f]{7,40}$ ]]; then
-      echo "Deployment failed; restoring ${previous_revision:0:7}" >&2
+  if [[ "$switch_started" == 1 && -d "$previous_release" ]]; then
+    local previous_revision
+    previous_revision="$(tr -d '[:space:]' < "$previous_release/REVISION")"
+    if [[ "$previous_revision" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "Restoring previous application images; database migrations are not reversed" >&2
       compose_for "$previous_release" "$previous_revision" up -d --no-build --remove-orphans || true
-    else
-      echo "Deployment failed; previous release metadata is unavailable" >&2
     fi
   fi
-  echo "Failed release retained for diagnosis: ${release_dir}" >&2
-  exit "$exit_code"
+  echo "Deployment failed; source retained at $release_dir" >&2
+  exit "$code"
 }
-
 trap cleanup EXIT
 trap rollback ERR
-
-cat > "$archive_path"
-if [[ ! -s "$archive_path" ]]; then
-  echo "Refusing deployment: received an empty archive" >&2
-  exit 2
-fi
-if ! tar -tzf "$archive_path" docker-compose.vps.yml >/dev/null 2>&1; then
-  echo "Refusing deployment: archive does not contain docker-compose.vps.yml" >&2
-  exit 2
-fi
-
+cat > "$bundle_dir/release.tar"
 mkdir -m 700 "$release_dir"
-tar -xzf "$archive_path" --no-same-owner -C "$release_dir"
-printf '%s\n' "$revision" > "${release_dir}/REVISION"
-chmod 600 "${release_dir}/REVISION"
-
-if [[ ! -f "${shared_dir}/.env.production" ]]; then
-  echo "Refusing deployment: ${shared_dir}/.env.production is missing" >&2
-  exit 2
-fi
-if [[ -e "${release_dir}/.env.production" || -L "${release_dir}/.env.production" ]]; then
-  unlink "${release_dir}/.env.production"
-fi
-ln -s "${shared_dir}/.env.production" "${release_dir}/.env.production"
-
-echo "Validating release ${revision:0:7}"
+# Only regular files/directories with safe relative paths may enter a release.
+verify_bundle="${ACTORCONSOLE_VERIFY_BUNDLE:-/usr/local/lib/actorconsole/verify-vps-bundle.py}"
+[[ -f "$verify_bundle" ]] || { echo "Installed bundle verifier missing" >&2; exit 2; }
+python3 "$verify_bundle" "$bundle_dir" "$release_dir" "$revision"
+rm -f "$bundle_dir/release.tar"
+[[ -f "$shared_dir/.env.production" ]] || { echo "Server environment missing" >&2; exit 2; }
+ln -s "$shared_dir/.env.production" "$release_dir/.env.production"
 compose_for "$release_dir" "$revision" config --quiet
 
-database_url="$(sed -n 's/^DATABASE_URL=//p' "${shared_dir}/.env.production" | tail -n 1)"
-database_url="${database_url%\"}"
-database_url="${database_url#\"}"
-if [[ -n "$database_url" ]]; then
-  # Compose containers resolve host.docker.internal through extra_hosts, but
-  # the host-side mysqldump client must use the VPS loopback address.
-  database_url="$(BACKUP_DATABASE_URL="$database_url" node - <<'NODE'
+# Remove only obsolete ActorConsole image tags. Keep the currently running
+# release available for application rollback; never prune other stacks/volumes.
+previous_revision=""
+[[ ! -f "$previous_release/REVISION" ]] || previous_revision="$(tr -d '[:space:]' < "$previous_release/REVISION")"
+for service in api worker mcp web; do
+  while IFS= read -r image; do
+    [[ "$image" =~ :sha-[0-9a-f]{12}$ ]] || continue
+    [[ "$image" == "actorconsole-vps-${service}:sha-${previous_revision:0:12}" ]] && continue
+    [[ "$image" == "actorconsole-vps-${service}:sha-${revision:0:12}" ]] && continue
+    docker image rm "$image" || true
+  done < <(docker image ls "actorconsole-vps-$service" --format '{{.Repository}}:{{.Tag}}')
+done
+free_mb="$(df -Pm "$deploy_root" | awk 'NR==2 {print $4}')"
+if (( free_mb < 4096 )); then
+  echo "Refusing image load: less than 4 GiB free on the VPS" >&2
+  exit 2
+fi
+echo "Loading CI-built images for ${revision:0:12}"
+docker load -i "$bundle_dir/images.tar.gz"
+rm -f "$bundle_dir/images.tar.gz"
+for service in api worker mcp web; do
+  image="actorconsole-vps-${service}:sha-${revision:0:12}"
+  image_revision="$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+  [[ "$image_revision" == "$revision" ]] || { echo "Image revision mismatch: $service" >&2; exit 2; }
+done
+
+# Preserve backend secrets and take a database backup before any migration.
+database_url="$(sed -n 's/^DATABASE_URL=//p' "$shared_dir/.env.production" | tail -n 1)"
+database_url="${database_url%\"}"; database_url="${database_url#\"}"
+[[ -n "$database_url" ]] || { echo "DATABASE_URL missing" >&2; exit 2; }
+database_url="$(BACKUP_DATABASE_URL="$database_url" node - <<'NODE'
 const url = new URL(process.env.BACKUP_DATABASE_URL);
-if (url.hostname === "host.docker.internal") url.hostname = "127.0.0.1";
+if (url.hostname === 'host.docker.internal') url.hostname = '127.0.0.1';
 process.stdout.write(url.toString());
 NODE
 )"
-  echo "Creating a pre-deploy database backup"
-  DATABASE_URL="$database_url" \
-    BACKUP_DIR="${shared_dir}/backups" \
-    BACKUP_RETENTION_DAYS=14 \
-    bash "${release_dir}/scripts/backup-db.sh"
-else
-  echo "Refusing deployment: DATABASE_URL is missing" >&2
-  exit 2
-fi
-
-echo "Building release images"
-build_services=(api worker mcp)
-web_fallback=0
-profiles="$(sed -n 's/^COMPOSE_PROFILES=//p' "${shared_dir}/.env.production" | tail -n 1 | tr -d '\"\047[:space:]')"
-if [[ ",${COMPOSE_PROFILES:-$profiles}," == *,web-fallback,* ]]; then
-  build_services+=(web)
-  web_fallback=1
-fi
-compose_for "$release_dir" "$revision" build --pull "${build_services[@]}"
-
-echo "Applying database migrations and idempotent content seeds"
+DATABASE_URL="$database_url" BACKUP_DIR="$shared_dir/backups" BACKUP_RETENTION_DAYS=14 \
+  bash "$release_dir/scripts/backup-db.sh"
 compose_for "$release_dir" "$revision" run --rm --no-deps api \
   node node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma
 compose_for "$release_dir" "$revision" run --rm --no-deps api \
   node_modules/.bin/tsx scripts/seed-policies.ts
-
-echo "Starting release services"
 switch_started=1
 compose_for "$release_dir" "$revision" up -d --no-build --remove-orphans
-
-echo "Waiting for backend readiness"
+api_port="$(docker compose -p "$project_name" --env-file "$release_dir/.env.production" -f "$release_dir/docker-compose.vps.yml" port api 4000 | awk -F: '{print $NF}')"
+web_port="$(docker compose -p "$project_name" --env-file "$release_dir/.env.production" -f "$release_dir/docker-compose.vps.yml" port web 8080 | awk -F: '{print $NF}')"
 ready=0
 for _ in $(seq 1 36); do
-  if curl --fail --silent --show-error --max-time 5 \
-      http://127.0.0.1:4200/health/ready >/dev/null; then
-    if [[ "$web_fallback" == "1" ]] && ! curl --fail --silent --show-error --max-time 5 \
-        http://127.0.0.1:4202/ >/dev/null; then
-      sleep 5
-      continue
-    fi
-    ready=1
-    break
+  if curl -fsS --max-time 5 "http://127.0.0.1:$api_port/health/ready" >/dev/null && \
+     curl -fsS --max-time 5 "http://127.0.0.1:$web_port/api/health" | \
+       EXPECTED_REVISION="$revision" node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{process.exit(JSON.parse(s).revision===process.env.EXPECTED_REVISION?0:1)}catch{process.exit(1)}})'; then
+    ready=1; break
   fi
   sleep 5
 done
-if [[ "$ready" != "1" ]]; then
-  echo "Release did not become ready within three minutes" >&2
-  exit 1
-fi
-
-ln -sfn "$release_dir" "${deploy_root}/current"
+[[ "$ready" == 1 ]] || { echo "Release failed readiness checks" >&2; false; }
+ln -sfn "$release_dir" "$deploy_root/current"
 switch_started=0
-
-echo "Pruning superseded ActorConsole images"
-current_image_tag="sha-${revision:0:12}"
-for service_name in "${build_services[@]}"; do
-  repository="${project_name}-${service_name}"
-  while IFS= read -r image_name; do
-    [[ -n "$image_name" ]] || continue
-    if [[ "$image_name" != "${repository}:${current_image_tag}" ]]; then
-      docker image rm "$image_name" || \
-        echo "Warning: could not remove superseded image ${image_name}" >&2
-    fi
-  done < <(docker image ls "$repository" --format '{{.Repository}}:{{.Tag}}')
-done
-
-# BuildKit cache is disposable. Only prune when the host has less than 20 GB
-# free so repeated deployments cannot exhaust the VPS disk.
-docker builder prune --force --min-free-space 20GB || \
-  echo "Warning: could not prune Docker build cache" >&2
-
-echo "Deployment complete: ${revision}"
+echo "Deployment complete: $revision"
 compose_for "$release_dir" "$revision" ps

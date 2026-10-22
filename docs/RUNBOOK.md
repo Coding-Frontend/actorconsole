@@ -6,8 +6,9 @@ Run from your backend checkout with private `.env.production` and installation-s
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.vps.yml ps
-docker compose --env-file .env.production -f docker-compose.vps.yml logs --tail 100 api worker mcp
+docker compose --env-file .env.production -f docker-compose.vps.yml logs --tail 100 api worker mcp web
 curl --fail http://127.0.0.1:4200/health/ready
+curl --fail http://127.0.0.1:4202/api/health
 ```
 
 Adjust overridden ports. Verify worker consumption, email and a scoped workspace request. Use staging for browser tests (`E2E_BASE_URL`).

@@ -212,7 +212,7 @@ describe("BillingCard purchase choices", () => {
       expect(screen.getByRole("alert").textContent).toContain("Address service unavailable"),
     );
     expect(fetchMock).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "Continue to checkout" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Continue to checkout" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain("Checkout unavailable"),

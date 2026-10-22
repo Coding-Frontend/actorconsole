@@ -1,15 +1,20 @@
-name: Deploy backend
+name: Deploy VPS
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       revision:
-        description: Full 40-character commit SHA that passed CI
-        required: true
+        description: Full commit SHA on main that passed CI (defaults to main)
+        required: false
         type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: production-deployment
@@ -17,20 +22,61 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ vars.ENABLE_VPS_CD == 'true' }}
+    if: >-
+      vars.ENABLE_VPS_CD == 'true' &&
+      ((github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: production
+    env:
+      REVISION: ${{ inputs.revision || github.event.workflow_run.head_sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
-      - name: Validate revision
+      - name: Require a validated main revision
         env:
-          REVISION: ${{ inputs.revision }}
-        run: '[[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]'
+          AUTOMATIC: ${{ github.event_name == 'workflow_run' }}
+        run: |
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          main_sha="$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$AUTOMATIC" == true && "$main_sha" != "$REVISION" ]]; then
+            echo "A newer main revision exists; refusing a stale automatic deployment"
+            exit 1
+          fi
+          for workflow in ci.yml secrets.yml; do
+            result="$(gh api "repos/$GH_REPO/actions/workflows/$workflow/runs?head_sha=$REVISION&branch=main&event=push&per_page=20")"
+            jq -e --arg sha "$REVISION" '.workflow_runs | any(.head_sha == $sha and .conclusion == "success")' <<<"$result" >/dev/null
+          done
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.revision }}
+          ref: ${{ env.REVISION }}
+          fetch-depth: 0
           persist-credentials: false
-      - name: Configure verified host and restricted key
+      - name: Verify selected source
+        run: |
+          test "$(git rev-parse HEAD)" = "$REVISION"
+          git merge-base --is-ancestor "$REVISION" origin/main
+      - name: Build API, worker, MCP and Next.js images
+        env:
+          NEXT_PUBLIC_API_URL: /api
+          NEXT_PUBLIC_API_BASE_URL: /api
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_APP_NAME: ActorConsole
+          NEXT_PUBLIC_CHROME_EXTENSION_URL: ${{ vars.NEXT_PUBLIC_CHROME_EXTENSION_URL }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+        run: |
+          node scripts/build-vps-release.mjs
+      - name: Configure verified host and restricted deployment key
         env:
           VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
@@ -41,16 +87,20 @@ jobs:
           printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/actorconsole_deploy
           printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/actorconsole_deploy ~/.ssh/known_hosts
-      - name: Deploy selected revision
+      - name: Deploy the verified image bundle
         env:
           VPS_HOST: ${{ vars.VPS_HOST }}
           VPS_USER: ${{ vars.VPS_USER }}
-          REVISION: ${{ inputs.revision }}
         run: |
           [[ "$VPS_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
           [[ "$VPS_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_-]*$ ]]
-          test "$(git rev-parse HEAD)" = "$REVISION"
-          git archive --format=tar.gz HEAD |
-            ssh -T -i ~/.ssh/actorconsole_deploy -o BatchMode=yes \
-              -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-              "$VPS_USER@$VPS_HOST" "$REVISION"
+          ssh -T -i ~/.ssh/actorconsole_deploy -o BatchMode=yes \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" "$REVISION" < .cache/vps-release/release.tar
+      - name: Verify the public Next.js deployment
+        if: vars.VERIFY_PUBLIC_WEB == 'true'
+        env:
+          WEB_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          curl --fail --silent --show-error --retry 3 "$WEB_URL/api/health" |
+            jq -e --arg sha "$REVISION" '.status == "ok" and .service == "web" and .revision == $sha'
