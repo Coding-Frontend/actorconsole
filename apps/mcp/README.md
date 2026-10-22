@@ -19,8 +19,8 @@ After this package has been published, no repository checkout, pnpm, database,
 Redis, Apify SDK, or private npm packages are required on the client machine:
 
 ```bash
-npx -y @actorconsole/mcp@0.2.0 --help
-npx -y @actorconsole/mcp@0.2.0 --version
+npx -y @actorconsole/mcp@0.2.1 --help
+npx -y @actorconsole/mcp@0.2.1 --version
 ```
 
 Your MCP client starts the long-running stdio server using the configuration
@@ -214,6 +214,57 @@ pnpm --filter @actorconsole/mcp build
 
 ## Release to npm
 
+GitHub Actions publishes this package when a version tag such as `mcp-v0.2.1`
+is pushed. Stable versions publish to `latest`; prereleases such as
+`mcp-v0.3.0-rc.1` publish to `next`. Tags must exactly match `package.json` and
+point to a commit on `main` with successful CI and secret scanning. If the tag
+is pushed while those checks run, the release waits up to 20 minutes for them.
+
+For each release:
+
+1. Bump `apps/mcp/package.json` to a new version and update the version examples.
+2. Merge that change through a pull request to `main` and let CI pass.
+3. Tag the merged commit and push the tag:
+
+```bash
+git switch main
+git pull --ff-only
+git tag -a mcp-v0.2.1 -m "Release @actorconsole/mcp 0.2.1"
+git push origin mcp-v0.2.1
+```
+
+Only repository administrators may create or change `mcp-v*` tags. Published
+npm versions are immutable; bump the version instead of moving an old tag.
+
+The workflow runs type checks, lint, unit tests and the isolated package smoke
+test below. A separate job verifies the tested tarball's SHA-512 digest and
+publishes that exact artifact with provenance. The publish job runs no package
+scripts and receives no permanent npm token. It then verifies the registry's
+package integrity and provenance. Pull requests run packaging checks without
+publishing permissions. The VPS deployment is independent of version tags.
+
+### One-time trusted publisher setup
+
+The npm package owner must add a GitHub Actions trusted publisher in the
+[package settings](https://www.npmjs.com/package/@actorconsole/mcp/access):
+
+- GitHub owner: `Coding-Frontend`
+- Repository: `actorconsole`
+- Workflow filename: `publish-mcp.yml`
+- Environment: `npm`
+- Allow direct publishing with `npm publish`.
+
+The GitHub `npm` environment must allow only tags matching `mcp-v*`. Configure
+the repository's MCP tag rules to restrict tag creation, changes and deletion
+to administrators. Trusted publishing uses short-lived OIDC credentials; do
+not add `NPM_TOKEN` or the application's API credentials to the workflow.
+See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/).
+New trusted publisher connections must complete their first publish within
+two days. Existing npm version `0.2.0` cannot be republished; `0.2.1` is the
+first release prepared for this repository.
+
+### Local package validation and manual recovery
+
 From the repository root:
 
 ```bash
@@ -233,14 +284,14 @@ This builds and packs the release, installs it in a temporary project with only
 public runtime dependencies, and checks all 49 tools, resources, prompts, stdio,
 HTTP, audit metadata, CLI startup, and revoked credentials against a local test
 API. It preserves the tested tarball at
-`../../.cache/npm-release/actorconsole-mcp-0.2.0.tgz`.
+`../../.cache/npm-release/actorconsole-mcp-0.2.1.tgz`.
 
 Publish that exact artifact after logging in to npm with an account permitted to
 publish under the `@actorconsole` scope:
 
 ```bash
 npm login
-npm publish ../../.cache/npm-release/actorconsole-mcp-0.2.0.tgz --access public
+npm publish ../../.cache/npm-release/actorconsole-mcp-0.2.1.tgz --access public
 ```
 
 Packing rebuilds `dist` automatically. Publishing directly from this source
