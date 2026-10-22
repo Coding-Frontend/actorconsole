@@ -1,7 +1,6 @@
 services:
   # Legacy fixed-port backend stack. The production receiver uses docker-compose.vps.yml.
-  # The Next.js web app is deployed to Vercel and is
-  # intentionally not part of this Compose file.
+  # Use docker-compose.vps.yml to run Next.js together with the backend.
   # ---------------------------------------------------------------------------
   # Redis — BullMQ queue backend + caching
   # ---------------------------------------------------------------------------

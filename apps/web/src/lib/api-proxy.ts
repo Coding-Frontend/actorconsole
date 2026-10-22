@@ -76,8 +76,6 @@ export async function proxyApiRequest(request: Request, path: string[]) {
           ? `public, max-age=${PUBLIC_CACHE_SECONDS}, s-maxage=${PUBLIC_CACHE_SECONDS}, stale-while-revalidate=300`
         : "no-store",
     });
-    if (publicCacheable) responseHeaders.set("vercel-cdn-cache-control",
-      `public, s-maxage=${PUBLIC_CACHE_SECONDS}, stale-while-revalidate=300`);
     for (const name of [
       "access-control-allow-credentials",
       "access-control-allow-headers",

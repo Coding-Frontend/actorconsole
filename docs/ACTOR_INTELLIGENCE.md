@@ -15,8 +15,8 @@ ActorConsole now joins public Actor research with workspace operations. These ad
 
 ## Enable in a deployed environment
 
-1. Follow [deployment.instructions.md](../deployment.instructions.md). The direct VPS receiver backs up the database, builds API/worker/MCP images, regenerates the Prisma client and applies additive migrations on the backend. Vercel does not receive database credentials or run migrations.
-2. Deploy the compatible API/worker revision on the VPS first, then the corresponding frontend revision to Vercel, without waiting for GitHub CI/CD. The worker checks watch signals after successful catalog discovery or detail synchronization and creates inbox notifications. Workspace product-notification preferences and each watch's pause setting are respected. These alerts do not send email.
+1. Follow [deployment.instructions.md](../deployment.instructions.md). Pushes to `main` deploy the CI-built Next.js, API, worker and MCP images together after CI and secret scanning pass. The VPS receiver backs up the database and applies migrations before starting the release. Backend credentials remain on the VPS.
+2. Verify worker health after deployment. The worker checks watch signals after successful catalog discovery or detail synchronization and creates inbox notifications. Workspace product-notification preferences and each watch's pause setting are respected. These alerts do not send email.
 3. Connect Apify and synchronize Actors. Financial coverage depends on owner analytics being available for the selected period. Public catalog usage does not imply revenue.
 
 ## Data and behavior

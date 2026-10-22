@@ -67,7 +67,6 @@ describe("proxyApiRequest", () => {
     const forwarded = fetch.mock.calls[0][1].headers as Headers;
     expect([...forwarded.entries()]).toEqual([["accept", "application/json"]]);
     expect(response.headers.get("cache-control")).toContain("s-maxage=60");
-    expect(response.headers.get("vercel-cdn-cache-control")).toContain("s-maxage=60");
   });
 
   it.each(["auth/session", "account/workspace-access", "actors/costs", "public/unknown"])("never enables shared caching for %s", async (path) => {
@@ -75,7 +74,6 @@ describe("proxyApiRequest", () => {
     vi.stubGlobal("fetch", fetch);
     const response = await proxyApiRequest(new Request(`https://actorconsole.test/api/${path}`, { headers: { cookie: "session=alice" } }), path.split("/"));
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("vercel-cdn-cache-control")).toBeNull();
     expect(fetch.mock.calls[0][1].headers.get("cookie")).toBe("session=alice");
   });
 

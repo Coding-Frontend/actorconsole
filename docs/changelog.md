@@ -12,13 +12,13 @@ Save a draft before review, or select publication when saving. The existing publ
 
 ## Deployment
 
-Apply `packages/db/prisma/migrations/20261005020000_changelog_articles/migration.sql` through the VPS backend receiver before deploying the corresponding Next.js revision to Vercel. Follow [deployment.instructions.md](../deployment.instructions.md). The equivalent migration command, in the backend environment only, is:
+The VPS receiver applies `packages/db/prisma/migrations/20261005020000_changelog_articles/migration.sql` before starting the matching Next.js and backend images. Follow [deployment.instructions.md](../deployment.instructions.md). For local development, the equivalent migration command is:
 
 ```powershell
 pnpm --filter @actorconsole/db migrate:deploy
 ```
 
-Use the backend environment's existing `DATABASE_URL`; Vercel has no database credentials and does not run migrations. The migration adds article fields and a tag relation, backfills historical titles from existing text, and assigns stable `update-[id]` URLs. Existing entry text, version, date and publication status are preserved. Historical features become new releases; other types become improvements. Historical tags and richer article bodies can be assigned by an administrator.
+Use the backend environment's existing `DATABASE_URL`; database credentials remain outside the frontend. The migration adds article fields and a tag relation, backfills historical titles from existing text, and assigns stable `update-[id]` URLs. Existing entry text, version, date and publication status are preserved. Historical features become new releases; other types become improvements. Historical tags and richer article bodies can be assigned by an administrator.
 
 The legacy `GET /changelog` API remains available with its original version-grouped response. New endpoints are `GET /changelog/entries`, `GET /changelog/entries/:slug` and `GET /changelog/feed`. The listing returns complete year and matching month metadata independently of pagination.
 
