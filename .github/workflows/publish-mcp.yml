@@ -89,6 +89,12 @@ jobs:
       - name: Build, pack and test the installable tarball
         working-directory: apps/mcp
         run: npm run test:package
+      - name: Validate npm publication without publishing
+        if: github.event_name == 'push'
+        env:
+          TARBALL: ${{ steps.release.outputs.tarball }}
+          DIST_TAG: ${{ steps.release.outputs.dist-tag }}
+        run: npm publish "$GITHUB_WORKSPACE/.cache/npm-release/$TARBALL" --dry-run --access public --ignore-scripts --tag "$DIST_TAG" --registry https://registry.npmjs.org
       - name: Record the tested artifact digest
         id: digest
         env:
@@ -109,7 +115,7 @@ jobs:
     if: github.event_name == 'push' && !github.event.deleted && startsWith(github.ref, 'refs/tags/mcp-v') && github.repository == 'Coding-Frontend/actorconsole'
     needs: package
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment: npm
     permissions:
       contents: read
@@ -133,19 +139,45 @@ jobs:
         run: |
           [[ "$EXPECTED_SHA512" =~ ^[0-9a-f]{128}$ ]]
           printf '%s  %s\n' "$EXPECTED_SHA512" "release/$TARBALL" | sha512sum --check --strict
-          npm publish "release/$TARBALL" --access public --provenance --ignore-scripts --tag "$DIST_TAG" --registry https://registry.npmjs.org
+          npm publish "$GITHUB_WORKSPACE/release/$TARBALL" --access public --provenance --ignore-scripts --tag "$DIST_TAG" --registry https://registry.npmjs.org
       - name: Verify published integrity and provenance
         env:
           VERSION: ${{ needs.package.outputs.version }}
           EXPECTED_SHA512: ${{ needs.package.outputs.sha512 }}
         run: |
-          npm view "@actorconsole/mcp@$VERSION" dist --json --registry https://registry.npmjs.org > published.json
           node --input-type=module - <<'NODE'
           import assert from 'node:assert/strict';
-          import {readFileSync} from 'node:fs';
-          const dist = JSON.parse(readFileSync('published.json', 'utf8'));
+          import {setTimeout} from 'node:timers/promises';
           const expected = 'sha512-' + Buffer.from(process.env.EXPECTED_SHA512, 'hex').toString('base64');
-          assert.equal(dist.integrity, expected);
-          assert(dist.attestations?.provenance, 'Published provenance is missing');
-          console.log('Published package integrity and provenance verified.');
+          const endpoint = `https://registry.npmjs.org/@actorconsole%2fmcp/${encodeURIComponent(process.env.VERSION)}`;
+          const attempts = 60;
+          for (let attempt = 1; attempt <= attempts; attempt++) {
+            let response;
+            try {
+              response = await fetch(endpoint, {
+                headers: {'cache-control': 'no-cache'},
+                signal: AbortSignal.timeout(10000),
+              });
+            } catch (error) {
+              if (!(error instanceof TypeError) && error.name !== 'TimeoutError') throw error;
+              console.log('Registry request temporarily unavailable.');
+            }
+            if (response?.ok) {
+              const published = await response.json();
+              assert.equal(published.name, '@actorconsole/mcp');
+              assert.equal(published.version, process.env.VERSION);
+              assert.equal(published.dist.integrity, expected, 'Published tarball differs from the tested artifact');
+              if (published.dist.attestations?.provenance) {
+                console.log('Published package integrity and provenance verified.');
+                process.exit(0);
+              }
+            } else if (response) {
+              assert([404, 408, 429, 500, 502, 503, 504].includes(response.status), `Unexpected registry HTTP ${response.status}`);
+            }
+            if (attempt < attempts) {
+              console.log(`Waiting for npm processing and provenance (${attempt}/${attempts})...`);
+              await setTimeout(15000);
+            }
+          }
+          throw new Error('npm did not expose the published package with provenance within the verification window');
           NODE
