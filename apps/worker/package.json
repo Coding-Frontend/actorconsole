@@ -26,7 +26,7 @@
     "cron-parser": "^4.9.0",
     "ioredis": "^5.11.1",
     "nodemailer": "7.0.7",
-    "octokit": "^4.1.4",
+    "octokit": "^5.0.5",
     "resend": "^4.8.0"
   },
   "devDependencies": {
