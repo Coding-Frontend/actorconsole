@@ -9,6 +9,7 @@ type McpClient = {
   description: string;
   logo: string;
   logoAlt: string;
+  logoClassName?: string;
   glow: string;
 };
 
@@ -19,6 +20,7 @@ const clients: McpClient[] = [
       "Connect ActorConsole to Codex and operate your actor workspace directly from your coding agent.",
     logo: "/ai-tools-logos/codex.svg",
     logoAlt: "Codex logo",
+    logoClassName: "dark:invert",
     glow: "bg-[radial-gradient(circle_at_35%_35%,rgba(99,102,241,0.28),transparent_62%)]",
   },
   {
@@ -35,6 +37,7 @@ const clients: McpClient[] = [
       "Connect ActorConsole to Cursor and bring structured actor operations into your editor.",
     logo: "/ai-tools-logos/cursor-icon.svg",
     logoAlt: "Cursor logo",
+    logoClassName: "dark:invert",
     glow: "bg-[radial-gradient(circle_at_35%_35%,rgba(255,255,255,0.14),transparent_62%)]",
   },
 ];
@@ -83,7 +86,13 @@ export function McpHighlight() {
 
               <div className="relative z-10 flex h-full min-w-0 flex-col">
                 <div className="border-border bg-card flex h-14 w-14 items-center justify-center rounded-sm border">
-                  <Image src={client.logo} alt={client.logoAlt} width={28} height={28} />
+                  <Image
+                    src={client.logo}
+                    alt={client.logoAlt}
+                    width={28}
+                    height={28}
+                    className={client.logoClassName}
+                  />
                 </div>
 
                 <h3 className="font-display-tight text-foreground mt-10 text-3xl font-semibold sm:text-4xl">

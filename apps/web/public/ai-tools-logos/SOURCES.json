@@ -1,0 +1,83 @@
+{
+  "project": "https://github.com/lobehub/lobe-icons",
+  "revision": "ab8cbcc6ce806b923c547628132957c8a8b61509",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2023 LobeHub",
+  "licenseFile": "LICENSE.txt",
+  "licenseSource": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/LICENSE",
+  "reviewed": "2026-10-22",
+  "files": [
+    {
+      "file": "ampcode.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/amp-color.svg",
+      "gitBlob": "68848aa9bf71d180d3675f2f25fb87645b3b61b9",
+      "sha256": "6df4cced9e35703d6263d65968985e8afdff68b61358daf9cc09fa16dd9b2aad"
+    },
+    {
+      "file": "antigravity.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/antigravity-color.svg",
+      "gitBlob": "3ed10ab651023d4fa2e14f70a820a071fd83ebdb",
+      "sha256": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca"
+    },
+    {
+      "file": "claude-color.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/claude-color.svg",
+      "gitBlob": "62dc0db12dafd49c6232d9275c671237dea6a10a",
+      "sha256": "a3101f3047a119aa11825ad9369510f0c472428c8c52d420e31bc62db44a8364"
+    },
+    {
+      "file": "cline.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/cline.svg",
+      "gitBlob": "f754ea9366810c7d25b46778dda92662a1a5822b",
+      "sha256": "9003d2cdce82b016147b732abb4def60af55c348ba2cea2ba0b69a3c7d159b19"
+    },
+    {
+      "file": "codex.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/codex.svg",
+      "gitBlob": "4c648aff4a9188c36d32a706f1aa7813b8992f2c",
+      "sha256": "d08b4e824cd6727e89617f59e4737273ff53e44c1da849d016dd64dfd08b33e1"
+    },
+    {
+      "file": "cursor-icon.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/cursor.svg",
+      "gitBlob": "a5b2ee3b1edeea3785e73ed16bd0476109dce6c7",
+      "sha256": "0cb51bddf264ae108926fd554c063ef40fc1aac3c5c921ddb39ad184e4e5d0ef"
+    },
+    {
+      "file": "githubcopilot.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/githubcopilot.svg",
+      "gitBlob": "3cbf22a599ec1949030e9f6680f395ae4c00e75b",
+      "sha256": "bbc7fddc13448236e5edea8c399d2072dc40aa5da5bca07f7a2f412405c500a3"
+    },
+    {
+      "file": "goose.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/goose.svg",
+      "gitBlob": "10820907cdb7fde8bc3d9a5010c1d919b463c0a0",
+      "sha256": "8779d9a61c5b0be78a3d36cab6843ba5af86218ba2ff1b18eb918c7a8d25bb99"
+    },
+    {
+      "file": "junie.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/junie.svg",
+      "gitBlob": "2f896aee34ab5cab3b8304fec41971ae6c300938",
+      "sha256": "dded0700186377523b7b10bbb204fd3f095d1ea52fe89722cd6cc319a154e208"
+    },
+    {
+      "file": "opencode.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/opencode.svg",
+      "gitBlob": "9c4cb89eacc6245956599b957c170810677b967b",
+      "sha256": "7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302"
+    },
+    {
+      "file": "replit-color.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/replit-color.svg",
+      "gitBlob": "7a80400b84c2fd693e837b8a57b452c2f6a5542b",
+      "sha256": "7d803ffdfc0d46aec134f656fd3c8815ee936a6726295eea5173d7122007eae5"
+    },
+    {
+      "file": "windsurf.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/ab8cbcc6ce806b923c547628132957c8a8b61509/packages/static-svg/icons/windsurf.svg",
+      "gitBlob": "4df8f33c11e0a1ecfed030c1ca6b33171c76e6a5",
+      "sha256": "e3c836aae05a3741e33d5c5a38d4167aacfbb69e480d098b8b94cad8c90e0d08"
+    }
+  ]
+}

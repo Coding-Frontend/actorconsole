@@ -23,7 +23,7 @@ The `web` service starts with the backend stack and listens on loopback port 420
 
 Use `.deploy/nginx-web.conf` as a bootstrap template, retain existing TLS certificate settings, and proxy the web hostname to `127.0.0.1:4202`. Verify `/api/health` and the backend `/health/ready` before changing DNS.
 
-## Optional Pages / Vercel hosting
+## Optional Cloudflare Pages hosting
 
 For Pages, fill `.env.pages.example` with your HTTPS site/API origins and public Firebase settings; save as ignored `.env.pages.local`.
 
@@ -36,8 +36,6 @@ wrangler pages deploy apps/web/dist-pages --project-name YOUR_PAGES_PROJECT
 Never upload backend environment files. Retain generated `_worker.js` and `_routes.json`; the bounded Worker serves anonymous detail pages and legacy device compatibility. Node owns authentication and business logic.
 
 Asset retention is opt-in: set `PAGES_RETAIN_FROM` to comma-separated HTTPS origins you control or pass `--retain-from ORIGIN`. No existing ActorConsole installation is contacted by default. Use `--local-preview` for the local static preview configuration.
-
-For optional Next.js hosting, configure `.env.vercel.example`. `API_BASE_URL` is the server-side backend origin; browsers use the same-origin `/api` proxy. All backend credentials stay on the backend; Sentry upload tokens belong in the build environment.
 
 For the extension, copy `.env.extension.example` to `apps/chrome-extension/.env.local`, set origins and run `pnpm --filter @actorconsole/chrome-extension build`. JavaScript and manifest permissions follow those settings. Publish your own binary/listing and configure `NEXT_PUBLIC_CHROME_EXTENSION_URL` if needed.
 

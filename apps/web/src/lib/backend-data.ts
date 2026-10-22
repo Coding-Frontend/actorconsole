@@ -19,11 +19,11 @@ async function loadPublicData(operation: string, argsJson: string) {
   const body = await response.json();
   if (body.ok !== true) throw new Error("Invalid catalog API response");
   // Cache the encoded JSON, so Maps, Dates, and numeric wire values retain
-  // their types after Next.js persists the value across Vercel invocations.
+  // their types after Next.js persists the value between requests.
   return body.data;
 }
 
-// Collapse simultaneous cold misses inside each warm Vercel instance. Bound
+// Collapse simultaneous cold misses inside each Next.js process. Bound
 // the map; keys contain public filters only, never cookies or credentials.
 const pending = new Map<string, Promise<unknown>>();
 async function singlePublicRead(operation: string, argsJson: string) {
@@ -43,7 +43,7 @@ const cachedPublicData = cache(unstable_cache(
   { revalidate: PUBLIC_CACHE_SECONDS, tags: [PUBLIC_CATALOG_TAG] },
 ));
 
-/** Anonymous public reads reuse Vercel's Data Cache and the current render. */
+/** Anonymous public reads reuse the Next.js Data Cache and the current render. */
 export async function backendData<T>(operation: string, args: unknown[] = []): Promise<T> {
   if (!PUBLIC_CATALOG_OPERATIONS.has(operation)) throw new Error("Unknown public catalog operation");
   return decodeApiData(await cachedPublicData(operation, JSON.stringify(args))) as T;

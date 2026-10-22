@@ -139,7 +139,7 @@ export default {
         mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
       },
       fontSize: {
-        // ActorConsole type scale (see DESIGN.md)
+        // ActorConsole type scale
         caption: ["12px", { lineHeight: "18px" }],
         body: ["16px", { lineHeight: "22px" }],
         "body-lg": ["18px", { lineHeight: "24px" }],

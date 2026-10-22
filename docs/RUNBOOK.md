@@ -23,7 +23,7 @@ bash scripts/backup-db.sh
 RESTORE_CONFIRM=YES bash scripts/restore-db.sh /private/path/backup.sql.gz
 ```
 
-Apply pending migrations after restoring older data. Database commands run only on the backend. Follow [deployment instructions](../deployment.instructions.md); retain release source revisions and rebuild older images if needed. Roll back frontend bundles and compatible backend releases separately. Database restoration requires its own backup and validation of potential data loss/schema compatibility.
+Apply pending migrations after restoring older data. Database commands run only on the backend. Follow [deployment instructions](../deployment.instructions.md); retain the previous release source and image tags. The receiver restores the previous frontend and backend images together if a release fails readiness checks after switching starts. Database restoration requires its own backup and validation of potential data loss/schema compatibility.
 
 ## Credentials and incidents
 

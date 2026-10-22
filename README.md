@@ -61,7 +61,6 @@ pnpm db:seed:content
 | `.env.extension.example` | `apps/chrome-extension/.env.local`, public build settings |
 | `.env.vps.example` | Backend server `.env.production` |
 | `.env.pages.example` | Public Pages build settings |
-| `.env.vercel.example` | Optional Next.js hosting settings |
 
 Real environment files are ignored by Git and Docker. `NEXT_PUBLIC_*` values are visible in browsers. Keep backend credentials and encryption keys on the backend. Provider/workspace credentials can remain encrypted in the database; see [credential handling](docs/CREDENTIALS.md).
 
