@@ -27,7 +27,7 @@
     "ioredis": "^5.11.1",
     "nodemailer": "7.0.7",
     "octokit": "^5.0.5",
-    "resend": "^4.8.0"
+    "resend": "^6.34.1"
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",
