@@ -71,7 +71,7 @@
   "devDependencies": {
     "@actorconsole/config": "workspace:*",
     "@actorconsole/shared": "workspace:*",
-    "@types/node": "^22.20.0",
+    "@types/node": "^26.6.5",
     "esbuild": "^0.28.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",

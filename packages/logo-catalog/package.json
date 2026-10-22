@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",
-    "@types/node": "^22.20.0",
+    "@types/node": "^26.6.5",
     "typescript": "^5.9.3",
     "vitest": "^2.1.8"
   },
