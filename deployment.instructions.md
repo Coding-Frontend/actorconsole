@@ -10,7 +10,7 @@ Set `MCP_API_BASE_URL` to your public HTTPS API origin. Hosted MCP uses each cal
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.vps.yml build
-docker compose --env-file .env.production -f docker-compose.vps.yml run --rm api node node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma
+docker compose --env-file .env.production -f docker-compose.vps.yml run --rm api node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma
 docker compose --env-file .env.production -f docker-compose.vps.yml run --rm api node_modules/.bin/tsx scripts/seed-policies.ts
 docker compose --env-file .env.production -f docker-compose.vps.yml up -d
 ```

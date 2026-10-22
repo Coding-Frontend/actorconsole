@@ -91,7 +91,7 @@ NODE
 DATABASE_URL="$database_url" BACKUP_DIR="$shared_dir/backups" BACKUP_RETENTION_DAYS=14 \
   bash "$release_dir/scripts/backup-db.sh"
 compose_for "$release_dir" "$revision" run --rm --no-deps api \
-  node node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma
+  node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma
 compose_for "$release_dir" "$revision" run --rm --no-deps api \
   node_modules/.bin/tsx scripts/seed-policies.ts
 switch_started=1
