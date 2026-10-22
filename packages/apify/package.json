@@ -19,7 +19,7 @@
     "@actorconsole/shared": "workspace:*",
     "apify-client": "^2.23.4",
     "ioredis": "5.11.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",

@@ -51,7 +51,7 @@ jobs:
             result="$(gh api "repos/$GH_REPO/actions/workflows/$workflow/runs?head_sha=$REVISION&branch=main&event=push&per_page=20")"
             jq -e --arg sha "$REVISION" '.workflow_runs | any(.head_sha == $sha and .conclusion == "success")' <<<"$result" >/dev/null
           done
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.REVISION }}
           fetch-depth: 0
