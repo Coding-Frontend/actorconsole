@@ -4,7 +4,7 @@ MIT-licensed operations tooling for Apify Actor builders: Store research, review
 
 ## Repository
 
-- `apps/web`: Next.js frontend and optional Cloudflare Pages build.
+- `apps/web`: Next.js frontend.
 - `apps/api`: Hono API, authentication, billing and workspace operations.
 - `apps/worker`: BullMQ background processing and catalog synchronization.
 - `apps/mcp`: Authenticated workspace MCP server.
@@ -54,13 +54,14 @@ pnpm db:seed:content
 
 ## Environment templates
 
-| Template | Destination |
+| Template | Used for |
 | --- | --- |
-| `.env.example` | Root `.env`, local backend |
-| `.env.web.example` | `apps/web/.env.local`, local Next.js |
-| `.env.extension.example` | `apps/chrome-extension/.env.local`, public build settings |
-| `.env.vps.example` | Backend server `.env.production` |
-| `.env.pages.example` | Public Pages build settings |
+| `.env.example` | Root `.env` for the local API, worker, MCP and database |
+| `.env.web.example` | `apps/web/.env.local` for local Next.js development |
+| `.env.extension.example` | `apps/chrome-extension/.env.local` for the optional extension's public build settings |
+| `.env.vps.example` | VPS `.env.production` for production Next.js, API, worker and MCP |
+
+Local templates use localhost and development defaults. The VPS template uses production mode, container networking and HTTPS origins. Run `pnpm setup:local` for local development; use `.env.vps.example` when configuring a production server.
 
 Real environment files are ignored by Git and Docker. `NEXT_PUBLIC_*` values are visible in browsers. Keep backend credentials and encryption keys on the backend. Provider/workspace credentials can remain encrypted in the database; see [credential handling](docs/CREDENTIALS.md).
 
