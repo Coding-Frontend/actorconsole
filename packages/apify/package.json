@@ -17,7 +17,7 @@
   "dependencies": {
     "@actorconsole/db": "workspace:*",
     "@actorconsole/shared": "workspace:*",
-    "apify-client": "^2.23.4",
+    "apify-client": "^2.25.0",
     "ioredis": "5.11.1",
     "socket.io-client": "^4.8.4"
   },

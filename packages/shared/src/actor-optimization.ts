@@ -28,10 +28,7 @@ export const APIFY_ACTOR_CATEGORIES = [
 
 export type ActorOptimizationCategory = (typeof APIFY_ACTOR_CATEGORIES)[number];
 
-export type ActorOptimizationField =
-  | "title"
-  | "description"
-  | "pricing";
+export type ActorOptimizationField = "title" | "description" | "pricing";
 
 export const ACTOR_OPTIMIZATION_FIELDS = [
   "title",
@@ -65,9 +62,9 @@ export const actorListingStateSchema = z.object({
   // it a generated or approvable optimization field.
   categories: z.array(actorOptimizationCategorySchema).max(4).optional().default([]),
   readme: z.string().max(50_000),
-  inputSchema: z.record(z.unknown()).nullable().optional(),
-  outputSchema: z.record(z.unknown()).nullable().optional(),
-  keyValueStoreSchema: z.record(z.unknown()).nullable().optional(),
+  inputSchema: z.record(z.string(), z.unknown()).nullable().optional(),
+  outputSchema: z.record(z.string(), z.unknown()).nullable().optional(),
+  keyValueStoreSchema: z.record(z.string(), z.unknown()).nullable().optional(),
   pricing: actorOptimizationPricingSchema.nullable().optional(),
 });
 

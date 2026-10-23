@@ -15,7 +15,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",

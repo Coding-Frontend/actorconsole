@@ -548,7 +548,8 @@ export async function importDodoProduct(
   if (brandId && product.brand_id !== brandId) {
     throw new Error("This product does not belong to the configured Actor Console brand.");
   }
-  const amountMinor = Math.round(price.price * (1 - price.discount / 100));
+  const discountBps = price.discount_bps ?? (price.discount ?? 0) * 100;
+  const amountMinor = Math.round(price.price * (1 - discountBps / 10_000));
   if (
     !Number.isSafeInteger(amountMinor) ||
     amountMinor <= 0 ||

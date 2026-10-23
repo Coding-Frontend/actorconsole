@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { listingImprovement, scoreActorListing } from "./actor-optimization";
+import {
+  actorListingStateSchema,
+  listingImprovement,
+  scoreActorListing,
+} from "./actor-optimization";
+
+describe("actor listing schema", () => {
+  it("preserves arbitrary nested JSON schemas and optional listing fields", () => {
+    const inputSchema = { type: "object", properties: { urls: { type: "array" } }, required: [] };
+    const listing = { title: "Scraper", description: "Gets data", readme: "", inputSchema };
+    expect(actorListingStateSchema.parse(listing)).toEqual({ ...listing, categories: [] });
+    expect(actorListingStateSchema.parse({ ...listing, inputSchema: null }).inputSchema).toBeNull();
+    expect(actorListingStateSchema.safeParse({ ...listing, inputSchema: [] }).success).toBe(false);
+  });
+});
 
 describe("actor listing optimization scoring", () => {
   it("scores complete, structured listings higher than sparse listings", () => {
