@@ -2,7 +2,7 @@
 
 Use your own server, MySQL/MariaDB database, provider accounts and domains. Next.js, API, worker, MCP and Redis run with Compose on the VPS. MySQL/MariaDB remains on the database host configured in the private server environment.
 
-## Backend
+## Production environment
 
 Copy `.env.vps.example` to private server-side `.env.production` (`chmod 600` on Linux). Configure database/Redis URLs, `AUTH_URL`, `CORS_ORIGINS`, `SUPPORT_EMAIL`, provider credentials and independent random `AUTH_SECRET`, `ADMIN_API_KEY`, `APP_ENCRYPTION_KEY`. Generate each separately with `openssl rand -hex 32`. Preserve an existing encryption key when moving configuration.
 
@@ -23,19 +23,7 @@ The `web` service starts with the backend stack and listens on loopback port 420
 
 Use `.deploy/nginx-web.conf` as a bootstrap template, retain existing TLS certificate settings, and proxy the web hostname to `127.0.0.1:4202`. Verify `/api/health` and the backend `/health/ready` before changing DNS.
 
-## Optional Cloudflare Pages hosting
-
-For Pages, fill `.env.pages.example` with your HTTPS site/API origins and public Firebase settings; save as ignored `.env.pages.local`.
-
-```bash
-node scripts/build-pages.mjs --env-file .env.pages.local
-# Install Wrangler and authenticate to your own Cloudflare account first:
-wrangler pages deploy apps/web/dist-pages --project-name YOUR_PAGES_PROJECT
-```
-
-Never upload backend environment files. Retain generated `_worker.js` and `_routes.json`; the bounded Worker serves anonymous detail pages and legacy device compatibility. Node owns authentication and business logic.
-
-Asset retention is opt-in: set `PAGES_RETAIN_FROM` to comma-separated HTTPS origins you control or pass `--retain-from ORIGIN`. No existing ActorConsole installation is contacted by default. Use `--local-preview` for the local static preview configuration.
+## Optional Chrome extension
 
 For the extension, copy `.env.extension.example` to `apps/chrome-extension/.env.local`, set origins and run `pnpm --filter @actorconsole/chrome-extension build`. JavaScript and manifest permissions follow those settings. Publish your own binary/listing and configure `NEXT_PUBLIC_CHROME_EXTENSION_URL` if needed.
 
