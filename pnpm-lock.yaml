@@ -108,8 +108,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       nodemailer:
-        specifier: 7.0.7
-        version: 7.0.7
+        specifier: 10.0.10
+        version: 10.0.10
       octokit:
         specifier: ^5.0.5
         version: 5.0.5
@@ -425,8 +425,8 @@ importers:
         specifier: 5.11.1
         version: 5.11.1
       nodemailer:
-        specifier: 7.0.7
-        version: 7.0.7
+        specifier: 10.0.10
+        version: 10.0.10
       octokit:
         specifier: ^5.0.5
         version: 5.0.5
@@ -5840,9 +5840,9 @@ packages:
     resolution: {integrity: sha512-OmO8+GM1JUZqXET720VrJCwkjUCXmCMQm0Z3UDDRbfNLHS4NEAvY60j5jiFv0tkKw2PNNlqOLhahVmwJIOLDIQ==}
     engines: {node: '>=18'}
 
-  nodemailer@7.0.7:
-    resolution: {integrity: sha512-jGOaRznodf62TVzdyhKt/f1Q/c3kYynk8629sgJHpRzGZj01ezbgMMWJSAjHADcwTKxco3B68/R+KHJY2T5BaA==}
-    engines: {node: '>=6.0.0'}
+  nodemailer@10.0.10:
+    resolution: {integrity: sha512-He9XskOFms62SyAKkLu8CcGcYHAo+BSHSsORI8s4PJH8qZgZY4L4lDfvyN0twvmbpyG+eGrxpyBlskj9d9rJ8A==}
+    engines: {node: '>=20.0.0'}
 
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
@@ -13327,7 +13327,7 @@ snapshots:
 
   node-releases@2.0.60: {}
 
-  nodemailer@7.0.7: {}
+  nodemailer@10.0.10: {}
 
   normalize-path@3.0.0: {}
 
