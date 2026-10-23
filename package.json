@@ -58,7 +58,7 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tsx": "^4.23.15",
     "turbo": "^2.11.9",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^2.1.8"
   },
   "license": "MIT"
