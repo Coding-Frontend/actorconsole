@@ -9,7 +9,7 @@ updates:
       # Match the Node 22 runtime in Docker and CI.
       - dependency-name: "@types/node"
         versions: [">=23"]
-      # Plugin 6 requires Vite 8; the application currently uses Vite 6.
+      # Plugin 6 requires Vite 8; the web tests currently use Vite 6.
       - dependency-name: "@vitejs/plugin-react"
         versions: [">=6"]
       # BullMQ 5 depends on ioredis 5; v6 changes the default wire protocol.
