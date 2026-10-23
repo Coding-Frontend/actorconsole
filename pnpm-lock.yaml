@@ -331,9 +331,6 @@ importers:
       '@actorconsole/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@babel/parser':
-        specifier: ^7.28.5
-        version: 7.29.7
       '@next/eslint-plugin-next':
         specifier: ^15.5.19
         version: 15.5.19
