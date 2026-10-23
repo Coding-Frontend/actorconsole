@@ -1,6 +1,7 @@
 // Sentry server-side config for the Next.js app.
 // Loaded automatically by @sentry/nextjs when SENTRY_DSN is set.
 import * as Sentry from "@sentry/nextjs";
+import { sentryDataCollection } from "./src/lib/sentry-privacy";
 
 const dsn = process.env.SENTRY_DSN;
 if (dsn) {
@@ -12,6 +13,6 @@ if (dsn) {
       ? Number(process.env.SENTRY_TRACES_SAMPLE_RATE)
       : 0.1,
     serverName: "actorconsole-web",
-    sendDefaultPii: false,
+    dataCollection: sentryDataCollection,
   });
 }

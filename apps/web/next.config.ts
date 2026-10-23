@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -81,7 +81,6 @@ export default sentryAuthToken
       authToken: sentryAuthToken,
       silent: !process.env.CI,
       widenClientFileUpload: true,
-      hideSourceMaps: true,
-      disableLogger: true,
+      webpack: { treeshake: { removeDebugLogging: true } },
     })
   : nextConfig;

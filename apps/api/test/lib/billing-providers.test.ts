@@ -373,32 +373,41 @@ describe("Pro billing intervals", () => {
     );
   });
 
-  it("imports the Dodo recurring price and preserves the other billing option", async () => {
-    settings.dodo_product_id_pro_year = "yearly_product";
-    settings.dodo_brand_id = "brnd_actor_console";
-    mockProductRetrieve.mockResolvedValue({
-      product_id: "prod_month",
-      name: "Actor Console Pro",
-      brand_id: "brnd_actor_console",
-      is_recurring: true,
-      price: {
-        type: "recurring_price",
-        price: 1900,
-        currency: "USD",
-        discount: 10,
-        payment_frequency_count: 1,
-        payment_frequency_interval: "Month",
-        subscription_period_count: 1,
-        subscription_period_interval: "Month",
-      },
-    });
-    await importDodoProduct("prod_month", "month");
-    expect(settings.dodo_product_id_pro_year).toBe("yearly_product");
-    expect(await gatewayBillingOptions("dodo")).toEqual([
-      { interval: "month", amountMinor: 1710, currency: "USD" },
-      { interval: "year" },
-    ]);
-  });
+  it.each([
+    { discount: { discount: 10 }, amountMinor: 1710 },
+    { discount: {}, amountMinor: 1900 },
+    { discount: { discount_bps: 1250, discount: 13 }, amountMinor: 1663 },
+    { discount: { discount_bps: 0, discount: 10 }, amountMinor: 1900 },
+    { discount: { discount_bps: null, discount: 10 }, amountMinor: 1710 },
+  ])(
+    "imports the Dodo recurring price and preserves the other billing option: %j",
+    async ({ discount, amountMinor }) => {
+      settings.dodo_product_id_pro_year = "yearly_product";
+      settings.dodo_brand_id = "brnd_actor_console";
+      mockProductRetrieve.mockResolvedValue({
+        product_id: "prod_month",
+        name: "Actor Console Pro",
+        brand_id: "brnd_actor_console",
+        is_recurring: true,
+        price: {
+          type: "recurring_price",
+          price: 1900,
+          currency: "USD",
+          ...discount,
+          payment_frequency_count: 1,
+          payment_frequency_interval: "Month",
+          subscription_period_count: 1,
+          subscription_period_interval: "Month",
+        },
+      });
+      await importDodoProduct("prod_month", "month");
+      expect(settings.dodo_product_id_pro_year).toBe("yearly_product");
+      expect(await gatewayBillingOptions("dodo")).toEqual([
+        { interval: "month", amountMinor, currency: "USD" },
+        { interval: "year" },
+      ]);
+    },
+  );
 
   it.each([
     { price: { type: "one_time_price" } },
