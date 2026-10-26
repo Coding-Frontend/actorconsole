@@ -1,3 +1,5 @@
+import { buildDailyPortfolioTrends } from "@actorconsole/shared/builder-history";
+export { buildDailyPortfolioTrends };
 
 import { getPublicActor } from "@actorconsole/apify";
 import { getPublicActorStoreRating } from "./public-actor-content.js";
@@ -75,6 +77,11 @@ const PUBLIC_CATALOG_ACTOR_WHERE = {
   apifyActorId: { not: { contains: "/" } },
 } satisfies Prisma.StoreActorWhereInput;
 
+// Retired listings retain their recorded history; they never enter current rankings.
+const HISTORICAL_CATALOG_ACTOR_WHERE = {
+  apifyActorId: { not: { contains: "/" } },
+} satisfies Prisma.StoreActorWhereInput;
+
 type SnapshotPoint = {
   capturedAt: Date;
   runs30d: number | null;
@@ -84,6 +91,8 @@ type SnapshotPoint = {
 };
 
 type StoreActorRow = {
+  isPublic: boolean;
+  isDeprecated: boolean;
   id: string;
   apifyActorId: string;
   username: string;
@@ -117,6 +126,7 @@ type StoreActorRow = {
   pricingInfos: Prisma.JsonValue | null;
   firstSeenAt: Date;
   detailsSyncedAt: Date | null;
+  detailsSyncError: string | null;
   lastSeenAt: Date;
   updatedAt: Date;
   snapshots?: Array<{
@@ -172,6 +182,7 @@ export interface BuilderActorEntry {
 export type BuilderMetricRanks = Record<BuilderMetric, number>;
 
 export interface BuilderProfile {
+  isAvailable?: boolean;
   earnings?: EarningsRollup;
   username: string;
   name: string | null;
@@ -225,6 +236,7 @@ export interface BuilderActorPricing {
 }
 
 export interface BuilderActorDetail extends BuilderActorEntry {
+  isAvailable?: boolean;
   username: string;
   ownerName: string | null;
   ownerPictureUrl: string | null;
@@ -461,7 +473,7 @@ function toSnapshotPoints(actor: StoreActorRow): SnapshotPoint[] {
   }
   return [
     {
-      capturedAt: actor.updatedAt,
+      capturedAt: actor.lastSeenAt,
       runs30d: actor.runs30Days,
       totalRuns: actor.totalRuns,
       totalUsers: actor.totalUsers,
@@ -485,16 +497,7 @@ export function effectiveActorPicture(input: {
   };
 }
 
-type SnapshotMetrics = {
-  users30Days: number | null;
-  runs30Days: number | null;
-};
-
-function actorEntry(
-  actor: StoreActorRow,
-  window: BuilderWindow,
-  snapshotMetrics?: SnapshotMetrics,
-): BuilderActorEntry {
+function actorEntry(actor: StoreActorRow, window: BuilderWindow): BuilderActorEntry {
   const { effectivePictureUrl, pictureSource } = effectiveActorPicture({
     actorPictureUrl: actor.pictureUrl,
     websiteLogoId: actor.websiteIdentity?.currentLogoId ?? null,
@@ -516,15 +519,12 @@ function actorEntry(
           canonicalDomain: actor.websiteIdentity.canonicalDomain,
         }
       : null,
-    activeUsers:
-      window === 30 && snapshotMetrics?.users30Days != null
-        ? snapshotMetrics.users30Days
-        : activeUsersForWindow(actor, window),
+    activeUsers: activeUsersForWindow(actor, window),
     users7Days: actor.users7Days ?? 0,
-    users30Days: snapshotMetrics?.users30Days ?? actor.users30Days ?? 0,
+    users30Days: actor.users30Days ?? 0,
     users90Days: actor.users90Days ?? 0,
     totalUsers: actor.totalUsers ?? 0,
-    runs30Days: snapshotMetrics?.runs30Days ?? actor.runs30Days ?? 0,
+    runs30Days: actor.runs30Days ?? 0,
     totalRuns: actor.totalRuns ?? 0,
     rating: actor.reviewRating,
     reviewCount: actor.reviewCount ?? 0,
@@ -535,6 +535,8 @@ function actorEntry(
 }
 
 const actorCoreSelect = {
+  isPublic: true,
+  isDeprecated: true,
   id: true,
   apifyActorId: true,
   username: true,
@@ -570,6 +572,7 @@ const actorCoreSelect = {
   pricingInfos: true,
   firstSeenAt: true,
   detailsSyncedAt: true,
+  detailsSyncError: true,
   lastSeenAt: true,
   updatedAt: true,
 } satisfies Prisma.StoreActorSelect;
@@ -609,7 +612,7 @@ async function getAggregatedBuilderValues(window: BuilderWindow) {
         runs30Days: true,
         totalRuns: true,
       },
-      _max: { updatedAt: true },
+      _max: { lastSeenAt: true },
     }),
     db.storeActor.groupBy({
       by: ["username"],
@@ -636,7 +639,7 @@ async function getAggregatedBuilderValues(window: BuilderWindow) {
     recentRuns: group._sum.runs30Days ?? 0,
     totalRuns: group._sum.totalRuns ?? 0,
     newActorCount: newActorCounts.get(group.username) ?? 0,
-    lastUpdatedAt: group._max.updatedAt ?? new Date(0),
+    lastUpdatedAt: group._max.lastSeenAt ?? new Date(0),
     rank: 0,
   }));
 }
@@ -705,7 +708,7 @@ export async function getBuilderComparisonHistory(usernames: string[], window: B
   const history = new Map<string, BuilderProfile["trendChart"]>();
   if (!requested.length) return history;
   const today = startOfUtcDay(new Date());
-  const where = { ...PUBLIC_CATALOG_ACTOR_WHERE, username: { in: requested } };
+  const where = { ...HISTORICAL_CATALOG_ACTOR_WHERE, username: { in: requested } };
   const [snapshots, actors, sync] = await Promise.all([
     db.storeActorSnapshot.findMany({
       where: { storeActor: where, capturedAt: { gte: windowCutoff(window) } },
@@ -719,8 +722,8 @@ export async function getBuilderComparisonHistory(usernames: string[], window: B
       },
     }),
     db.storeActor.findMany({
-      where: { ...where, lastSeenAt: { gte: today } },
-      select: { id: true, username: true, firstSeenAt: true },
+      where,
+      select: { id: true, username: true, firstSeenAt: true, lastSeenAt: true },
     }),
     db.storeCatalogSync.findFirst({
       where: { operation: "SEARCH_FULL", status: "COMPLETED", completedAt: { gte: today } },
@@ -736,7 +739,11 @@ export async function getBuilderComparisonHistory(usernames: string[], window: B
         window,
         actors
           .filter((actor) => actor.username === username)
-          .map((actor) => ({ storeActorId: actor.id, firstSeenAt: actor.firstSeenAt })),
+          .map((actor) => ({
+            storeActorId: actor.id,
+            firstSeenAt: actor.firstSeenAt,
+            lastSeenAt: actor.lastSeenAt,
+          })),
         { currentDayComplete: Boolean(sync?.completedAt) },
       ),
     );
@@ -1032,100 +1039,6 @@ function actorPortfolioOrderBy(sort: BuilderActorSort, window: BuilderWindow) {
   return orders[sort];
 }
 
-export function buildDailyPortfolioTrends(
-  rows: Array<{
-    storeActorId: string;
-    capturedAt: Date;
-    users30Days: number | null;
-    runs30Days: number | null;
-  }>,
-  window: BuilderWindow,
-  actorAvailability: Array<{ storeActorId: string; firstSeenAt: Date }>,
-  options: { currentDayComplete?: boolean } = {},
-) {
-  // Never substitute the current rolling Store aggregate for a missing daily
-  // snapshot. It can contain a different coverage set while a full catalog
-  // sync is still running, which creates a false spike in the last bar.
-  const latestActorDay = new Map<string, { users: number; runs: number; capturedAt: number }>();
-  for (const row of rows) {
-    const date = startOfUtcDay(row.capturedAt).toISOString().slice(0, 10);
-    const key = `${row.storeActorId}:${date}`;
-    const capturedAt = row.capturedAt.getTime();
-    const current = latestActorDay.get(key);
-    if (!current || capturedAt >= current.capturedAt) {
-      latestActorDay.set(key, {
-        users: row.users30Days ?? 0,
-        runs: row.runs30Days ?? 0,
-        capturedAt,
-      });
-    }
-  }
-
-  const cutoff = windowCutoff(window);
-  const availabilityByActor = new Map(
-    actorAvailability.map((actor) => [
-      actor.storeActorId,
-      startOfUtcDay(actor.firstSeenAt).getTime(),
-    ]),
-  );
-  const actorIds = [...availabilityByActor.keys()];
-  const currentDay = startOfUtcDay(new Date()).toISOString().slice(0, 10);
-  return Array.from({ length: window }, (_, index) => {
-    const date = new Date(cutoff);
-    date.setUTCDate(cutoff.getUTCDate() + index);
-    const key = date.toISOString().slice(0, 10);
-    const expectedActorCount = actorIds.filter(
-      (actorId) => (availabilityByActor.get(actorId) ?? Number.POSITIVE_INFINITY) <= date.getTime(),
-    ).length;
-    const observedToday = new Set<string>();
-    const observedValues: Array<{ users: number; runs: number }> = [];
-    for (const actorId of actorIds) {
-      const point = latestActorDay.get(`${actorId}:${key}`);
-      if (point) {
-        observedToday.add(actorId);
-        observedValues.push({ users: point.users, runs: point.runs });
-      }
-    }
-    const hasCompleteDailySnapshot =
-      expectedActorCount > 0 &&
-      observedToday.size === expectedActorCount &&
-      (key !== currentDay || options.currentDayComplete === true);
-    const observedTotal = hasCompleteDailySnapshot
-      ? observedValues.reduce(
-          (sum, point) => ({ users: sum.users + point.users, runs: sum.runs + point.runs }),
-          { users: 0, runs: 0 },
-        )
-      : null;
-    return {
-      date: key,
-      observed: hasCompleteDailySnapshot,
-      users: observedTotal?.users ?? null,
-      runs: observedTotal?.runs ?? null,
-    };
-  });
-}
-
-function snapshotMetricsForDay(
-  rows: Array<{
-    storeActorId: string;
-    capturedAt: Date;
-    users30Days: number | null;
-    runs30Days: number | null;
-  }>,
-  date: string | undefined,
-) {
-  const metrics = new Map<string, SnapshotMetrics>();
-  if (!date) return metrics;
-  for (const row of rows) {
-    if (startOfUtcDay(row.capturedAt).toISOString().slice(0, 10) !== date) continue;
-    metrics.set(row.storeActorId, {
-      users30Days: row.users30Days,
-      runs30Days: row.runs30Days,
-    });
-  }
-  return metrics;
-}
-
 function buildDailyActorTrend(points: SnapshotPoint[], window: BuilderWindow) {
   const latestByDay = new Map<string, SnapshotPoint>();
   for (const point of points) {
@@ -1171,7 +1084,8 @@ export async function getBuilderProfile(
   const actorSort = options.actorSort ?? "active-users";
   const allBuilders = await getAggregatedBuilders("monthly-users", window);
   const aggregate = allBuilders.find((entry) => entry.username === username);
-  if (!aggregate) return null;
+  // Official Apify portfolios are outside the builder leaderboard's scope.
+  if (!aggregate && username === "apify") return null;
 
   const cutoff = windowCutoff(window);
   const baseline = await catalogBaseline();
@@ -1205,21 +1119,21 @@ export async function getBuilderProfile(
       select: { categories: true },
     }),
     db.storeActor.findFirst({
-      where: { username, ...PUBLIC_CATALOG_ACTOR_WHERE },
-      orderBy: [{ users30Days: "desc" }, { totalUsers: "desc" }],
+      where: { username, ...HISTORICAL_CATALOG_ACTOR_WHERE },
+      orderBy: [{ isPublic: "desc" }, { users30Days: "desc" }, { totalUsers: "desc" }],
       select: { ownerName: true, ownerPictureUrl: true },
     }),
     db.storeActor.findMany({
       where: {
         username,
-        ...PUBLIC_CATALOG_ACTOR_WHERE,
+        ...HISTORICAL_CATALOG_ACTOR_WHERE,
         ...newlyPublishedWhere(cutoff, baseline),
       },
       select: { firstPublishedAt: true, apifyCreatedAt: true, firstSeenAt: true },
     }),
     db.storeActorSnapshot.findMany({
       where: {
-        storeActor: { username, ...PUBLIC_CATALOG_ACTOR_WHERE },
+        storeActor: { username, ...HISTORICAL_CATALOG_ACTOR_WHERE },
         capturedAt: { gte: cutoff },
       },
       orderBy: { capturedAt: "asc" },
@@ -1242,14 +1156,13 @@ export async function getBuilderProfile(
     db.storeActor.findMany({
       where: {
         username,
-        ...PUBLIC_CATALOG_ACTOR_WHERE,
-        // Coverage is compared with the current Store catalog, not stale
-        // sitemap-only history that has no metric snapshot for today.
-        lastSeenAt: { gte: currentCatalogDay },
+        ...HISTORICAL_CATALOG_ACTOR_WHERE,
       },
-      select: { id: true, firstSeenAt: true },
+      select: { id: true, firstSeenAt: true, lastSeenAt: true },
     }),
   ]);
+
+  if (!aggregate && !profileActor) return null;
 
   const actorPageCount = Math.max(1, Math.ceil(actorTotal / actorPageSize));
   const actorPage = Math.max(1, Math.min(options.actorPage ?? 1, actorPageCount));
@@ -1266,7 +1179,11 @@ export async function getBuilderProfile(
   const trendChart = buildDailyPortfolioTrends(
     snapshotRows,
     window,
-    trendActors.map((actor) => ({ storeActorId: actor.id, firstSeenAt: actor.firstSeenAt })),
+    trendActors.map((actor) => ({
+      storeActorId: actor.id,
+      firstSeenAt: actor.firstSeenAt,
+      lastSeenAt: actor.lastSeenAt,
+    })),
     { currentDayComplete: Boolean(latestFullCatalogSync?.completedAt) },
   );
   const validUserTrends = trendChart.filter(
@@ -1279,42 +1196,32 @@ export async function getBuilderProfile(
   const lastUserTrend = validUserTrends.at(-1);
   const firstRunTrend = validRunTrends[0];
   const lastRunTrend = validRunTrends.at(-1);
-  const latestVerifiedDate = lastUserTrend?.date ?? lastRunTrend?.date;
-  const latestVerifiedSnapshotMetrics = snapshotMetricsForDay(snapshotRows, latestVerifiedDate);
-  const latestVerifiedSnapshotAt = snapshotRows
-    .filter(
-      (row) => startOfUtcDay(row.capturedAt).toISOString().slice(0, 10) === latestVerifiedDate,
-    )
-    .reduce<Date | null>(
-      (latest, row) => (!latest || row.capturedAt > latest ? row.capturedAt : latest),
-      null,
-    );
-  const useVerifiedWindowMetrics = window === 30 && lastUserTrend?.users != null;
-  const profileActiveUsers = useVerifiedWindowMetrics ? lastUserTrend.users : aggregate.activeUsers;
-  const profileRecentRuns =
-    useVerifiedWindowMetrics && lastRunTrend?.runs != null
-      ? lastRunTrend.runs
-      : aggregate.recentRuns;
+  const currentObservationDate = aggregate?.lastUpdatedAt.toISOString().slice(0, 10);
 
   return {
     username,
-    earnings: aggregate.earnings,
+    isAvailable: Boolean(aggregate),
+    earnings: aggregate?.earnings,
     name: ownerDisplayName(profileActor?.ownerName, username),
     bio: null,
     pictureUrl: profileActor?.ownerPictureUrl ?? null,
     apifyUrl: `https://apify.com/${username}`,
-    actorCount: aggregate.actorCount,
-    activeUsers: profileActiveUsers,
-    totalUsers: aggregate.totalUsers,
-    recentRuns: profileRecentRuns,
-    totalRuns: aggregate.totalRuns,
-    newActorCount: aggregate.newActorCount,
-    ranks: rankMapFor(aggregate, allBuilders),
+    actorCount: aggregate?.actorCount ?? 0,
+    activeUsers: aggregate?.activeUsers ?? 0,
+    totalUsers: aggregate?.totalUsers ?? 0,
+    recentRuns: aggregate?.recentRuns ?? 0,
+    totalRuns: aggregate?.totalRuns ?? 0,
+    newActorCount: aggregate?.newActorCount ?? 0,
+    ranks: aggregate
+      ? rankMapFor(aggregate, allBuilders)
+      : (Object.fromEntries(BUILDER_METRICS.map(({ value }) => [value, 0])) as BuilderMetricRanks),
     totalBuilders: allBuilders.length,
     lastUpdatedAt:
-      useVerifiedWindowMetrics && latestVerifiedSnapshotAt
-        ? latestVerifiedSnapshotAt
-        : aggregate.lastUpdatedAt,
+      aggregate?.lastUpdatedAt ??
+      trendActors.reduce(
+        (latest, actor) => (actor.lastSeenAt > latest ? actor.lastSeenAt : latest),
+        new Date(0),
+      ),
     window,
     publishingChart: buildPublishingChart(
       publicationRows.map(
@@ -1323,13 +1230,7 @@ export async function getBuilderProfile(
       window,
     ),
     trendChart,
-    actors: actors.map((actor) =>
-      actorEntry(
-        actor as StoreActorRow,
-        window,
-        useVerifiedWindowMetrics ? latestVerifiedSnapshotMetrics.get(actor.id) : undefined,
-      ),
-    ),
+    actors: actors.map((actor) => actorEntry(actor as StoreActorRow, window)),
     actorPage,
     actorPageCount,
     actorTotal,
@@ -1341,11 +1242,20 @@ export async function getBuilderProfile(
     },
     changes: {
       users:
-        firstUserTrend && lastUserTrend && firstUserTrend.date !== lastUserTrend.date
+        window === 30 &&
+        firstUserTrend &&
+        lastUserTrend &&
+        lastUserTrend.date === currentObservationDate &&
+        lastUserTrend.users === aggregate?.activeUsers &&
+        firstUserTrend.date !== lastUserTrend.date
           ? lastUserTrend.users - firstUserTrend.users
           : null,
       runs:
-        firstRunTrend && lastRunTrend && firstRunTrend.date !== lastRunTrend.date
+        firstRunTrend &&
+        lastRunTrend &&
+        lastRunTrend.date === currentObservationDate &&
+        lastRunTrend.runs === aggregate?.recentRuns &&
+        firstRunTrend.date !== lastRunTrend.date
           ? lastRunTrend.runs - firstRunTrend.runs
           : null,
     },
@@ -1358,7 +1268,7 @@ export async function getBuilderActorDetail(
   window: BuilderWindow = 30,
 ): Promise<BuilderActorDetail | null> {
   const actor = await db.storeActor.findFirst({
-    where: { username, actorName, ...PUBLIC_CATALOG_ACTOR_WHERE },
+    where: { username, actorName, ...HISTORICAL_CATALOG_ACTOR_WHERE },
     select: actorSelect,
   });
   if (!actor) return null;
@@ -1370,10 +1280,13 @@ export async function getBuilderActorDetail(
   // for five minutes, so this does not turn normal page views into an API
   // crawl. If the Store is unavailable, the durable catalog record remains a
   // complete fallback.
-  const [publicActor, storeRating] = await Promise.all([
-    optionalWithin(getPublicActor(`${username}/${actorName}`), 3_000),
-    optionalWithin(getPublicActorStoreRating(username, actorName), 3_000),
-  ]);
+  const isAvailable = actor.isPublic && !actor.isDeprecated;
+  const [publicActor, storeRating] = isAvailable
+    ? await Promise.all([
+        optionalWithin(getPublicActor(`${username}/${actorName}`), 3_000),
+        optionalWithin(getPublicActorStoreRating(username, actorName), 3_000),
+      ])
+    : [null, null];
 
   const activeUsersOrder =
     window === 7
@@ -1406,11 +1319,14 @@ export async function getBuilderActorDetail(
 
   return {
     ...base,
-    earnings: estimateActorEarnings({
-      pricingInfos: livePricing ?? actor.pricingInfos,
-      runs30Days: currentRuns30Days,
-      users30Days: currentUsers30Days,
-    }),
+    isAvailable,
+    earnings: isAvailable
+      ? estimateActorEarnings({
+          pricingInfos: livePricing ?? actor.pricingInfos,
+          runs30Days: currentRuns30Days,
+          users30Days: currentUsers30Days,
+        })
+      : undefined,
     title: publicActor?.title ?? base.title,
     description: publicActor?.description ?? base.description,
     pictureUrl: publicActor?.pictureUrl ?? base.pictureUrl,
@@ -1440,7 +1356,7 @@ export async function getBuilderActorDetail(
     modifiedAt: publicActor?.modifiedAt ? new Date(publicActor.modifiedAt) : actor.apifyModifiedAt,
     firstSeenAt: actor.firstSeenAt,
     lastSeenAt: actor.lastSeenAt,
-    detailsSyncedAt: actor.detailsSyncedAt,
+    detailsSyncedAt: actor.detailsSyncError ? null : actor.detailsSyncedAt,
     bookmarks: publicStats?.bookmarkCount ?? actor.bookmarkCount ?? 0,
     categories: publicActor?.categories ?? jsonStringArray(actor.categories),
     metaLabels: publicActor?.metaLabels ?? jsonStringArray(actor.metaLabels),

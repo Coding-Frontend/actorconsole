@@ -7,6 +7,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./builder-history": {
+      "types": "./dist/builder-history.d.ts",
+      "import": "./dist/builder-history.js"
+    },
     "./default-dashboard": {
       "types": "./dist/default-dashboard.d.ts",
       "import": "./dist/default-dashboard.js"

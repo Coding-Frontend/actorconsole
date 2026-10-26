@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ApifyClientWrapper } from "@actorconsole/apify";
+import { ApifyClientError, type ApifyClientWrapper } from "@actorconsole/apify";
 import {
   needsDailyStoreCatalogCatchup,
   syncStoreActorDetails,
@@ -9,7 +9,16 @@ import {
 function databaseMock() {
   const storeActor = {
     findMany: vi.fn().mockResolvedValue([]),
-    findUnique: vi.fn().mockResolvedValue({ id: "row-1", apifyActorId: "actor-1", username: "alice", actorName: "one", isPublic: true, _count: { watches: 0 } }),
+    findUnique: vi
+      .fn()
+      .mockResolvedValue({
+        id: "row-1",
+        apifyActorId: "actor-1",
+        username: "alice",
+        actorName: "one",
+        isPublic: true,
+        _count: { watches: 0 },
+      }),
     createMany: vi.fn().mockResolvedValue({ count: 0 }),
     update: vi.fn().mockResolvedValue({}),
     count: vi.fn().mockResolvedValue(0),
@@ -31,6 +40,51 @@ function databaseMock() {
 }
 
 describe("Apify Store catalog synchronization", () => {
+  it.each([null, new ApifyClientError("not_found", "Actor was not found", { status: 404 })])(
+    "retires an unavailable immutable Actor without deleting its history or refreshing its success date (%s)",
+    async (response) => {
+      const database = databaseMock();
+      database.storeActor.findMany.mockResolvedValueOnce([
+        { id: "row-1", apifyActorId: "actor-1" },
+      ]);
+      const getActor =
+        response instanceof Error
+          ? vi.fn().mockRejectedValue(response)
+          : vi.fn().mockResolvedValue(response);
+
+      await syncStoreActorDetails({ getActor } as unknown as ApifyClientWrapper, {
+        limit: 1,
+        database: database as never,
+      });
+
+      expect(database.storeActor.update).toHaveBeenCalledWith({
+        where: { id: "row-1" },
+        data: { isPublic: false, detailsSyncError: expect.any(String) },
+      });
+      expect(database.storeActorSnapshot.upsert).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["network", "rate_limited", "unauthorized", "forbidden", "unknown"] as const)(
+    "keeps a listing and its last successful sync intact on %s errors",
+    async (code) => {
+      const database = databaseMock();
+      database.storeActor.findMany.mockResolvedValueOnce([
+        { id: "row-1", apifyActorId: "actor-1" },
+      ]);
+      const getActor = vi.fn().mockRejectedValue(new ApifyClientError(code, "Try again"));
+      await syncStoreActorDetails({ getActor } as unknown as ApifyClientWrapper, {
+        limit: 1,
+        database: database as never,
+      });
+      expect(database.storeActor.update).toHaveBeenCalledWith({
+        where: { id: "row-1" },
+        data: { detailsSyncError: "Try again" },
+      });
+      expect(database.storeActorSnapshot.upsert).not.toHaveBeenCalled();
+    },
+  );
+
   it("queues a catch-up when today's catalog search or snapshots are missing", () => {
     const now = new Date("2026-08-15T12:00:00.000Z");
     expect(
@@ -141,19 +195,24 @@ describe("Apify Store catalog synchronization", () => {
       totalResults: 1,
     });
 
-    await syncStoreSearchCatalog(
-      { searchStorePage } as unknown as ApifyClientWrapper,
-      { database: database as never },
-    );
+    await syncStoreSearchCatalog({ searchStorePage } as unknown as ApifyClientWrapper, {
+      database: database as never,
+    });
 
     expect(database.storeActor.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "id-row" },
-        data: expect.objectContaining({ apifyActorId: "actor-1", username: "legacy", actorName: "old-name" }),
+        data: expect.objectContaining({
+          apifyActorId: "actor-1",
+          username: "legacy",
+          actorName: "old-name",
+        }),
       }),
     );
     expect(database.storeActorSnapshot.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { storeActorId_capturedAt: expect.objectContaining({ storeActorId: "id-row" }) } }),
+      expect.objectContaining({
+        where: { storeActorId_capturedAt: expect.objectContaining({ storeActorId: "id-row" }) },
+      }),
     );
   });
 
@@ -218,17 +277,34 @@ describe("Apify Store catalog synchronization", () => {
   it("limits reviewed metric repair to the requested row IDs", async () => {
     const database = databaseMock();
     database.storeActor.count.mockResolvedValue(1);
-    database.storeActor.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
-      { id: "row-1", apifyActorId: "actor-1", users30Days: 999, totalUsers: 999 },
-    ]);
-    const getActor = vi.fn().mockResolvedValue({ id: "actor-1", username: "alice", name: "one", stats: { totalUsers: 100, totalUsers30Days: 25 } });
+    database.storeActor.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: "row-1", apifyActorId: "actor-1", users30Days: 999, totalUsers: 999 },
+      ]);
+    const getActor = vi
+      .fn()
+      .mockResolvedValue({
+        id: "actor-1",
+        username: "alice",
+        name: "one",
+        stats: { totalUsers: 100, totalUsers30Days: 25 },
+      });
     await syncStoreActorDetails({ getActor } as unknown as ApifyClientWrapper, {
-      actorIds: ["row-1"], repairMetrics: true, limit: 1, database: database as never,
+      actorIds: ["row-1"],
+      repairMetrics: true,
+      limit: 1,
+      database: database as never,
     });
-    expect(database.storeActor.findMany.mock.calls.every(([call]) => call.where.id.in[0] === "row-1")).toBe(true);
-    expect(database.storeActor.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "row-1" }, data: expect.objectContaining({ totalUsers: 100, users30Days: 25 }),
-    }));
+    expect(
+      database.storeActor.findMany.mock.calls.every(([call]) => call.where.id.in[0] === "row-1"),
+    ).toBe(true);
+    expect(database.storeActor.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "row-1" },
+        data: expect.objectContaining({ totalUsers: 100, users30Days: 25 }),
+      }),
+    );
   });
 
   it("reconciles complete catalog discovery with the official Actor sitemap", async () => {
@@ -281,12 +357,15 @@ describe("Apify Store catalog synchronization", () => {
     });
     const fetchImpl = vi.fn();
 
-    const result = await syncStoreSearchCatalog({ searchStorePage } as unknown as ApifyClientWrapper, {
-      completeCatalog: true,
-      reconcileBuilders: false,
-      database: database as never,
-      fetchImpl: fetchImpl as never,
-    });
+    const result = await syncStoreSearchCatalog(
+      { searchStorePage } as unknown as ApifyClientWrapper,
+      {
+        completeCatalog: true,
+        reconcileBuilders: false,
+        database: database as never,
+        fetchImpl: fetchImpl as never,
+      },
+    );
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(result).toMatchObject({ expectedCount: 1, processedCount: 1, createdCount: 1 });
@@ -331,10 +410,11 @@ describe("Apify Store catalog synchronization", () => {
       totalResults: 2,
     });
 
-    await syncStoreSearchCatalog(
-      { searchStorePage } as unknown as ApifyClientWrapper,
-      { completeCatalog: true, reconcileBuilders: false, database: database as never },
-    );
+    await syncStoreSearchCatalog({ searchStorePage } as unknown as ApifyClientWrapper, {
+      completeCatalog: true,
+      reconcileBuilders: false,
+      database: database as never,
+    });
 
     expect(database.storeCatalogSync.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -351,10 +431,11 @@ describe("Apify Store catalog synchronization", () => {
       totalResults: 1,
     });
 
-    await syncStoreSearchCatalog(
-      { searchStorePage } as unknown as ApifyClientWrapper,
-      { completeCatalog: true, reconcileBuilders: false, database: database as never },
-    );
+    await syncStoreSearchCatalog({ searchStorePage } as unknown as ApifyClientWrapper, {
+      completeCatalog: true,
+      reconcileBuilders: false,
+      database: database as never,
+    });
 
     expect(database.storeCatalogSync.update).toHaveBeenCalledWith(
       expect.objectContaining({

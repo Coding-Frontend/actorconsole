@@ -28,7 +28,7 @@ export function BuilderProfileChart({
           New Actors
         </TabsTrigger>
         <TabsTrigger value="users" className="whitespace-nowrap">
-          Active users
+          Active users / 30d
         </TabsTrigger>
         <TabsTrigger value="runs" className="whitespace-nowrap">
           30-day runs
@@ -42,15 +42,18 @@ export function BuilderProfileChart({
         />
       </TabsContent>
       <TabsContent value="users" className="mt-6">
+        <p className="mb-4 text-xs text-muted-foreground">
+          History shows rolling 30-day user counts. The selected window controls the dates shown.
+        </p>
         <ObservedMetricBarChart
           points={trends.map((point) => ({
             date: point.date,
             value: point.users,
             observed: point.observed,
           }))}
-          label="Active users"
+          label="Active users / 30d"
           tone="blue"
-          emptyMessage="Daily Store snapshots are collected automatically. The first captured UTC day will appear here."
+          emptyMessage="No complete portfolio snapshots were recorded for these dates."
         />
       </TabsContent>
       <TabsContent value="runs" className="mt-6">
@@ -62,7 +65,7 @@ export function BuilderProfileChart({
           }))}
           label="30-day runs"
           tone="orange"
-          emptyMessage="Daily Store snapshots are collected automatically. The first captured UTC day will appear here."
+          emptyMessage="No complete portfolio snapshots were recorded for these dates."
         />
       </TabsContent>
     </Tabs>
@@ -94,11 +97,11 @@ function DailyBarChart({
             {total.toLocaleString("en-IN")}
           </p>
         </div>
-        <p className="text-muted-foreground text-xs">Each bar represents one UTC day.</p>
+        <p className="text-xs text-muted-foreground">Each bar represents one UTC day.</p>
       </div>
       <InteractiveBarChart points={points} label={label} tone="blue" />
       {!hasValues ? (
-        <p className="text-muted-foreground mt-5 text-center text-sm">{emptyMessage}</p>
+        <p className="mt-5 text-center text-sm text-muted-foreground">{emptyMessage}</p>
       ) : null}
     </div>
   );
@@ -114,9 +117,9 @@ function TrendBaseline({
   message: string;
 }) {
   return (
-    <div className="border-border bg-muted/25 border border-dashed px-5 py-14 text-center">
+    <div className="border border-dashed border-border bg-muted/25 px-5 py-14 text-center">
       <p className="font-semibold">Trend baseline is forming</p>
-      <p className="text-muted-foreground mx-auto mt-2 max-w-xl text-sm leading-6">{message}</p>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{message}</p>
       {totalDays > 0 ? (
         <p className="type-kicker mt-5">
           {capturedDays} of {totalDays} days captured
