@@ -1,0 +1,112 @@
+[
+  {
+    "label": "packages/shared",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 2.95,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-packages_shared.log"
+  },
+  {
+    "label": "packages/db",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 7.27,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-packages_db.log"
+  },
+  {
+    "label": "packages/apify",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 2.94,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-packages_apify.log"
+  },
+  {
+    "label": "packages/ai",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 2.58,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-packages_ai.log"
+  },
+  {
+    "label": "packages/logo-catalog",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 1.13,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-packages_logo-catalog.log"
+  },
+  {
+    "label": "apps/api",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 11.04,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-apps_api.log"
+  },
+  {
+    "label": "apps/worker",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 3.65,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-apps_worker.log"
+  },
+  {
+    "label": "apps/mcp",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 0.32,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-apps_mcp.log"
+  },
+  {
+    "label": "apps/chrome-extension",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 0.37,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-apps_chrome-extension.log"
+  },
+  {
+    "label": "apps/web",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 71.33,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/build-apps_web.log"
+  }
+]

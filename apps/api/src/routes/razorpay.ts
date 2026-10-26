@@ -1,4 +1,8 @@
-import { getRazorpayClient, configuredCheckoutProduct } from "../lib/billing-providers.js";
+import {
+  getRazorpayClient,
+  configuredCheckoutProduct,
+  createProviderCheckout,
+} from "../lib/billing-providers.js";
 import {
   getGatewayContext,
   getPaymentSetting,
@@ -9,9 +13,24 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { verifyRazorpaySignature } from "@actorconsole/shared";
-import { db, Prisma } from "@actorconsole/db";
+import { db } from "@actorconsole/db";
+import { subscriptionBlocksCheckout } from "@actorconsole/shared";
+import {
+  reserveBillingCheckout,
+  completeBillingCheckout,
+  failBillingCheckout,
+} from "../lib/billing-checkout-operations.js";
+import {
+  claimPaymentWebhook,
+  completePaymentWebhook,
+  failPaymentWebhook,
+} from "../lib/payment-webhook-delivery.js";
 import { recordIntegrationTest } from "../lib/integrations.js";
 import { trackEvent } from "../lib/analytics";
+import { reconcileBillingSubscription } from "../lib/billing-state.js";
+import { recordPaymentCapture } from "../lib/billing-payment-state.js";
+import { providerAmount } from "../lib/billing-amount.js";
+import { isDefinitiveProviderRejection } from "../lib/billing-provider-errors.js";
 import type { AppEnv } from "../app.js";
 
 /**
@@ -96,11 +115,7 @@ export const razorpayRoutes = new Hono<AppEnv>()
       const existing = await db.subscription.findUnique({
         where: { businessProfileId: session.businessProfileId },
       });
-      if (
-        existing &&
-        !existing.razorpaySubscriptionId &&
-        ["created", "authenticated", "active", "pending"].includes(existing.status)
-      ) {
+      if (existing && !existing.razorpaySubscriptionId && subscriptionBlocksCheckout(existing)) {
         return c.json(
           {
             ok: false,
@@ -116,7 +131,7 @@ export const razorpayRoutes = new Hono<AppEnv>()
         existing?.razorpaySubscriptionId &&
         existing.razorpayPlanId === planId &&
         (await subscriptionMatchesMode(existing, context)) &&
-        ["created", "authenticated", "active", "pending"].includes(existing.status)
+        subscriptionBlocksCheckout(existing)
       ) {
         return c.json({
           ok: true,
@@ -128,10 +143,7 @@ export const razorpayRoutes = new Hono<AppEnv>()
           },
         });
       }
-      if (
-        existing?.razorpaySubscriptionId &&
-        ["created", "authenticated", "active", "pending"].includes(existing.status)
-      ) {
+      if (existing?.razorpaySubscriptionId && subscriptionBlocksCheckout(existing)) {
         return c.json(
           {
             ok: false,
@@ -144,47 +156,37 @@ export const razorpayRoutes = new Hono<AppEnv>()
         );
       }
 
-      const sub = await rz.subscriptions.create({
-        plan_id: planId,
-        customer_notify: 1,
-        quantity: 1,
-        total_count: 12,
-        notes: {
-          userId: session.userId,
-          businessProfileId: session.businessProfileId,
-          plan: body.plan,
-          billingInterval: body.interval,
-          billingMode: context.mode,
-        },
+      const operationId = await reserveBillingCheckout({
+        businessProfileId: session.businessProfileId,
+        userId: session.userId,
+        context,
+        productId: planId,
+        interval: body.interval,
       });
-
-      await db.subscription.upsert({
-        where: { businessProfileId: session.businessProfileId },
-        create: {
-          userId: session.userId,
-          businessProfileId: session.businessProfileId,
-          provider: "razorpay",
-          billingMode: context.mode,
-          providerSubscriptionId: sub.id,
-          providerProductId: planId,
-          providerCheckoutId: sub.id,
-          razorpaySubscriptionId: sub.id,
-          razorpayPlanId: planId,
-          status: sub.status,
-          shortUrl: sub.short_url ?? null,
-        },
-        update: {
-          provider: "razorpay",
-          billingMode: context.mode,
-          providerSubscriptionId: sub.id,
-          providerProductId: planId,
-          providerCheckoutId: sub.id,
-          razorpaySubscriptionId: sub.id,
-          razorpayPlanId: planId,
-          status: sub.status,
-          shortUrl: sub.short_url ?? null,
-        },
-      });
+      let checkout;
+      try {
+        checkout = await createProviderCheckout(
+          "razorpay",
+          body.plan,
+          {
+            userId: session.userId,
+            businessProfileId: session.businessProfileId,
+            email: session.email,
+            operationId,
+          },
+          body.interval,
+          context,
+        );
+      } catch (error) {
+        await failBillingCheckout(operationId, error);
+        throw error;
+      }
+      await completeBillingCheckout(operationId, checkout);
+      const sub = {
+        id: checkout.providerSubscriptionId,
+        status: checkout.status,
+        short_url: checkout.checkoutUrl,
+      };
 
       trackEvent("subscription.created", {
         userId: session.userId,
@@ -220,7 +222,7 @@ export const razorpayRoutes = new Hono<AppEnv>()
     if (!sub || !sub.razorpaySubscriptionId) {
       return c.json({ ok: false, error: { code: "no_active_subscription" } }, 404);
     }
-    if (sub.status === "cancellation_pending") {
+    if (sub.cancelAtPeriodEnd || sub.status === "cancellation_pending") {
       return c.json(
         {
           ok: false,
@@ -230,8 +232,15 @@ export const razorpayRoutes = new Hono<AppEnv>()
       );
     }
     const claimed = await db.subscription.updateMany({
-      where: { id: sub.id, status: sub.status },
-      data: { status: "cancellation_pending" },
+      where: {
+        id: sub.id,
+        status: sub.status,
+        cancelAtPeriodEnd: false,
+        stateVersion: sub.stateVersion ?? 0,
+        providerSubscriptionId: sub.providerSubscriptionId,
+        updatedAt: sub.updatedAt,
+      },
+      data: { status: "cancellation_pending", stateVersion: { increment: 1 } },
     });
     if (!claimed.count) {
       return c.json(
@@ -253,11 +262,27 @@ export const razorpayRoutes = new Hono<AppEnv>()
           : await legacyGatewayMode("razorpay"),
       );
     } catch (error) {
-      await db.subscription.update({ where: { id: sub.id }, data: { status: sub.status } });
+      await db.subscription.updateMany({
+        where: {
+          id: sub.id,
+          status: "cancellation_pending",
+          cancelAtPeriodEnd: false,
+          stateVersion: (sub.stateVersion ?? 0) + 1,
+        },
+        data: { status: sub.status, stateVersion: { increment: 1 } },
+      });
       throw error;
     }
     if (!rz) {
-      await db.subscription.update({ where: { id: sub.id }, data: { status: sub.status } });
+      await db.subscription.updateMany({
+        where: {
+          id: sub.id,
+          status: "cancellation_pending",
+          cancelAtPeriodEnd: false,
+          stateVersion: (sub.stateVersion ?? 0) + 1,
+        },
+        data: { status: sub.status, stateVersion: { increment: 1 } },
+      });
       return c.json({ ok: false, error: { code: "razorpay_not_configured" } }, 503);
     }
 
@@ -265,12 +290,26 @@ export const razorpayRoutes = new Hono<AppEnv>()
     try {
       cancelled = await rz.subscriptions.cancel(sub.razorpaySubscriptionId, true);
     } catch (error) {
-      await db.subscription.update({ where: { id: sub.id }, data: { status: sub.status } });
+      if (isDefinitiveProviderRejection(error))
+        await db.subscription.updateMany({
+          where: {
+            id: sub.id,
+            status: "cancellation_pending",
+            cancelAtPeriodEnd: false,
+            stateVersion: (sub.stateVersion ?? 0) + 1,
+          },
+          data: { status: sub.status, stateVersion: { increment: 1 } },
+        });
       throw error;
     }
-    await db.subscription.update({
-      where: { id: sub.id },
-      data: { status: cancelled.status, cancelAtPeriodEnd: true },
+    await db.subscription.updateMany({
+      where: {
+        id: sub.id,
+        status: "cancellation_pending",
+        cancelAtPeriodEnd: false,
+        stateVersion: (sub.stateVersion ?? 0) + 1,
+      },
+      data: { status: cancelled.status, cancelAtPeriodEnd: true, stateVersion: { increment: 1 } },
     });
     return c.json({ ok: true, data: { status: cancelled.status } });
   })
@@ -300,128 +339,96 @@ export const razorpayRoutes = new Hono<AppEnv>()
         ? parsedPayload.event
         : "unknown";
 
-    if (eventId) {
-      const existing = await db.webhookDelivery.findUnique({
-        where: { source_externalId: { source, externalId: eventId } },
-      });
-      if (existing) return c.json({ ok: true, duplicate: true });
-    }
+    const claim = await claimPaymentWebhook({
+      source,
+      externalId: eventId ?? null,
+      eventType,
+      payload: summarizeRazorpayPayload(parsedPayload),
+    });
+    if (claim.state === "duplicate") return c.json({ ok: true, duplicate: true });
+    if (claim.state !== "claimed")
+      return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
 
-    let delivery: { id: string };
     try {
-      delivery = await db.webhookDelivery.create({
-        data: {
-          source,
-          eventType,
-          externalId: eventId,
-          payload: summarizeRazorpayPayload(parsedPayload) as Prisma.InputJsonValue,
-          status: valid ? "received" : "failed",
-          signatureOk: valid,
-          error: valid ? null : "invalid_signature",
-        },
-        select: { id: true },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        return c.json({ ok: true, duplicate: true });
-      }
-      throw error;
-    }
-
-    if (!valid) return c.json({ ok: false, error: { code: "invalid_signature" } }, 400);
-
-    const event = parsedPayload as {
-      event: string;
-      payload: {
-        subscription?: {
-          entity: {
-            id: string;
-            status: string;
-            current_period_end?: number;
-            notes?: Record<string, string>;
+      const event = parsedPayload as {
+        event: string;
+        payload: {
+          subscription?: {
+            entity: {
+              id: string;
+              status: string;
+              current_period_end?: number;
+              notes?: Record<string, string>;
+            };
+          };
+          payment?: {
+            entity: {
+              id: string;
+              order_id: string;
+              amount: number;
+              currency: string;
+              method?: string;
+              status: string;
+            };
           };
         };
-        payment?: {
-          entity: { id: string; order_id: string; amount: number; method?: string; status: string };
-        };
       };
-    };
 
-    switch (event.event) {
-      case "subscription.activated":
-      case "subscription.authenticated":
-      case "subscription.created": {
-        const s = event.payload.subscription?.entity;
-        if (!s) break;
-        const userId = s.notes?.userId;
-        if (!userId) break;
-        const businessProfile = await resolveWebhookBusinessProfile(
-          userId,
-          s.notes?.businessProfileId,
-        );
-        if (!businessProfile) break;
-        const current = await db.subscription.findUnique({
-          where: { businessProfileId: businessProfile.id },
+      const providerSubscription = event.payload?.subscription?.entity;
+      if (
+        providerSubscription &&
+        [
+          "subscription.activated",
+          "subscription.authenticated",
+          "subscription.created",
+          "subscription.charged",
+          "subscription.cancelled",
+          "subscription.halted",
+          "subscription.completed",
+        ].includes(event.event)
+      ) {
+        const existing = await db.subscription.findUnique({
+          where: { razorpaySubscriptionId: providerSubscription.id },
         });
-        if (!current && (await getGatewayContext("razorpay")).mode !== context.mode) break;
-        if (
-          !(await subscriptionMatchesMode(current, context)) ||
-          (s.notes?.billingMode && s.notes.billingMode !== context.mode) ||
-          (current &&
-            (current.provider !== "razorpay" ||
-              (current.razorpaySubscriptionId && current.razorpaySubscriptionId !== s.id)))
-        )
-          break;
-        const plan = "PRO";
-        await db.$transaction([
-          db.subscription.upsert({
-            where: { businessProfileId: businessProfile.id },
-            create: {
-              userId,
-              businessProfileId: businessProfile.id,
-              provider: "razorpay",
-              billingMode: context.mode,
-              providerSubscriptionId: s.id,
-              razorpaySubscriptionId: s.id,
-              status: s.status,
-              currentPeriodEnd: s.current_period_end ? new Date(s.current_period_end * 1000) : null,
-            },
-            update: {
-              provider: "razorpay",
-              billingMode: context.mode,
-              providerSubscriptionId: s.id,
-              razorpaySubscriptionId: s.id,
-              status: s.status,
-              currentPeriodEnd: s.current_period_end ? new Date(s.current_period_end * 1000) : null,
-            },
-          }),
-          db.businessProfile.update({ where: { id: businessProfile.id }, data: { plan } }),
-        ]);
-        break;
+        const businessProfile = existing?.businessProfileId
+          ? { id: existing.businessProfileId }
+          : await resolveWebhookBusinessProfile(
+              providerSubscription.notes?.userId,
+              providerSubscription.notes?.businessProfileId,
+            );
+        if (businessProfile)
+          await reconcileBillingSubscription({
+            context,
+            id: providerSubscription.id,
+            businessProfileId: businessProfile.id,
+            userId: existing?.userId ?? providerSubscription.notes?.userId,
+          });
       }
-      case "subscription.charged": {
-        const s = event.payload.subscription?.entity;
-        const p = event.payload.payment?.entity;
-        if (!s || !p) break;
-        const existingSubscription = await db.subscription.findUnique({
-          where: { razorpaySubscriptionId: s.id },
-        });
-        if (
-          !(await subscriptionMatchesMode(existingSubscription, context)) ||
-          (s.notes?.billingMode && s.notes.billingMode !== context.mode)
-        )
-          break;
-        const userId = existingSubscription?.userId ?? s.notes?.userId;
-        if (!userId) break;
-        const businessProfile = await resolveWebhookBusinessProfile(
-          userId,
-          existingSubscription?.businessProfileId ?? s.notes?.businessProfileId,
-        );
-        if (!businessProfile) break;
-        const existingPayment = await db.payment.findUnique({ where: { razorpayPaymentId: p.id } });
-        if (existingPayment && !(await subscriptionMatchesMode(existingPayment, context))) break;
-        await db.$transaction([
-          db.payment.upsert({
+      switch (event.event) {
+        case "subscription.charged": {
+          const s = event.payload.subscription?.entity;
+          const p = event.payload.payment?.entity;
+          if (!s || !p) break;
+          const existingSubscription = await db.subscription.findUnique({
+            where: { razorpaySubscriptionId: s.id },
+          });
+          if (
+            !(await subscriptionMatchesMode(existingSubscription, context)) ||
+            (s.notes?.billingMode && s.notes.billingMode !== context.mode)
+          )
+            break;
+          const userId = existingSubscription?.userId ?? s.notes?.userId;
+          if (!userId) break;
+          const businessProfile = await resolveWebhookBusinessProfile(
+            userId,
+            existingSubscription?.businessProfileId ?? s.notes?.businessProfileId,
+          );
+          if (!businessProfile) break;
+          const existingPayment = await db.payment.findUnique({
+            where: { razorpayPaymentId: p.id },
+          });
+          if (existingPayment && !(await subscriptionMatchesMode(existingPayment, context))) break;
+          await recordPaymentCapture({
             where: { razorpayPaymentId: p.id },
             create: {
               userId,
@@ -433,81 +440,36 @@ export const razorpayRoutes = new Hono<AppEnv>()
               providerOrderId: p.order_id,
               razorpayPaymentId: p.id,
               razorpayOrderId: p.order_id,
-              amount: (p.amount / 100) as unknown as any,
-              currency: "INR",
+              ...providerAmount(p.amount, p.currency),
               status: p.status,
               method: p.method,
               capturedAt: new Date(),
             },
             update: { status: p.status, capturedAt: new Date() },
-          }),
-          db.subscription.updateMany({
-            where: { razorpaySubscriptionId: s.id },
-            data: {
-              status: s.status,
-              currentPeriodEnd: s.current_period_end ? new Date(s.current_period_end * 1000) : null,
-            },
-          }),
-        ]);
-        break;
-      }
-      case "subscription.cancelled":
-      case "subscription.halted":
-      case "subscription.completed": {
-        const s = event.payload.subscription?.entity;
-        if (!s) break;
-        const existing = await db.subscription.findUnique({
-          where: { razorpaySubscriptionId: s.id },
-        });
-        if (existing && (await subscriptionMatchesMode(existing, context))) {
-          if (event.event === "subscription.cancelled" || event.event === "subscription.halted") {
-            const periodEnd = s.current_period_end
-              ? new Date(s.current_period_end * 1000)
-              : existing.currentPeriodEnd;
-            const accessEnded =
-              event.event === "subscription.halted" || !periodEnd || periodEnd <= new Date();
-            if (existing.businessProfileId && accessEnded) {
-              await db.$transaction([
-                db.subscription.update({
-                  where: { id: existing.id },
-                  data: { status: s.status, cancelAtPeriodEnd: true, currentPeriodEnd: periodEnd },
-                }),
-                db.businessProfile.update({
-                  where: { id: existing.businessProfileId },
-                  data: { plan: "FREE" },
-                }),
-              ]);
-            } else {
-              await db.subscription.update({
-                where: { id: existing.id },
-                data: { status: s.status, cancelAtPeriodEnd: true, currentPeriodEnd: periodEnd },
-              });
-            }
-          } else {
-            await db.subscription.update({
-              where: { id: existing.id },
-              data: { status: s.status, cancelAtPeriodEnd: true },
-            });
-          }
+          });
+          break;
         }
-        break;
+        case "payment.failed": {
+          const p = event.payload.payment?.entity;
+          if (!p) break;
+          await db.payment.updateMany({
+            where: {
+              razorpayOrderId: p.order_id,
+              billingMode: context.mode,
+              status: { notIn: ["captured", "refunded", "partially_refunded"] },
+            },
+            data: { status: "failed", notes: { paymentId: p.id } as any },
+          });
+          break;
+        }
       }
-      case "payment.failed": {
-        const p = event.payload.payment?.entity;
-        if (!p) break;
-        await db.payment.updateMany({
-          where: { razorpayOrderId: p.order_id, billingMode: context.mode },
-          data: { status: "failed", notes: { paymentId: p.id } as any },
-        });
-        break;
-      }
-    }
 
-    await db.webhookDelivery.update({
-      where: { id: delivery.id },
-      data: { status: "processed", responseMs: Date.now() - startedAt },
-    });
-    return c.json({ ok: true });
+      await completePaymentWebhook(claim.lease, Date.now() - startedAt);
+      return c.json({ ok: true });
+    } catch (error) {
+      await failPaymentWebhook(claim.lease, error);
+      throw error;
+    }
   })
 
   /**
@@ -543,7 +505,8 @@ function safeJson(raw: string): any {
   }
 }
 
-async function resolveWebhookBusinessProfile(userId: string, requestedId?: string) {
+async function resolveWebhookBusinessProfile(userId: string | undefined, requestedId?: string) {
+  if (!userId) return null;
   if (requestedId) {
     const requested = await db.businessProfile.findFirst({
       where: { id: requestedId, userId },

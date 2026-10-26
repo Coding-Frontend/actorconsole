@@ -1,0 +1,27 @@
+[
+  {
+    "label": "all-tests",
+    "command": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run"
+    ],
+    "cwd": "/workspace/actorconsole",
+    "exit": 0,
+    "seconds": 51.52,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/test-all-tests.log"
+  },
+  {
+    "label": "script-tests",
+    "command": [
+      "node",
+      "--test",
+      "/workspace/actorconsole/scripts/mcp-release.test.mjs",
+      "/workspace/actorconsole/scripts/setup-local-env.test.mjs"
+    ],
+    "cwd": "/workspace/actorconsole",
+    "exit": 0,
+    "seconds": 0.22,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/test-script-tests.log"
+  }
+]

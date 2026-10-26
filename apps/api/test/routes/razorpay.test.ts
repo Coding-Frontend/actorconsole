@@ -35,9 +35,13 @@ vi.mock("@actorconsole/shared", async (importOriginal) => ({
   getLogger: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
 }));
 
-vi.mock("@actorconsole/db", () => ({
+vi.mock("@actorconsole/db", async () => ({
+  Prisma: (await import("@prisma/client")).Prisma,
   db: {
+    billingCheckoutOperation: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    $transaction: vi.fn(), $queryRaw: vi.fn(),
     subscription: {
+      create: vi.fn(),
       upsert: vi.fn().mockResolvedValue({}),
       findFirst: vi.fn().mockResolvedValue(null),
       findUnique: vi.fn().mockResolvedValue(null),
@@ -53,8 +57,10 @@ vi.mock("@actorconsole/db", () => ({
       upsert: vi.fn().mockResolvedValue({}),
     },
     webhookDelivery: {
-      create: vi.fn().mockResolvedValue({}),
-      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: "delivery_1" }),
+      update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     user: {
       update: vi.fn().mockResolvedValue({}),
@@ -109,9 +115,23 @@ function buildApp() {
   return app;
 }
 
+let storedSubscription: any;
+let storedCheckout: any;
 describe("Razorpay routes", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { db } = await import("@actorconsole/db");
+    storedSubscription = null; storedCheckout = null;
+    vi.mocked(db.$queryRaw).mockResolvedValue([{ id: "workspace_1" }]);
+    vi.mocked(db.$transaction).mockImplementation(async (work: any) => typeof work === "function" ? work(db) : Promise.all(work));
+    vi.mocked(db.subscription.findUnique).mockImplementation(async () => storedSubscription ? { ...storedSubscription } : null);
+    vi.mocked(db.subscription.upsert).mockImplementation(async ({ create, update }: any) => (storedSubscription = { id: "sub_local", stateVersion: 0, ...storedSubscription, ...(storedSubscription ? update : create) }));
+    vi.mocked(db.subscription.update).mockImplementation(async ({ data }: any) => (storedSubscription = { ...storedSubscription, ...data }));
+    vi.mocked(db.subscription.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(db.billingCheckoutOperation.findUnique).mockImplementation(async () => storedCheckout);
+    vi.mocked(db.billingCheckoutOperation.upsert).mockImplementation(async ({ create }: any) => (storedCheckout = { ...create }));
+    vi.mocked(db.billingCheckoutOperation.update).mockImplementation(async ({ data }: any) => (storedCheckout = { ...storedCheckout, ...data }));
+    vi.mocked(db.billingCheckoutOperation.updateMany).mockResolvedValue({ count: 1 });
     // Default: Razorpay is configured
     mockGetIntegration.mockImplementation(async (key: string) => {
       if (key === "razorpay_key_id") return "rzp_test_123";
@@ -231,6 +251,18 @@ describe("Razorpay routes", () => {
   });
 
   describe("POST /razorpay/cancel-subscription", () => {
+    it("does not send another cancellation when period-end cancellation is already scheduled", async () => {
+      const { db } = await import("@actorconsole/db");
+      vi.mocked(db.subscription.findUnique).mockResolvedValueOnce({
+        id: "sub_1", provider: "razorpay", razorpaySubscriptionId: "sub_rzp_1",
+        status: "active", cancelAtPeriodEnd: true,
+      } as never);
+      vi.mocked(db.subscription.updateMany).mockResolvedValueOnce({ count: 1 });
+      mockSubscriptionsCancel.mockResolvedValueOnce({ status: "active" });
+      const response = await buildApp().request("/razorpay/cancel-subscription", { method: "POST" });
+      expect(response.status).toBe(409);
+      expect(mockSubscriptionsCancel).not.toHaveBeenCalled();
+    });
     it("cancels the active subscription", async () => {
       // The route calls db.subscription.findUnique — return a fake sub
       const { db } = await import("@actorconsole/db");
@@ -250,5 +282,22 @@ describe("Razorpay routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
     });
+  });
+
+  it("retries a failed Razorpay webhook rather than dropping its side effects", async () => {
+    const { db } = await import("@actorconsole/db");
+    mockGetIntegration.mockResolvedValue("fixture_webhook_secret");
+    mockVerifyRazorpaySignature.mockReturnValue(true);
+    vi.mocked(db.webhookDelivery.findUnique).mockResolvedValue({
+      id: "delivery_retry", status: "failed", attemptedAt: new Date(0),
+    } as never);
+    vi.mocked(db.webhookDelivery.updateMany).mockResolvedValue({ count: 1 });
+    const response = await buildApp().request("/razorpay/webhook", {
+      method: "POST",
+      headers: { "x-razorpay-signature": "fixture_signature", "x-razorpay-event-id": "event_retry" },
+      body: JSON.stringify({ event: "payment.failed", payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } } }),
+    });
+    expect(response.status).toBe(200);
+    expect(db.payment.updateMany).toHaveBeenCalledOnce();
   });
 });

@@ -20,3 +20,13 @@ Configure endpoints on your own public API origin:
 The handler supports `subscription.*`, `payment.succeeded`, `payment.failed`, and `refund.succeeded`. Configure signing secrets independently for both profiles. Validate a signed sample delivery in each environment before enabling live checkout.
 
 Set each checkout callback to your own web origin, for example `https://app.example.com/dashboard/settings/billing`. Keep endpoint IDs and delivery payloads in private operator records.
+
+## Retry and checkout recovery
+
+Checkout creation now reserves one durable operation per workspace before calling a provider. A timeout or uncertain response retains that reservation; repeated checkout cannot silently create another subscription. Stripe receives the stable operation ID as its supported idempotency key. The installed Dodo SDK does not configure an idempotency header, so checkout creation disables automatic SDK retries and relies on the durable reservation. No unsupported Razorpay/Dodo idempotency header is invented.
+
+A successfully verified webhook can reconcile the reservation to its provider subscription. Until that happens, an unknown outcome needs support review against the original operation ID and provider metadata. Do not clear the reservation just because it is old, or issue another create before resolving the first outcome. No automatic retry of an unknown create is supplied by this change.
+
+Signed subscription notifications reconcile the provider's current state; a local revision guard rejects an older in-flight snapshot if another event, cancellation, or renewal changed the row. Failed/interrupted delivery attempts remain retryable, while completed delivery IDs are acknowledged as duplicates. These semantics require the additive billing-operation migration before the updated API and worker run.
+
+Amounts and currencies are read from provider metadata using the shared minor-unit table. The change does not reprice products or rewrite historical payment records. Provisional-access and grace-period policy is preserved; provider sandbox acceptance remains an operator verification step.

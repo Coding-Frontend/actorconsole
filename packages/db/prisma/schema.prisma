@@ -121,6 +121,7 @@ model BusinessProfile {
   keywordSearches           KeywordSearch[]
   onboardingStates          OnboardingState[]
   subscriptions             Subscription[]
+  billingCheckoutOperation  BillingCheckoutOperation?
   payments                  Payment[]
   apiKeys                   ApiKey[]
   notifications             Notification[]
@@ -242,6 +243,8 @@ model Subscription {
   userId                 String?
   businessProfileId      String?   @unique
   provider               String    @default("razorpay")
+  stateVersion           Int       @default(0)
+  checkoutOperationId    String?
   billingMode            String?
   source                 String    @default("gateway")
   providerCustomerId     String?
@@ -268,6 +271,26 @@ model Subscription {
   @@index([status])
   @@index([razorpaySubscriptionId])
   @@index([provider, providerCustomerId])
+}
+
+// One durable checkout reservation per workspace. Unknown remote outcomes are
+// retained until reconciled; an elapsed timeout must never authorize a new create.
+model BillingCheckoutOperation {
+  id                     String @id
+  businessProfileId      String @unique
+  userId                 String
+  provider               String
+  billingMode            String
+  productId              String
+  interval               String
+  status                 String
+  providerCheckoutId     String?
+  providerSubscriptionId String?
+  checkoutUrl            String? @db.Text
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
@@ -1097,6 +1120,8 @@ model BulkActorStatusOperation {
   action            String
   status            String    @default("QUEUED")
   jobId             String?   @unique
+  idempotencyKey    String?
+  requestHash       String?
   underMaintenance  Boolean?
   isDeprecated      Boolean?
   actorCount        Int
@@ -1113,6 +1138,7 @@ model BulkActorStatusOperation {
   businessProfile BusinessProfile                @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
   items           BulkActorStatusOperationItem[]
 
+  @@unique([businessProfileId, idempotencyKey])
   @@index([userId, businessProfileId, createdAt])
   @@index([businessProfileId, status, createdAt])
 }
@@ -1218,6 +1244,7 @@ model ActorRunSnapshot {
   status       String
   origin       String?
   resultCount  Int       @default(0)
+  resultCountSyncedAt DateTime?
   usageCostUsd Decimal?  @db.Decimal(12, 4)
   startedAt    DateTime
   finishedAt   DateTime?

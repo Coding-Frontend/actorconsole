@@ -1,0 +1,34 @@
+ M apps/api/src/routes/billing.ts
+ M apps/api/src/routes/razorpay.ts
+ M apps/api/test/routes/billing.test.ts
+ M apps/api/test/routes/razorpay.test.ts
+?? apps/api/src/lib/payment-webhook-delivery.ts
+?? apps/api/test/lib/payment-webhook-delivery.test.ts
+?? docs/audit/2026-10-billing-queues-audit.md
+?? docs/audit/evidence/billing-queues/baseline-billing-red.txt
+?? docs/audit/evidence/billing-queues/baseline-expiry-red.txt
+?? docs/audit/evidence/billing-queues/baseline-queue-red.txt
+?? docs/audit/evidence/billing-queues/baseline-usage-red.txt
+?? docs/audit/evidence/billing-queues/build-results.json
+?? docs/audit/evidence/billing-queues/build.py
+?? docs/audit/evidence/billing-queues/crypto-checks.mjs
+?? docs/audit/evidence/billing-queues/crypto-checks.txt
+?? docs/audit/evidence/billing-queues/gate-summary.txt
+?? docs/audit/evidence/billing-queues/gate.py
+?? docs/audit/evidence/billing-queues/installed-scope-packages.json
+?? docs/audit/evidence/billing-queues/lint-results.json
+?? docs/audit/evidence/billing-queues/local-only.cjs
+?? docs/audit/evidence/billing-queues/pre-planning-edits.patch
+?? docs/audit/evidence/billing-queues/preserved-application-hashes.json
+?? docs/audit/evidence/billing-queues/reproduce.py
+?? docs/audit/evidence/billing-queues/reproduction-results.json
+?? docs/audit/evidence/billing-queues/scratch-fixtures/apps/api/test/lib/queue-timeout-audit.test.ts
+?? docs/audit/evidence/billing-queues/scratch-fixtures/apps/api/test/routes/billing.test.ts
+?? docs/audit/evidence/billing-queues/scratch-fixtures/apps/api/test/routes/razorpay.test.ts
+?? docs/audit/evidence/billing-queues/scratch-fixtures/apps/worker/test/lib/operational-fixture.ts
+?? docs/audit/evidence/billing-queues/scratch-fixtures/apps/worker/test/lib/subscription-expiry-audit.test.ts
+?? docs/audit/evidence/billing-queues/scratch-fixtures/apps/worker/test/lib/subscription-expiry-fixture.ts
+?? docs/audit/evidence/billing-queues/scratch-fixtures/apps/worker/test/lib/usage-accounting-audit.test.ts
+?? docs/audit/evidence/billing-queues/typecheck-results.json
+?? docs/audit/evidence/billing-queues/workspace-changed-files.txt
+?? docs/plans/billing-queues-remediation.md

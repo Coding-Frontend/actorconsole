@@ -1,0 +1,44 @@
+
+ RUN  v2.1.9 /tmp/actorconsole-billing-audit/baseline
+
+ ❯ |@actorconsole/worker| test/lib/subscription-expiry-audit.test.ts (7 tests | 6 failed) 11ms
+   × untouched baseline terminal subscription expiry > audit fixture: removes expired stripe canceled entitlement 7ms
+     → expected 'PRO' to be 'FREE' // Object.is equality
+   × untouched baseline terminal subscription expiry > audit fixture: removes expired stripe unpaid entitlement 1ms
+     → expected 'PRO' to be 'FREE' // Object.is equality
+   × untouched baseline terminal subscription expiry > audit fixture: removes expired stripe incomplete_expired entitlement 0ms
+     → expected 'PRO' to be 'FREE' // Object.is equality
+   × untouched baseline terminal subscription expiry > audit fixture: removes expired stripe paused entitlement 1ms
+     → expected 'PRO' to be 'FREE' // Object.is equality
+   × untouched baseline terminal subscription expiry > audit fixture: removes expired dodo failed entitlement 0ms
+     → expected 'PRO' to be 'FREE' // Object.is equality
+   × untouched baseline terminal subscription expiry > audit fixture: removes expired dodo expired entitlement 1ms
+     → expected 'PRO' to be 'FREE' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@actorconsole/worker|  test/lib/subscription-expiry-audit.test.ts > untouched baseline terminal subscription expiry > audit fixture: removes expired stripe canceled entitlement
+ FAIL |@actorconsole/worker|  test/lib/subscription-expiry-audit.test.ts > untouched baseline terminal subscription expiry > audit fixture: removes expired stripe unpaid entitlement
+ FAIL |@actorconsole/worker|  test/lib/subscription-expiry-audit.test.ts > untouched baseline terminal subscription expiry > audit fixture: removes expired stripe incomplete_expired entitlement
+ FAIL |@actorconsole/worker|  test/lib/subscription-expiry-audit.test.ts > untouched baseline terminal subscription expiry > audit fixture: removes expired stripe paused entitlement
+ FAIL |@actorconsole/worker|  test/lib/subscription-expiry-audit.test.ts > untouched baseline terminal subscription expiry > audit fixture: removes expired dodo failed entitlement
+ FAIL |@actorconsole/worker|  test/lib/subscription-expiry-audit.test.ts > untouched baseline terminal subscription expiry > audit fixture: removes expired dodo expired entitlement
+AssertionError: expected 'PRO' to be 'FREE' // Object.is equality
+
+Expected: "FREE"
+Received: "PRO"
+
+ ❯ test/lib/subscription-expiry-audit.test.ts:18:16
+     16|   dbMock.$transaction.mockImplementation(async(promises)=>Promise.all(…
+     17|   await reconcileExpiredSubscriptions();
+     18|   expect(plan).toBe("FREE");
+       |                ^
+     19|  });
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 1 passed (7)
+   Start at  06:12:32
+   Duration  426ms (transform 25ms, setup 0ms, collect 43ms, tests 11ms, environment 0ms, prepare 53ms)

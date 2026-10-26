@@ -10,6 +10,7 @@ const {
   mockConfiguredProduct,
   mockStripeClient,
   mockGetIntegration,
+  mockRetrieveSubscription,
 } = vi.hoisted(() => ({
   mockDb: {
     paymentGateway: { findUnique: vi.fn() },
@@ -17,10 +18,13 @@ const {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
       upsert: vi.fn(),
+      create: vi.fn(),
       updateMany: vi.fn(),
       update: vi.fn(),
     },
     user: { findUnique: vi.fn() },
+    billingCheckoutOperation: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    $queryRaw: vi.fn(),
     webhookDelivery: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -38,13 +42,15 @@ const {
   mockConfiguredProduct: vi.fn(),
   mockStripeClient: vi.fn(),
   mockGetIntegration: vi.fn(),
+  mockRetrieveSubscription: vi.fn(),
 }));
 
-vi.mock("@actorconsole/db", () => ({
+vi.mock("@actorconsole/db", async () => ({
   db: mockDb,
-  Prisma: { JsonNull: null, PrismaClientKnownRequestError: class extends Error {} },
+  Prisma: (await import("@prisma/client")).Prisma,
 }));
 vi.mock("../../src/lib/billing-providers.js", () => ({
+  retrieveProviderSubscription: (...args: unknown[]) => mockRetrieveSubscription(...args),
   createProviderCheckout: (...args: unknown[]) => mockCreateCheckout(...args),
   configuredCheckoutProduct: (...args: unknown[]) => mockConfiguredProduct(...args),
   cancelProviderSubscription: (...args: unknown[]) => mockCancel(...args),
@@ -61,10 +67,12 @@ vi.mock("@actorconsole/shared", async (importOriginal) => ({
   getLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
+import { onErrorHandler } from "../../src/middleware/error.js";
 import { billingRoutes } from "../../src/routes/billing.js";
 
 function buildApp() {
   const app = new Hono();
+  app.onError(onErrorHandler);
   app.use("*", async (c, next) => {
     c.set(
       "session" as never,
@@ -80,6 +88,10 @@ function buildApp() {
   return app;
 }
 
+let storedSubscription: any;
+let storedCheckout: any;
+const applyUpdate = (row: any, data: any) => Object.fromEntries(Object.entries({ ...row, ...data }).map(([key, value]) => [key, value && typeof value === "object" && "increment" in value ? (row?.[key] ?? 0) + value.increment : value]));
+
 describe("Provider-neutral billing routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,10 +104,21 @@ describe("Provider-neutral billing routes", () => {
     });
     mockReadiness.mockResolvedValue({ ready: true });
     mockConfiguredProduct.mockResolvedValue("price_year");
-    mockDb.subscription.findUnique.mockResolvedValue(null);
+    storedSubscription = null;
+    storedCheckout = null;
+    mockDb.$queryRaw.mockResolvedValue([{ id: "workspace_1" }]);
+    mockDb.subscription.findUnique.mockImplementation(async () => storedSubscription ? { ...storedSubscription } : null);
+    mockDb.billingCheckoutOperation.findUnique.mockImplementation(async () => storedCheckout ? { ...storedCheckout } : null);
+    mockDb.billingCheckoutOperation.upsert.mockImplementation(async ({ create }) => (storedCheckout = { ...create }));
+    mockDb.billingCheckoutOperation.update.mockImplementation(async ({ data }) => (storedCheckout = { ...storedCheckout, ...data }));
+    mockDb.billingCheckoutOperation.updateMany.mockImplementation(async ({ data }) => { storedCheckout = { ...storedCheckout, ...data }; return { count: 1 }; });
+    mockDb.subscription.create.mockImplementation(async ({ data }) => (storedSubscription = { id: "sub_local", stateVersion: 0, ...data }));
+    mockDb.subscription.update.mockImplementation(async ({ data }) => (storedSubscription = applyUpdate(storedSubscription, data)));
+    mockDb.subscription.updateMany.mockImplementation(async ({ data }) => { if (storedSubscription) storedSubscription = applyUpdate(storedSubscription, data); return { count: 1 }; });
+    mockRetrieveSubscription.mockResolvedValue({ id: "dodo_sub_1", status: "active", periodEnd: null, cancelAtPeriodEnd: false, metadata: {} });
     mockDb.subscription.findFirst.mockResolvedValue(null);
     mockDb.user.findUnique.mockResolvedValue({ email: "payer@example.com", name: "Payer" });
-    mockDb.subscription.upsert.mockResolvedValue({ id: "sub_local" });
+    mockDb.subscription.upsert.mockImplementation(async ({ create, update }) => (storedSubscription = storedSubscription ? applyUpdate(storedSubscription, update) : { id: "sub_local", stateVersion: 0, ...create }));
     mockCreateCheckout.mockResolvedValue({
       gateway: "stripe",
       checkoutId: "cs_test_123",
@@ -108,10 +131,10 @@ describe("Provider-neutral billing routes", () => {
     mockDb.webhookDelivery.update.mockResolvedValue({});
     mockDb.webhookDelivery.updateMany.mockResolvedValue({ count: 1 });
     mockDb.businessProfile.update.mockResolvedValue({});
-    mockDb.payment.upsert.mockResolvedValue({});
+    mockDb.payment.upsert.mockResolvedValue({ id: "payment_local" });
     mockDb.payment.findUnique.mockResolvedValue(null);
     mockDb.payment.update.mockResolvedValue({});
-    mockDb.$transaction.mockResolvedValue([]);
+    mockDb.$transaction.mockImplementation(async (work) => typeof work === "function" ? work(mockDb) : Promise.all(work));
   });
 
   it("creates checkout through the selected enabled gateway", async () => {
@@ -131,7 +154,7 @@ describe("Provider-neutral billing routes", () => {
     );
     expect(mockDb.subscription.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ provider: "stripe", providerCheckoutId: "cs_test_123" }),
+        create: expect.objectContaining({ provider: "stripe", status: "checkout_pending" }),
       }),
     );
   });
@@ -167,7 +190,7 @@ describe("Provider-neutral billing routes", () => {
       message:
         "Live checkout is temporarily unavailable because Dodo Payments has not activated payments for this merchant. Please contact billing support.",
     });
-    expect(mockDb.subscription.upsert).not.toHaveBeenCalled();
+    expect(storedCheckout.status).toBe("FAILED");
     expect(mockDb.businessProfile.update).not.toHaveBeenCalled();
   });
 
@@ -182,7 +205,7 @@ describe("Provider-neutral billing routes", () => {
     });
     expect(response.status).toBe(502);
     expect((await response.json()).error.code).toBe("provider_error");
-    expect(mockDb.subscription.upsert).not.toHaveBeenCalled();
+    expect(storedCheckout.status).toBe("FAILED");
   });
 
   it("does not reuse a pending checkout from a different mode", async () => {
@@ -241,6 +264,47 @@ describe("Provider-neutral billing routes", () => {
     });
     expect(response.status).toBe(400);
     expect(mockDb.webhookDelivery.create).not.toHaveBeenCalled();
+  });
+
+  it("retries Stripe processing after a failed delivery instead of acknowledging it", async () => {
+    mockGetIntegration.mockResolvedValue("whsec_test");
+    mockStripeClient.mockResolvedValue({
+      webhooks: {
+        constructEvent: () => ({
+          id: "evt_retry",
+          type: "invoice.payment_failed",
+          data: { object: { id: "invoice_1" } },
+        }),
+      },
+    });
+    mockDb.payment.updateMany.mockRejectedValueOnce(new Error("Temporary database outage"));
+    const request = () => buildApp().request("/billing/webhooks/stripe", {
+      method: "POST", body: "signed_payload",
+    });
+    expect((await request()).status).toBe(500);
+    mockDb.webhookDelivery.findUnique.mockResolvedValue({
+      id: "delivery_1", status: "failed", attemptedAt: new Date(Date.now() - 1000),
+    });
+    mockDb.payment.updateMany.mockResolvedValue({ count: 1 });
+    expect((await request()).status).toBe(200);
+    expect(mockDb.payment.updateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["stripe", "dodo"])("does not acknowledge a %s delivery that is still processing", async (gateway) => {
+    mockGetIntegration.mockResolvedValue("whsec_test");
+    mockStripeClient.mockResolvedValue({ webhooks: { constructEvent: () => ({
+      id: "evt_busy", type: "unhandled", data: { object: {} },
+    }) } });
+    mockDodoClient.mockResolvedValue({ webhooks: { unwrap: () => ({ type: "unhandled" }) } });
+    mockDb.webhookDelivery.findUnique.mockResolvedValue({
+      id: "delivery_1", status: "received", attemptedAt: new Date(),
+    });
+    const response = await buildApp().request(`/billing/webhooks/${gateway}`, {
+      method: "POST", headers: { "webhook-id": "evt_busy" }, body: "signed_payload",
+    });
+    expect(response.status).toBe(503);
+    expect(mockDb.webhookDelivery.create).not.toHaveBeenCalled();
+    expect(mockDb.webhookDelivery.updateMany).not.toHaveBeenCalled();
   });
 
   it("ignores test Stripe subscription events when the workspace has a live subscription", async () => {
@@ -398,6 +462,31 @@ describe("Provider-neutral billing routes", () => {
     expect(mockCreateCheckout).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])("preserves a concurrent cancellation webhook when the provider request fails=%s", async (fails) => {
+    const subscription = {
+      id: "sub_local", provider: "stripe", billingMode: "test", status: "active",
+      providerSubscriptionId: "sub_1", cancelAtPeriodEnd: false,
+    };
+    let current = { ...subscription };
+    mockDb.subscription.findUnique.mockImplementation(async () => ({ ...current }));
+    mockDb.subscription.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where.status !== current.status) return { count: 0 };
+      Object.assign(current, data);
+      return { count: 1 };
+    });
+    mockDb.subscription.update.mockImplementation(async ({ data }) => Object.assign(current, data));
+    mockCancel.mockImplementationOnce(async () => {
+      current.status = "canceled"; // A webhook finishes while the provider call is in flight.
+      current.cancelAtPeriodEnd = true;
+      if (fails) throw new Error("Response was lost");
+      return { status: "active", cancelAtPeriodEnd: true };
+    });
+    const response = await buildApp().request("/billing/cancel", { method: "POST" });
+    expect(response.status).toBe(fails ? 502 : 200);
+    expect(current.status).toBe("canceled");
+    expect(current.cancelAtPeriodEnd).toBe(true);
+  });
+
   it("links a successful Dodo payment to its checkout before the subscription webhook arrives", async () => {
     mockDodoClient.mockResolvedValue({
       webhooks: {
@@ -434,11 +523,7 @@ describe("Provider-neutral billing routes", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(mockDb.subscription.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { providerSubscriptionId: "dodo_sub_1", status: "active" },
-      }),
-    );
+    expect(mockDb.subscription.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ providerSubscriptionId: "dodo_sub_1", status: "active" }) }));
     expect(mockDb.payment.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
@@ -455,7 +540,7 @@ describe("Provider-neutral billing routes", () => {
     mockDodoClient.mockResolvedValue({
       webhooks: { unwrap: () => ({ type: "payment.failed", data: { payment_id: "pay_2" } }) },
     });
-    mockDb.webhookDelivery.findUnique.mockResolvedValue({ id: "delivery_1", status: "failed" });
+    mockDb.webhookDelivery.findUnique.mockResolvedValue({ id: "delivery_1", status: "failed", attemptedAt: new Date(0) });
     mockDb.payment.updateMany.mockResolvedValue({ count: 1 });
 
     const response = await buildApp().request("/billing/webhooks/dodo", {
@@ -466,7 +551,7 @@ describe("Provider-neutral billing routes", () => {
 
     expect(response.status).toBe(200);
     expect(mockDb.webhookDelivery.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "delivery_1", status: "failed" } }),
+      expect.objectContaining({ where: expect.objectContaining({ id: "delivery_1", status: "failed" }) }),
     );
     expect(mockDb.payment.updateMany).toHaveBeenCalledOnce();
   });
@@ -529,9 +614,8 @@ describe("Provider-neutral billing routes", () => {
         }),
       },
     });
-    mockDb.subscription.findUnique
-      .mockResolvedValueOnce({ businessProfileId: "workspace_1" })
-      .mockResolvedValueOnce({ provider: "dodo", providerSubscriptionId: "dodo_sub_1" });
+    storedSubscription = { id: "sub_local", businessProfileId: "workspace_1", provider: "dodo", providerSubscriptionId: "dodo_sub_1", stateVersion: 0 };
+    mockRetrieveSubscription.mockResolvedValue({ id: "dodo_sub_1", status: "cancelled", periodEnd: new Date(0), cancelAtPeriodEnd: true, metadata: {} });
 
     const response = await buildApp().request("/billing/webhooks/dodo", {
       method: "POST",
@@ -598,8 +682,8 @@ describe("Provider-neutral billing routes", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(mockDb.payment.update).toHaveBeenCalledWith({
-      where: { id: "payment_local" },
+    expect(mockDb.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: "payment_local", OR: [{ refundedAmount: null }, { refundedAmount: { lte: 2.5 } }] },
       data: { refundedAmount: 2.5, status: "partially_refunded" },
     });
   });
@@ -634,7 +718,8 @@ describe("Provider-neutral billing routes", () => {
 
     expect(response.status).toBe(200);
     expect(mockDb.payment.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: expect.objectContaining({ status: "refunded" }) }),
+      expect.objectContaining({ update: {} }),
     );
+    expect(mockDb.payment.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "payment_local", status: { notIn: ["refunded", "partially_refunded"] } }) }));
   });
 });
