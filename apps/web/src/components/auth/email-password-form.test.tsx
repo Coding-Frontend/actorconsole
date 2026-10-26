@@ -36,7 +36,10 @@ describe("email/password verification UI", () => {
         .mockResolvedValue({ json: async () => ({ ok: true }) });
       vi.stubGlobal("fetch", fetcher);
       await challenge();
-      expect(document.activeElement).toBe(screen.getByLabelText("Authenticator code"));
+      // DOM availability can precede React's passive focus effect.
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByLabelText("Authenticator code")),
+      );
       fireEvent.change(screen.getByLabelText("Authenticator code"), { target: { value: code } });
       const button = screen.getByRole("button", { name: "Verify and continue" });
       expect(button.getAttribute("type")).toBe("submit");
