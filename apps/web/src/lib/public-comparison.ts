@@ -61,7 +61,9 @@ export async function loadPublicComparison(
             if (!/^[\w.-]{1,100}$/.test(username) || !/^[\w.-]{1,100}$/.test(actorName))
               return null;
             const actor = await getBuilderActorDetail(username, actorName, window);
-            return actor ? actorCompareItem(username, actor, window) : null;
+            return actor && actor.isAvailable !== false
+              ? actorCompareItem(username, actor, window)
+              : null;
           }),
         );
   const items = resolved.filter((item): item is PublicCompareItem => item !== null);

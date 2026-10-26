@@ -1,3 +1,5 @@
+import { buildDailyPortfolioTrends } from "@actorconsole/shared/builder-history";
+export { buildDailyPortfolioTrends };
 import { backendData } from "./backend-data";
 import type { ActorEarnings, EarningsRollup } from "@actorconsole/shared/actor-earnings";
 export type BuilderMetric =
@@ -86,6 +88,7 @@ export interface BuilderActorEntry {
 export type BuilderMetricRanks = Record<BuilderMetric, number>;
 
 export interface BuilderProfile {
+  isAvailable?: boolean;
   earnings?: EarningsRollup;
   username: string;
   name: string | null;
@@ -139,6 +142,7 @@ export interface BuilderActorPricing {
 }
 
 export interface BuilderActorDetail extends BuilderActorEntry {
+  isAvailable?: boolean;
   username: string;
   ownerName: string | null;
   ownerPictureUrl: string | null;
@@ -161,18 +165,6 @@ export interface BuilderActorDetail extends BuilderActorEntry {
     totalRuns: number;
   }>;
   relatedActors: BuilderActorEntry[];
-}
-
-function startOfUtcDay(date: Date) {
-  const value = new Date(date);
-  value.setUTCHours(0, 0, 0, 0);
-  return value;
-}
-
-function windowCutoff(window: BuilderWindow) {
-  const cutoff = startOfUtcDay(new Date());
-  cutoff.setUTCDate(cutoff.getUTCDate() - window + 1);
-  return cutoff;
 }
 
 export function newlyPublishedWhere(
@@ -298,107 +290,118 @@ export function effectiveActorPicture(input: {
   };
 }
 
-export function buildDailyPortfolioTrends(
-  rows: Array<{
-    storeActorId: string;
-    capturedAt: Date;
-    users30Days: number | null;
-    runs30Days: number | null;
-  }>,
+export async function getBuilderCatalogSummary(): Promise<{
+  totalBuilders: number;
+  catalogActorCount: number;
+  enrichedActorCount: number;
+  users30Days: number;
+  totalUsers: number;
+  reportedUserActors: number;
+  earnings: EarningsRollup;
+}> {
+  return backendData<{
+    totalBuilders: number;
+    catalogActorCount: number;
+    enrichedActorCount: number;
+    users30Days: number;
+    totalUsers: number;
+    reportedUserActors: number;
+    earnings: EarningsRollup;
+  }>("summary", []);
+}
+
+export async function getBuildersForComparison(
+  usernames: string[],
+  window: BuilderWindow = 30,
+  limit = 5,
+): Promise<
+  Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>
+> {
+  return backendData<
+    Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>
+  >("comparison-builders", [usernames, window, limit]);
+}
+
+export async function getBuilderComparisonHistory(
+  usernames: string[],
   window: BuilderWindow,
-  actorAvailability: Array<{ storeActorId: string; firstSeenAt: Date }>,
-  options: { currentDayComplete?: boolean } = {},
-) {
-  // Never substitute the current rolling Store aggregate for a missing daily
-  // snapshot. It can contain a different coverage set while a full catalog
-  // sync is still running, which creates a false spike in the last bar.
-  const latestActorDay = new Map<string, { users: number; runs: number; capturedAt: number }>();
-  for (const row of rows) {
-    const date = startOfUtcDay(row.capturedAt).toISOString().slice(0, 10);
-    const key = `${row.storeActorId}:${date}`;
-    const capturedAt = row.capturedAt.getTime();
-    const current = latestActorDay.get(key);
-    if (!current || capturedAt >= current.capturedAt) {
-      latestActorDay.set(key, {
-        users: row.users30Days ?? 0,
-        runs: row.runs30Days ?? 0,
-        capturedAt,
-      });
-    }
-  }
-
-  const cutoff = windowCutoff(window);
-  const availabilityByActor = new Map(
-    actorAvailability.map((actor) => [
-      actor.storeActorId,
-      startOfUtcDay(actor.firstSeenAt).getTime(),
-    ]),
-  );
-  const actorIds = [...availabilityByActor.keys()];
-  const currentDay = startOfUtcDay(new Date()).toISOString().slice(0, 10);
-  return Array.from({ length: window }, (_, index) => {
-    const date = new Date(cutoff);
-    date.setUTCDate(cutoff.getUTCDate() + index);
-    const key = date.toISOString().slice(0, 10);
-    const expectedActorCount = actorIds.filter(
-      (actorId) => (availabilityByActor.get(actorId) ?? Number.POSITIVE_INFINITY) <= date.getTime(),
-    ).length;
-    const observedToday = new Set<string>();
-    const observedValues: Array<{ users: number; runs: number }> = [];
-    for (const actorId of actorIds) {
-      const point = latestActorDay.get(`${actorId}:${key}`);
-      if (point) {
-        observedToday.add(actorId);
-        observedValues.push({ users: point.users, runs: point.runs });
-      }
-    }
-    const hasCompleteDailySnapshot =
-      expectedActorCount > 0 &&
-      observedToday.size === expectedActorCount &&
-      (key !== currentDay || options.currentDayComplete === true);
-    const observedTotal = hasCompleteDailySnapshot
-      ? observedValues.reduce(
-          (sum, point) => ({ users: sum.users + point.users, runs: sum.runs + point.runs }),
-          { users: 0, runs: 0 },
-        )
-      : null;
-    return {
-      date: key,
-      observed: hasCompleteDailySnapshot,
-      users: observedTotal?.users ?? null,
-      runs: observedTotal?.runs ?? null,
-    };
-  });
+): Promise<Map<string, BuilderProfile["trendChart"]>> {
+  return backendData<Map<string, BuilderProfile["trendChart"]>>("comparison-history", [
+    usernames,
+    window,
+  ]);
 }
 
-export async function getBuilderCatalogSummary(): Promise<{ totalBuilders: number; catalogActorCount: number; enrichedActorCount: number; users30Days: number; totalUsers: number; reportedUserActors: number; earnings: EarningsRollup }> {
-  return backendData<{ totalBuilders: number; catalogActorCount: number; enrichedActorCount: number; users30Days: number; totalUsers: number; reportedUserActors: number; earnings: EarningsRollup }>("summary", []);
+export async function searchBuildersForComparison(
+  query: string,
+  window: BuilderWindow = 30,
+): Promise<
+  Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>
+> {
+  return backendData<
+    Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>
+  >("search-builders", [query, window]);
 }
 
-export async function getBuildersForComparison(usernames: string[], window: BuilderWindow = 30, limit = 5): Promise<Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>> {
-  return backendData<Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>>("comparison-builders", [usernames, window, limit]);
+export async function searchActorsForComparison(
+  query: string,
+  window: BuilderWindow = 30,
+): Promise<Array<{ username: string; actor: BuilderActorEntry }>> {
+  return backendData<Array<{ username: string; actor: BuilderActorEntry }>>("search-actors", [
+    query,
+    window,
+  ]);
 }
 
-export async function getBuilderComparisonHistory(usernames: string[], window: BuilderWindow): Promise<Map<string, BuilderProfile["trendChart"]>> {
-  return backendData<Map<string, BuilderProfile["trendChart"]>>("comparison-history", [usernames, window]);
+export async function getBuilderLeaderboard(options: {
+  metric: BuilderMetric;
+  direction?: BuilderSortDirection;
+  window?: BuilderWindow;
+  query?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  items: BuilderLeaderboardEntry[];
+  total: number;
+  totalBuilders: number;
+  page: number;
+  pageCount: number;
+  catalogActorCount: number;
+  enrichedActorCount: number;
+  latestSearchSyncAt: Date | null;
+  latestDetailsSyncAt: Date | null;
+}> {
+  return backendData<{
+    items: BuilderLeaderboardEntry[];
+    total: number;
+    totalBuilders: number;
+    page: number;
+    pageCount: number;
+    catalogActorCount: number;
+    enrichedActorCount: number;
+    latestSearchSyncAt: Date | null;
+    latestDetailsSyncAt: Date | null;
+  }>("leaderboard", [options]);
 }
 
-export async function searchBuildersForComparison(query: string, window: BuilderWindow = 30): Promise<Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>> {
-  return backendData<Array<Omit<BuilderLeaderboardEntry, "bio" | "changes"> & { ranks: BuilderMetricRanks }>>("search-builders", [query, window]);
-}
-
-export async function searchActorsForComparison(query: string, window: BuilderWindow = 30): Promise<Array<{ username: string; actor: BuilderActorEntry }>> {
-  return backendData<Array<{ username: string; actor: BuilderActorEntry }>>("search-actors", [query, window]);
-}
-
-export async function getBuilderLeaderboard(options: { metric: BuilderMetric; direction?: BuilderSortDirection; window?: BuilderWindow; query?: string; page?: number; pageSize?: number }): Promise<{ items: BuilderLeaderboardEntry[]; total: number; totalBuilders: number; page: number; pageCount: number; catalogActorCount: number; enrichedActorCount: number; latestSearchSyncAt: Date | null; latestDetailsSyncAt: Date | null }> {
-  return backendData<{ items: BuilderLeaderboardEntry[]; total: number; totalBuilders: number; page: number; pageCount: number; catalogActorCount: number; enrichedActorCount: number; latestSearchSyncAt: Date | null; latestDetailsSyncAt: Date | null }>("leaderboard", [options]);
-}
-
-export async function getBuilderProfile(username: string, options: { window?: BuilderWindow; actorPage?: number; actorPageSize?: number; actorQuery?: string; actorCategory?: string; actorSort?: BuilderActorSort } = {}): Promise<BuilderProfile | null> {
+export async function getBuilderProfile(
+  username: string,
+  options: {
+    window?: BuilderWindow;
+    actorPage?: number;
+    actorPageSize?: number;
+    actorQuery?: string;
+    actorCategory?: string;
+    actorSort?: BuilderActorSort;
+  } = {},
+): Promise<BuilderProfile | null> {
   return backendData<BuilderProfile | null>("profile", [username, options]);
 }
 
-export async function getBuilderActorDetail(username: string, actorName: string, window: BuilderWindow = 30): Promise<BuilderActorDetail | null> {
+export async function getBuilderActorDetail(
+  username: string,
+  actorName: string,
+  window: BuilderWindow = 30,
+): Promise<BuilderActorDetail | null> {
   return backendData<BuilderActorDetail | null>("actor", [username, actorName, window]);
 }

@@ -223,7 +223,9 @@ async function persistSearchActorBatch(
             ...searchActorData(actor, now),
             apifyActorId: actor.id,
             // Details verify and reconcile occupied names separately.
-            ...(identityConflict ? { username: existing.username, actorName: existing.actorName } : {}),
+            ...(identityConflict
+              ? { username: existing.username, actorName: existing.actorName }
+              : {}),
           },
         }),
       ),
@@ -248,7 +250,8 @@ async function persistSearchActorBatch(
   const capturedAt = startOfUtcDay(now);
   const snapshots = items.flatMap((actor) => {
     const byRef = persistedByRef.get(actorRef(actor.username, actor.name));
-    const row = persistedById.get(actor.id) ??
+    const row =
+      persistedById.get(actor.id) ??
       (byRef?.apifyActorId === actor.id || byRef?.apifyActorId.includes("/") ? byRef : undefined);
     if (!row) return [];
     const data = searchActorData(actor, now);
@@ -339,7 +342,10 @@ export async function syncStoreSearchCatalog(
   // Keep full public catalog passes distinct from targeted builder refreshes.
   // A successful Crawler Bros refresh must never make the daily global
   // leaderboard think its 60k-Actor snapshot is complete.
-  const run = await createSyncRun(database, completeCatalog ? "SEARCH_FULL" : "SEARCH");
+  const run = await createSyncRun(
+    database,
+    completeCatalog && !builderUsername ? "SEARCH_FULL" : "SEARCH",
+  );
   const result: StoreCatalogSyncResult = {
     expectedCount: null,
     processedCount: 0,
@@ -658,7 +664,10 @@ export async function syncStoreActorDetails(
       ? await database.storeActor.findMany({
           where: {
             ...publicActorWhere,
-            id: { ...(options.actorIds ? { in: options.actorIds } : {}), notIn: actorsNeedingLifecycle.map((actor) => actor.id) },
+            id: {
+              ...(options.actorIds ? { in: options.actorIds } : {}),
+              notIn: actorsNeedingLifecycle.map((actor) => actor.id),
+            },
           },
           orderBy: [{ detailsSyncedAt: "asc" }, { totalUsers: "desc" }, { id: "asc" }],
           take: remaining,
@@ -699,27 +708,29 @@ export async function syncStoreActorDetails(
             // source. Detail reads are for lifecycle fields, Store metadata,
             // pricing and reviews; their rolling counters can lag the search
             // index, so never let them overwrite a fresh daily snapshot.
-            const metrics = options.repairMetrics ? {
-              totalRuns: data.totalRuns,
-              totalUsers: data.totalUsers,
-              users7Days: data.users7Days,
-              users30Days: data.users30Days,
-              users90Days: data.users90Days,
-              runs30Days: data.runs30Days,
-              reviewCount: data.reviewCount,
-              reviewRating: data.reviewRating,
-              bookmarkCount: data.bookmarkCount,
-            } : {
-              totalRuns: actor.totalRuns ?? data.totalRuns,
-              totalUsers: actor.totalUsers ?? data.totalUsers,
-              users7Days: actor.users7Days ?? data.users7Days,
-              users30Days: actor.users30Days ?? data.users30Days,
-              users90Days: actor.users90Days ?? data.users90Days,
-              runs30Days: actor.runs30Days ?? data.runs30Days,
-              reviewCount: actor.reviewCount ?? data.reviewCount,
-              reviewRating: actor.reviewRating ?? data.reviewRating,
-              bookmarkCount: actor.bookmarkCount ?? data.bookmarkCount,
-            };
+            const metrics = options.repairMetrics
+              ? {
+                  totalRuns: data.totalRuns,
+                  totalUsers: data.totalUsers,
+                  users7Days: data.users7Days,
+                  users30Days: data.users30Days,
+                  users90Days: data.users90Days,
+                  runs30Days: data.runs30Days,
+                  reviewCount: data.reviewCount,
+                  reviewRating: data.reviewRating,
+                  bookmarkCount: data.bookmarkCount,
+                }
+              : {
+                  totalRuns: actor.totalRuns ?? data.totalRuns,
+                  totalUsers: actor.totalUsers ?? data.totalUsers,
+                  users7Days: actor.users7Days ?? data.users7Days,
+                  users30Days: actor.users30Days ?? data.users30Days,
+                  users90Days: actor.users90Days ?? data.users90Days,
+                  runs30Days: actor.runs30Days ?? data.runs30Days,
+                  reviewCount: actor.reviewCount ?? data.reviewCount,
+                  reviewRating: actor.reviewRating ?? data.reviewRating,
+                  bookmarkCount: actor.bookmarkCount ?? data.bookmarkCount,
+                };
             await database.$transaction([
               database.storeActor.update({
                 where: { id: actor.id },
@@ -755,10 +766,12 @@ export async function syncStoreActorDetails(
             await database.storeActor.update({
               where: { id: actor.id },
               data: {
-                detailsSyncedAt:
-                  error instanceof ApifyClientError && error.code === "rate_limited"
-                    ? null
-                    : new Date(),
+                // Only an authoritative missing-record response retires a
+                // listing. Authentication, throttling and network failures
+                // must not remove public Actors or claim a successful sync.
+                ...(error instanceof ApifyClientError && error.code === "not_found"
+                  ? { isPublic: false }
+                  : {}),
                 detailsSyncError:
                   error instanceof Error ? error.message : "Actor details could not be loaded",
               },

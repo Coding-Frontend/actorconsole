@@ -41,6 +41,11 @@ beforeEach(() => {
 });
 
 describe("public comparison history loading", () => {
+  it("excludes retired Actors from current comparisons", async () => {
+    mocks.actor.mockResolvedValue({ ...builder, isAvailable: false });
+    const result = await loadPublicComparison("actor", ["atlas/retired"], 30);
+    expect(result).toEqual({ items: [], missing: 1 });
+  });
   it("keeps incomplete portfolio snapshots as gaps while preserving observed zero", async () => {
     mocks.history.mockResolvedValue(
       new Map([

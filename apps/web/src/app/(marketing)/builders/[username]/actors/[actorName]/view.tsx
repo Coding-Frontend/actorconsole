@@ -36,7 +36,7 @@ function initials(name: string) {
 }
 
 function formatDate(value: Date | null) {
-  return value ? value.toLocaleDateString("en-IN", { dateStyle: "medium" }) : "Not published";
+  return value ? value.toLocaleDateString("en-IN", { dateStyle: "medium" }) : "Unavailable";
 }
 
 function pricingLabel(model: string) {
@@ -95,46 +95,56 @@ export default async function BuilderActorPage({
                   {actor.ownerName ?? `@${actor.username}`}
                 </Link>
               </Button>
-              <p className="text-muted-foreground font-mono text-xs">
+              <p className="font-mono text-xs text-muted-foreground">
                 Catalog ID {actor.apifyActorId}
               </p>
             </div>
 
-            <div className="bg-card border-border shadow-card mt-6 border p-5 sm:p-8 lg:p-10">
+            <div className="mt-6 border border-border bg-card p-5 shadow-card sm:p-8 lg:p-10">
               <div className="flex flex-col gap-7 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex min-w-0 flex-col gap-5 sm:flex-row">
-                  <Avatar className="border-border bg-muted h-24 w-24 shrink-0 rounded-2xl border sm:h-28 sm:w-28">
+                  <Avatar className="h-24 w-24 shrink-0 rounded-2xl border border-border bg-muted sm:h-28 sm:w-28">
                     {actor.pictureUrl ? <AvatarImage src={actor.pictureUrl} alt="" /> : null}
                     <AvatarFallback className="rounded-2xl font-mono text-xl">
                       {initials(actor.title)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <p className="type-kicker text-signal-orange">Public Apify Actor</p>
+                    <p className="type-kicker text-signal-orange">
+                      {actor.isAvailable === false ? "Archived Apify Actor" : "Public Apify Actor"}
+                    </p>
                     <h1 className="font-display-tight mt-3 max-w-5xl break-words text-4xl leading-[.98] sm:text-5xl lg:text-6xl">
                       {actor.title}
                     </h1>
-                    <p className="text-muted-foreground mt-3 font-mono text-sm">
+                    <p className="mt-3 font-mono text-sm text-muted-foreground">
                       {actor.username}/{actor.name}
                     </p>
-                    <p className="text-muted-foreground mt-5 max-w-4xl text-sm leading-6 sm:text-base sm:leading-7">
+                    <p className="mt-5 max-w-4xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
                       {actor.description ??
                         "This Actor does not currently expose a public Store description."}
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <PublicCompareButton item={actorCompareItem(actor.username, actor, window)} />
-                  <Button asChild>
-                    <a href={actor.apifyUrl} target="_blank" rel="noreferrer">
-                      Open on Apify
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
-                </div>
+                {actor.isAvailable !== false ? (
+                  <div className="flex flex-wrap gap-2">
+                    <PublicCompareButton item={actorCompareItem(actor.username, actor, window)} />
+                    <Button asChild>
+                      <a href={actor.apifyUrl} target="_blank" rel="noreferrer">
+                        Open on Apify
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
-              <div className="border-border bg-border mt-8 grid grid-cols-2 gap-px overflow-hidden border sm:grid-cols-3 xl:grid-cols-6">
+              {actor.isAvailable === false ? (
+                <p role="status" className="mt-8 border-t border-border pt-5 text-sm">
+                  This listing is no longer available in the public Store. The metrics and pricing
+                  below are historical, last observed on {formatDate(actor.lastSeenAt)}.
+                </p>
+              ) : null}
+              <div className="mt-8 grid grid-cols-2 gap-px overflow-hidden border border-border bg-border sm:grid-cols-3 xl:grid-cols-6">
                 <HeroMetric
                   label={`Active users / ${window}d`}
                   value={compact(actor.activeUsers)}
@@ -160,7 +170,7 @@ export default async function BuilderActorPage({
         <HomeGridRow>
           <HomeGridCell className="col-span-12 px-6 py-12 sm:px-8 sm:py-14 lg:p-12">
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(19rem,.7fr)]">
-              <div className="border-border bg-card shadow-card border p-5 sm:p-7">
+              <div className="border border-border bg-card p-5 shadow-card sm:p-7">
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                   <div>
                     <p className="type-kicker">Usage history</p>
@@ -171,14 +181,14 @@ export default async function BuilderActorPage({
                   </Badge>
                 </div>
                 <TrendChart points={actor.trend} />
-                <div className="border-border mt-7 grid grid-cols-3 divide-x border">
+                <div className="mt-7 grid grid-cols-3 divide-x border border-border">
                   <WindowMetric label="Users / 7d" value={actor.users7Days} />
                   <WindowMetric label="Users / 30d" value={actor.users30Days} />
                   <WindowMetric label="Users / 90d" value={actor.users90Days} />
                 </div>
               </div>
 
-              <aside className="semantic-accent-panel border-border text-foreground border p-5 sm:p-7">
+              <aside className="semantic-accent-panel border border-border p-5 text-foreground sm:p-7">
                 <p className="type-kicker text-white/55">Catalog record</p>
                 <dl className="mt-7 space-y-5">
                   <Readout label="First published" value={formatDate(actor.firstPublishedAt)} />
@@ -211,19 +221,20 @@ export default async function BuilderActorPage({
                     {actor.pricing.map((price, index) => (
                       <div
                         key={`${price.model}-${index}`}
-                        className="border-border bg-muted/25 border p-4"
+                        className="border border-border bg-muted/25 p-4"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <p className="font-semibold">{pricingLabel(price.model)}</p>
-                          {pricingLabel(price.model) === "Pay per event" ? (
+                          {actor.isAvailable !== false &&
+                          pricingLabel(price.model) === "Pay per event" ? (
                             <Badge className="bg-signal-orange text-ink hover:bg-signal-orange">
                               Current model
                             </Badge>
                           ) : (
-                            <Badge variant="outline">Catalog value</Badge>
+                            <Badge variant="outline">Last recorded model</Badge>
                           )}
                         </div>
-                        <p className="text-muted-foreground mt-2 text-sm leading-6">
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
                           {price.eventCount > 0
                             ? `${price.eventCount} charge event${price.eventCount === 1 ? "" : "s"} configured`
                             : price.pricePerUnitUsd != null
@@ -231,7 +242,7 @@ export default async function BuilderActorPage({
                               : "Apify does not expose a public unit price for this configuration."}
                         </p>
                         {price.events.length ? (
-                          <div className="border-border mt-4 divide-y border-t">
+                          <div className="mt-4 divide-y border-t border-border">
                             {price.events.map((event) => (
                               <div
                                 key={event.name}
@@ -247,11 +258,11 @@ export default async function BuilderActorPage({
                                       <Badge variant="outline">One-time</Badge>
                                     ) : null}
                                   </div>
-                                  <p className="text-muted-foreground mt-1 break-all font-mono text-[10px]">
+                                  <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">
                                     {event.name}
                                   </p>
                                   {event.description ? (
-                                    <p className="text-muted-foreground mt-2 text-xs leading-5">
+                                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
                                       {event.description}
                                     </p>
                                   ) : null}
@@ -272,7 +283,7 @@ export default async function BuilderActorPage({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-sm leading-6">
+                  <p className="text-sm leading-6 text-muted-foreground">
                     Pricing metadata has not been exposed or enriched for this Actor yet.
                   </p>
                 )}
@@ -280,17 +291,23 @@ export default async function BuilderActorPage({
             </div>
 
             <div className="mt-12">
-              <PublicActorDocumentation
-                username={actor.username}
-                actorName={actor.name}
-                firstPublishedAt={actor.firstPublishedAt?.toISOString() ?? null}
-                createdAt={actor.createdAt?.toISOString() ?? null}
-                modifiedAt={actor.modifiedAt?.toISOString() ?? null}
-                firstSeenAt={actor.firstSeenAt?.toISOString() ?? null}
-                detailsSyncedAt={actor.detailsSyncedAt?.toISOString() ?? null}
-                lastSeenAt={actor.lastSeenAt?.toISOString() ?? null}
-                apifyUrl={actor.apifyUrl}
-              />
+              {actor.isAvailable === false ? (
+                <p className="text-sm text-muted-foreground">
+                  Live documentation is unavailable for this archived listing.
+                </p>
+              ) : (
+                <PublicActorDocumentation
+                  username={actor.username}
+                  actorName={actor.name}
+                  firstPublishedAt={actor.firstPublishedAt?.toISOString() ?? null}
+                  createdAt={actor.createdAt?.toISOString() ?? null}
+                  modifiedAt={actor.modifiedAt?.toISOString() ?? null}
+                  firstSeenAt={actor.firstSeenAt?.toISOString() ?? null}
+                  detailsSyncedAt={actor.detailsSyncedAt?.toISOString() ?? null}
+                  lastSeenAt={actor.lastSeenAt?.toISOString() ?? null}
+                  apifyUrl={actor.apifyUrl}
+                />
+              )}
             </div>
 
             {actor.relatedActors.length ? (
@@ -302,10 +319,10 @@ export default async function BuilderActorPage({
                     <Link
                       key={related.id}
                       href={`${related.internalUrl}?window=${window}`}
-                      className="border-border bg-card hover:bg-accent/45 focus-visible:ring-ring group border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2"
+                      className="group border border-border bg-card p-5 transition-colors hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <div className="flex items-center gap-3">
-                        <Avatar className="border-border h-10 w-10 rounded-lg border">
+                        <Avatar className="h-10 w-10 rounded-lg border border-border">
                           {related.pictureUrl ? (
                             <AvatarImage src={related.pictureUrl} alt="" />
                           ) : null}
@@ -313,16 +330,16 @@ export default async function BuilderActorPage({
                             {initials(related.title)}
                           </AvatarFallback>
                         </Avatar>
-                        <p className="group-hover:text-signal-blue line-clamp-2 font-semibold leading-5">
+                        <p className="line-clamp-2 font-semibold leading-5 group-hover:text-signal-blue">
                           {related.title}
                         </p>
                       </div>
-                      <p className="text-muted-foreground mt-4 text-xs">
+                      <p className="mt-4 text-xs text-muted-foreground">
                         {compact(related.activeUsers)} active users · {compact(related.runs30Days)}{" "}
                         runs / 30d
                       </p>
                       <div className="mt-4">
-                        <p className="text-muted-foreground mb-2 text-xs">
+                        <p className="mb-2 text-xs text-muted-foreground">
                           Est. monthly creator revenue
                         </p>
                         <EarningsBand value={related.earnings} compact />
@@ -344,7 +361,7 @@ function HeroMetric({ label, value, detail }: { label: string; value: string; de
     <div className="bg-card p-4 sm:p-5">
       <p className="type-kicker leading-4">{label}</p>
       <p className="font-display-tight mt-3 text-3xl tabular-nums">{value}</p>
-      {detail ? <p className="text-muted-foreground mt-1 text-[10px]">{detail}</p> : null}
+      {detail ? <p className="mt-1 text-[10px] text-muted-foreground">{detail}</p> : null}
     </div>
   );
 }
@@ -353,7 +370,7 @@ function WindowMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="p-4 text-center">
       <p className="font-display-tight text-2xl tabular-nums">{compact(value)}</p>
-      <p className="text-muted-foreground mt-1 text-[10px]">{label}</p>
+      <p className="mt-1 text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -370,7 +387,7 @@ function TrendChart({
 }) {
   return (
     <div className="mt-7 grid gap-6 lg:grid-cols-2">
-      <div className="border-border bg-muted/15 border p-4 sm:p-5">
+      <div className="border border-border bg-muted/15 p-4 sm:p-5">
         <ObservedMetricBarChart
           points={points.map((point) => ({
             date: point.date,
@@ -382,7 +399,7 @@ function TrendChart({
           emptyMessage="No active-user snapshot has been captured for this Actor yet."
         />
       </div>
-      <div className="border-border bg-muted/15 border p-4 sm:p-5">
+      <div className="border border-border bg-muted/15 p-4 sm:p-5">
         <ObservedMetricBarChart
           points={points.map((point) => ({
             date: point.date,
@@ -419,7 +436,7 @@ function InfoPanel({
   children: React.ReactNode;
 }) {
   return (
-    <article className="border-border bg-card shadow-card border p-5 sm:p-7">
+    <article className="border border-border bg-card p-5 shadow-card sm:p-7">
       <p className="type-kicker text-signal-blue">{kicker}</p>
       <h2 className="font-display-tight mt-2 text-3xl">{title}</h2>
       <div className="mt-6 space-y-6">{children}</div>
@@ -440,7 +457,7 @@ function TokenGroup({ label, values }: { label: string; values: string[] }) {
           ))}
         </div>
       ) : (
-        <p className="text-muted-foreground mt-2 text-sm">No public values available.</p>
+        <p className="mt-2 text-sm text-muted-foreground">No public values available.</p>
       )}
     </div>
   );

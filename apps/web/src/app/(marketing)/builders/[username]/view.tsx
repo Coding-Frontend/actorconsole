@@ -144,15 +144,16 @@ export default async function BuilderProfilePage({
                   Leaderboard
                 </Link>
               </Button>
-              <p className="text-muted-foreground font-mono text-xs">
-                Updated {profile.lastUpdatedAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
+              <p className="font-mono text-xs text-muted-foreground">
+                Last observed{" "}
+                {profile.lastUpdatedAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
               </p>
             </div>
 
-            <div className="bg-card border-border shadow-card mt-6 border p-5 sm:p-8 lg:p-10">
+            <div className="mt-6 border border-border bg-card p-5 shadow-card sm:p-8 lg:p-10">
               <div className="flex flex-col gap-7 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start">
-                  <Avatar className="border-border bg-muted h-20 w-20 border sm:h-24 sm:w-24">
+                  <Avatar className="h-20 w-20 border border-border bg-muted sm:h-24 sm:w-24">
                     {profile.pictureUrl ? <AvatarImage src={profile.pictureUrl} alt="" /> : null}
                     <AvatarFallback className="font-mono text-xl">
                       {initials(displayName)}
@@ -163,7 +164,7 @@ export default async function BuilderProfilePage({
                     <h1 className="font-display-tight mt-3 break-words text-4xl sm:text-5xl lg:text-6xl">
                       {displayName}
                     </h1>
-                    <p className="text-muted-foreground mt-2 font-mono text-sm">
+                    <p className="mt-2 font-mono text-sm text-muted-foreground">
                       @{profile.username}
                     </p>
                   </div>
@@ -189,69 +190,82 @@ export default async function BuilderProfilePage({
                       </Link>
                     </Button>
                   ))}
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={profile.apifyUrl} target="_blank" rel="noreferrer">
-                      View on Apify
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </Button>
-                  <PublicCompareButton item={builderCompareItem(profile, window)} />
+                  {profile.isAvailable !== false ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={profile.apifyUrl} target="_blank" rel="noreferrer">
+                        View on Apify
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  ) : null}
+                  {profile.isAvailable !== false ? (
+                    <PublicCompareButton item={builderCompareItem(profile, window)} />
+                  ) : null}
                 </div>
               </div>
 
-              <div className="border-border mt-8 border-t pt-7">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="type-kicker text-signal-blue">Leaderboard position</p>
-                  <p className="text-muted-foreground text-xs">
-                    out of {profile.totalBuilders.toLocaleString("en-IN")}
-                  </p>
-                </div>
-                <div className="bg-border mt-4 grid grid-cols-2 gap-px overflow-hidden border sm:grid-cols-3 xl:grid-cols-7">
-                  <RankMetric
-                    label={`New Actors / ${window}d`}
-                    rank={profile.ranks["new-actors"]}
-                  />
-                  <RankMetric label="Total Actors" rank={profile.ranks.actors} />
-                  <RankMetric
-                    label={`Active users / ${window}d`}
-                    rank={profile.ranks["monthly-users"]}
-                  />
-                  <RankMetric label="Total users" rank={profile.ranks["total-users"]} />
-                  <RankMetric label="Runs / 30d" rank={profile.ranks["monthly-runs"]} />
-                  <RankMetric label="Total runs" rank={profile.ranks["total-runs"]} />
-                  <RankMetric
-                    label="Est. revenue / 30d"
-                    rank={
-                      profile.earnings?.centralUsd != null
-                        ? profile.ranks["estimated-revenue"]
-                        : null
-                    }
-                  />
-                </div>
-              </div>
+              {profile.isAvailable === false ? (
+                <p role="status" className="mt-8 border-t border-border pt-7 text-sm">
+                  No current public Actors are available for this builder. Recorded history is
+                  preserved below; this portfolio is excluded from current rankings.
+                </p>
+              ) : (
+                <>
+                  <div className="mt-8 border-t border-border pt-7">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="type-kicker text-signal-blue">Leaderboard position</p>
+                      <p className="text-xs text-muted-foreground">
+                        out of {profile.totalBuilders.toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden border bg-border sm:grid-cols-3 xl:grid-cols-7">
+                      <RankMetric
+                        label={`New Actors / ${window}d`}
+                        rank={profile.ranks["new-actors"]}
+                      />
+                      <RankMetric label="Total Actors" rank={profile.ranks.actors} />
+                      <RankMetric
+                        label={`Active users / ${window}d`}
+                        rank={profile.ranks["monthly-users"]}
+                      />
+                      <RankMetric label="Total users" rank={profile.ranks["total-users"]} />
+                      <RankMetric label="Runs / 30d" rank={profile.ranks["monthly-runs"]} />
+                      <RankMetric label="Total runs" rank={profile.ranks["total-runs"]} />
+                      <RankMetric
+                        label="Est. revenue / 30d"
+                        rank={
+                          profile.earnings?.centralUsd != null
+                            ? profile.ranks["estimated-revenue"]
+                            : null
+                        }
+                      />
+                    </div>
+                  </div>
 
-              <div className="border-border mt-7 border-t pt-7">
-                <p className="type-kicker text-signal-blue">Portfolio stats</p>
-                <div className="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-6">
-                  <PortfolioMetric
-                    label={`New Actors / ${window}d`}
-                    value={profile.newActorCount}
-                  />
-                  <PortfolioMetric label="Total Actors" value={profile.actorCount} />
-                  <PortfolioMetric
-                    label={`Active users / ${window}d`}
-                    value={profile.activeUsers}
-                    detail={signed(profile.changes.users)}
-                  />
-                  <PortfolioMetric label="Total users" value={profile.totalUsers} />
-                  <PortfolioMetric
-                    label="Runs / 30d"
-                    value={profile.recentRuns}
-                    detail={signed(profile.changes.runs)}
-                  />
-                  <PortfolioMetric label="Total runs" value={profile.totalRuns} />
-                </div>
-              </div>
+                  <div className="mt-7 border-t border-border pt-7">
+                    <p className="type-kicker text-signal-blue">Portfolio stats</p>
+                    <div className="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-6">
+                      <PortfolioMetric
+                        label={`New Actors / ${window}d`}
+                        value={profile.newActorCount}
+                      />
+                      <PortfolioMetric label="Total Actors" value={profile.actorCount} />
+                      <PortfolioMetric
+                        label={`Active users / ${window}d`}
+                        value={profile.activeUsers}
+                        detail={window === 30 ? signed(profile.changes.users) : undefined}
+                      />
+                      <PortfolioMetric label="Total users" value={profile.totalUsers} />
+                      <PortfolioMetric
+                        label="Runs / 30d"
+                        value={profile.recentRuns}
+                        detail={signed(profile.changes.runs)}
+                      />
+                      <PortfolioMetric label="Total runs" value={profile.totalRuns} />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </HomeGridCell>
         </HomeGridRow>
@@ -260,7 +274,7 @@ export default async function BuilderProfilePage({
       <HomeGridSection className="bg-fog/35">
         <HomeGridRow>
           <HomeGridCell className="col-span-12 px-6 py-12 sm:px-8 sm:py-14 lg:p-12">
-            <div className="bg-card border-border shadow-card border p-5 sm:p-7 lg:p-9">
+            <div className="border border-border bg-card p-5 shadow-card sm:p-7 lg:p-9">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                 <div>
                   <p className="type-kicker">Portfolio history</p>
@@ -287,11 +301,11 @@ export default async function BuilderProfilePage({
               <div>
                 <p className="type-kicker">Actor portfolio</p>
                 <h2 className="font-display-tight mt-2 text-3xl sm:text-4xl">
-                  Every indexed public Actor
+                  Current public Actors
                 </h2>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <p className="text-muted-foreground text-sm">
+                <p className="text-sm text-muted-foreground">
                   {profile.actorTotal.toLocaleString("en-IN")} matching of{" "}
                   {profile.actorCount.toLocaleString("en-IN")} Actors
                   {profile.actorTotal > 0
@@ -304,7 +318,7 @@ export default async function BuilderProfilePage({
 
             <form
               method="get"
-              className="border-border bg-fog mt-8 border p-4 sm:p-5"
+              className="mt-8 border border-border bg-fog p-4 sm:p-5"
               aria-label="Filter Actor portfolio"
             >
               <input type="hidden" name="window" value={window} />
@@ -313,7 +327,7 @@ export default async function BuilderProfilePage({
                   <span className="type-kicker">Search Actors</span>
                   <span className="relative block">
                     <Search
-                      className="text-muted-foreground pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2"
+                      className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                       aria-hidden="true"
                     />
                     <Input
@@ -332,7 +346,7 @@ export default async function BuilderProfilePage({
                     id="actor-category"
                     name="actorCategory"
                     defaultValue={profile.actorFilters.category}
-                    className="border-input bg-card text-card-foreground focus-visible:border-ring focus-visible:ring-ring h-12 rounded-md border px-4 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-2"
+                    className="h-12 rounded-md border border-input bg-card px-4 text-sm font-semibold text-card-foreground shadow-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="">All categories</option>
                     {profile.actorCategories.map((category) => (
@@ -348,7 +362,7 @@ export default async function BuilderProfilePage({
                     id="actor-sort"
                     name="actorSort"
                     defaultValue={profile.actorFilters.sort}
-                    className="border-input bg-card text-card-foreground focus-visible:border-ring focus-visible:ring-ring h-12 rounded-md border px-4 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-2"
+                    className="h-12 rounded-md border border-input bg-card px-4 text-sm font-semibold text-card-foreground shadow-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {BUILDER_ACTOR_SORTS.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -379,7 +393,7 @@ export default async function BuilderProfilePage({
                 className={
                   actorView === "grid"
                     ? "mt-6 grid gap-5 lg:grid-cols-2"
-                    : "border-border bg-card shadow-card mt-6 divide-y border"
+                    : "mt-6 divide-y border border-border bg-card shadow-card"
                 }
               >
                 {profile.actors.map((actor) => {
@@ -390,12 +404,12 @@ export default async function BuilderProfilePage({
                       key={actor.id}
                       className={
                         actorView === "grid"
-                          ? "border-border bg-card shadow-card group flex min-h-64 flex-col border p-5 sm:p-6"
+                          ? "group flex min-h-64 flex-col border border-border bg-card p-5 shadow-card sm:p-6"
                           : "group grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:p-6"
                       }
                     >
                       <div className="flex items-start gap-4">
-                        <Avatar className="border-border bg-muted h-16 w-16 shrink-0 rounded-xl border">
+                        <Avatar className="h-16 w-16 shrink-0 rounded-xl border border-border bg-muted">
                           {actor.pictureUrl ? <AvatarImage src={actor.pictureUrl} alt="" /> : null}
                           <AvatarFallback className="rounded-xl font-mono">
                             {initials(actor.title)}
@@ -404,25 +418,25 @@ export default async function BuilderProfilePage({
                         <div className="min-w-0 flex-1">
                           <Link
                             href={actor.internalUrl}
-                            className="focus-visible:ring-ring group/link inline-flex max-w-full items-start gap-2 focus-visible:outline-none focus-visible:ring-2"
+                            className="group/link inline-flex max-w-full items-start gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
-                            <h3 className="group-hover/link:text-signal-blue line-clamp-2 text-lg font-semibold leading-snug">
+                            <h3 className="line-clamp-2 text-lg font-semibold leading-snug group-hover/link:text-signal-blue">
                               {actor.title}
                             </h3>
-                            <ArrowRight className="text-muted-foreground mt-1 h-4 w-4 shrink-0 transition-transform group-hover/link:translate-x-1" />
+                            <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover/link:translate-x-1" />
                           </Link>
-                          <p className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                          <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
                             {profile.username}/{actor.name}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-display-tight text-signal-orange text-3xl tabular-nums">
+                          <p className="font-display-tight text-3xl tabular-nums text-signal-orange">
                             {Math.round(share)}%
                           </p>
                           <p className="type-kicker">users</p>
                         </div>
                       </div>
-                      <p className="text-muted-foreground mt-4 line-clamp-3 text-sm leading-6">
+                      <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
                         {actor.description ?? "No public Store description is available yet."}
                       </p>
                       <div
@@ -453,12 +467,12 @@ export default async function BuilderProfilePage({
                         />
                       </div>
                       <div className="sm:col-span-2">
-                        <p className="text-muted-foreground mb-2 text-xs">
+                        <p className="mb-2 text-xs text-muted-foreground">
                           Est. monthly creator revenue
                         </p>
                         <EarningsBand value={actor.earnings} compact />
                         {actor.earnings?.reason && (
-                          <p className="text-muted-foreground mt-2 text-xs">
+                          <p className="mt-2 text-xs text-muted-foreground">
                             {actor.earnings.reason}
                           </p>
                         )}
@@ -466,8 +480,8 @@ export default async function BuilderProfilePage({
                       <div
                         className={
                           actorView === "grid"
-                            ? "border-border mt-5 flex flex-wrap items-center gap-4 border-t pt-4 text-xs font-semibold"
-                            : "border-border flex flex-wrap items-center gap-4 border-t pt-4 text-xs font-semibold sm:col-span-2"
+                            ? "mt-5 flex flex-wrap items-center gap-4 border-t border-border pt-4 text-xs font-semibold"
+                            : "flex flex-wrap items-center gap-4 border-t border-border pt-4 text-xs font-semibold sm:col-span-2"
                         }
                       >
                         <Link href={actor.internalUrl} className="text-signal-blue hover:underline">
@@ -480,7 +494,7 @@ export default async function BuilderProfilePage({
                           href={actor.apifyUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
                         >
                           View on Apify
                           <ExternalLink className="h-3 w-3" />
@@ -491,9 +505,9 @@ export default async function BuilderProfilePage({
                 })}
               </div>
             ) : (
-              <div className="border-border bg-muted/20 mt-6 border border-dashed px-5 py-14 text-center">
+              <div className="mt-6 border border-dashed border-border bg-muted/20 px-5 py-14 text-center">
                 <p className="font-semibold">No Actors match these filters</p>
-                <p className="text-muted-foreground mx-auto mt-2 max-w-md text-sm leading-6">
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                   Try a broader search or clear the category and sort selections.
                 </p>
                 <Button variant="outline" className="mt-5" asChild>
@@ -530,7 +544,7 @@ export default async function BuilderProfilePage({
                     <span>Previous</span>
                   )}
                 </Button>
-                <p className="text-muted-foreground font-mono text-xs">
+                <p className="font-mono text-xs text-muted-foreground">
                   Page {profile.actorPage} of {profile.actorPageCount}
                 </p>
                 <Button
@@ -587,7 +601,7 @@ function PortfolioMetric({
     <div>
       <p className="type-kicker leading-4">{label}</p>
       <p className="font-display-tight mt-2 text-3xl tabular-nums">{compact(value)}</p>
-      {detail ? <p className="text-muted-foreground mt-1 text-[10px]">{detail}</p> : null}
+      {detail ? <p className="mt-1 text-[10px] text-muted-foreground">{detail}</p> : null}
     </div>
   );
 }
@@ -603,9 +617,9 @@ function ActorMetric({
 }) {
   return (
     <div>
-      <Icon className="text-muted-foreground h-3.5 w-3.5" />
+      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
       <p className="mt-2 font-mono text-sm font-semibold tabular-nums">{value}</p>
-      <p className="text-muted-foreground mt-0.5 text-[10px]">{label}</p>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }

@@ -55,7 +55,7 @@ describe("public earnings scenarios", () => {
     expect(result.centralUsd).toBe(144);
     expect(result.startPriceUsd).toBe(0.1);
   });
-  it("treats one-time charges once per paying run and supports tiered published prices", () => {
+  it("treats the Apify start event once per paying run and supports tiered published prices", () => {
     const value = estimate([
       {
         pricingModel: "PAY_PER_EVENT",
@@ -71,6 +71,35 @@ describe("public earnings scenarios", () => {
     ]);
     expect(value.centralUsd).toBe(240);
     expect(value.unitsPerRun).toEqual([1, 1, 1]);
+  });
+  it("does not multiply a monthly access pass by millions of runs", () => {
+    const value = estimate(
+      [
+        {
+          pricingModel: "PAY_PER_EVENT",
+          pricingPerEvent: {
+            actorChargeEvents: {
+              "monthly-access-pass": {
+                isPrimaryEvent: true,
+                isOneTimeEvent: true,
+                eventTitle: "monthly pass",
+                eventPriceUsd: 79,
+              },
+            },
+          },
+        },
+      ],
+      3_100_401,
+      39,
+    );
+    expect(value).toMatchObject({
+      status: "unavailable",
+      lowUsd: null,
+      centralUsd: null,
+      highUsd: null,
+    });
+    expect(value.reason).toContain("charge count");
+    expect(rollupEarnings([value])).toMatchObject({ coveredActors: 0, centralUsd: null });
   });
   it("requires a primary event and does not declare mixed paid events free", () => {
     expect(

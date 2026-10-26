@@ -1,6 +1,6 @@
 /** Public 30-day scenarios, not observed revenue or statistical confidence bounds. */
 export const EARNINGS_POLICY = {
-  version: "public-scenarios-v2",
+  version: "public-scenarios-v3",
   days: 30,
   creatorShare: 0.8,
   payingFractions: [0.1, 0.3, 0.7],
@@ -133,8 +133,21 @@ export function estimateActorEarnings(input: {
       return missing("A primary charge event is required for an earnings estimate.", model);
     price = eventPrice(primary.event);
     unit = typeof primary.event.eventTitle === "string" ? primary.event.eventTitle : primary.name;
-    if (primary.name === "apify-actor-start" || primary.event.isOneTimeEvent === true)
-      units = [1, 1, 1];
+    // A custom one-time event is emitted by the Actor's own logic. A
+    // subscription may emit it once per customer per month, despite millions
+    // of runs. Only Apify's known start event has a per-run charge basis.
+    if (
+      primary.name !== "apify-actor-start" &&
+      primary.event.isOneTimeEvent === true &&
+      price !== null &&
+      price > 0
+    ) {
+      return missing(
+        "Public usage does not reveal the charge count for this one-time event (for example, a monthly subscription).",
+        model,
+      );
+    }
+    if (primary.name === "apify-actor-start") units = [1, 1, 1];
     const start = events.find(({ name }) => name === "apify-actor-start" && name !== primary.name);
     if (start) {
       const amount = eventPrice(start.event);

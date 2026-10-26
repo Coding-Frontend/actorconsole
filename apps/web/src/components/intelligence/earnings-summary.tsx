@@ -72,7 +72,7 @@ export function EarningsMethod() {
       <summary className="cursor-pointer font-medium underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">
         Calculation & assumptions
       </summary>
-      <div className="text-muted-foreground mt-3 max-w-[75ch] space-y-3 text-xs leading-5">
+      <div className="mt-3 max-w-[75ch] space-y-3 text-xs leading-5 text-muted-foreground">
         <p>
           These are 30-day scenarios based on current public pricing and rolling usage. Low,
           central, and high use assumed paying fractions of 10%, 30%, and 70%. They are not measured
@@ -80,12 +80,13 @@ export function EarningsMethod() {
         </p>
         <p>
           Per-result and primary-event scenarios assume 10, 100, and 1,000 billed units per paying
-          run. Start and one-time events assume one charge per run; a known start fee is added to
-          primary-event pricing. Other events, discounts, refunds, trials, success rates, and
-          partner arrangements are not modeled. Legacy rental entries use monthly users × the
-          published monthly price × the paying fraction. Apify retired rental pricing on 2026-10-01
-          and migrated remaining rental Actors to pay-per-usage; stale rental entries after that
-          date are unavailable.
+          run. Apify start events assume one charge per run; a known start fee is added to
+          primary-event pricing. Paid custom one-time events, including subscription passes, are
+          unavailable because public usage does not reveal their charge counts. Other events,
+          discounts, refunds, trials, success rates, and partner arrangements are not modeled.
+          Legacy rental entries use monthly users × the published monthly price × the paying
+          fraction. Apify retired rental pricing on 2026-10-01 and migrated remaining rental Actors
+          to pay-per-usage; stale rental entries after that date are unavailable.
         </p>
         <p>
           Each scenario applies an assumed {EARNINGS_POLICY.creatorShare * 100}% creator share.
