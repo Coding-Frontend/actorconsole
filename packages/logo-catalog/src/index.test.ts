@@ -42,6 +42,51 @@ describe("logo catalog safety", () => {
     expect(isPrivateAddress("8.8.8.8")).toBe(false);
   });
 
+  it.each([
+    "::ffff:7f00:1", "0:0:0:0:0:ffff:a00:1", "::127.0.0.1", "ff02::1",
+    "64:ff9b::7f00:1", "2002:7f00:1::", "2001::1", "not-an-address", "256.1.1.1",
+  ])("blocks alternate private and special-use addresses: %s", (address) => {
+    expect(isPrivateAddress(address)).toBe(true);
+  });
+
+  it.each(["2606:4700:4700::1111", "2001:4860:4860::8888", "::ffff:808:808"])(
+    "accepts a public IP address: %s", (address) => {
+      expect(isPrivateAddress(address)).toBe(false);
+    },
+  );
+
+  it("stops and cancels an oversized streamed logo before reading the rest", async () => {
+    const cancel = vi.fn();
+    let reads = 0;
+    const response = new Response(new ReadableStream({
+      pull(controller) {
+        reads += 1;
+        controller.enqueue(new Uint8Array(1024 * 1024));
+        if (reads >= 20) controller.close();
+      },
+      cancel,
+    }), { headers: { "content-type": "image/png" } });
+    await expect(downloadLogoSource("https://8.8.8.8/logo.png", vi.fn().mockResolvedValue(response))).rejects.toThrow("exceeds 5 MB");
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(reads).toBeLessThan(10);
+  });
+
+  it("stops and cancels an oversized chunked official page", async () => {
+    const cancel = vi.fn();
+    let reads = 0;
+    const response = new Response(new ReadableStream({
+      pull(controller) {
+        reads += 1;
+        controller.enqueue(new Uint8Array(500_001));
+        if (reads >= 20) controller.close();
+      },
+      cancel,
+    }));
+    await expect(discoverOfficialLogo("8.8.8.8", vi.fn().mockResolvedValue(response))).rejects.toThrow("response is too large");
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(reads).toBeLessThan(6);
+  });
+
   it("rechecks every redirect and blocks redirects into private networks", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       new Response(null, {
