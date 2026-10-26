@@ -27,9 +27,11 @@ vi.mock("../../src/lib/integrations.js", () => ({
 }));
 
 import { webhookRoutes } from "../../src/routes/webhooks.js";
+import { onErrorHandler } from "../../src/middleware/error.js";
 
 function buildApp() {
   const app = new Hono();
+  app.onError(onErrorHandler);
   app.route("/webhooks", webhookRoutes);
   return app;
 }
@@ -56,6 +58,54 @@ describe("Webhook routes", () => {
     expect(mockGetIntegration).not.toHaveBeenCalled();
   });
   describe("POST /webhooks/resend", () => {
+    it.each([
+      { type: { includes: "bounced" } },
+      { type: "email.bounced", data: { email_id: "email_1", to: ["builder@example.com", {}] } },
+      { type: "email.delivered", data: { email_id: { not: null } } },
+    ])("rejects malformed signed fields before any database writes: %j", async (body) => {
+      mockGetIntegration.mockResolvedValue("whsec_test");
+      mockVerifyResendSig.mockReturnValue(true);
+      const res = await buildApp().request("/webhooks/resend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      expect(res.status).toBe(400);
+      expect(mockEmailUpdateMany).not.toHaveBeenCalled();
+      expect(mockNewsletterUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects unsigned events without database writes", async () => {
+      mockGetIntegration.mockResolvedValue("whsec_test");
+      mockVerifyResendSig.mockReturnValue(false);
+      const res = await buildApp().request("/webhooks/resend", {
+        method: "POST", body: JSON.stringify({ type: "email.bounced" }),
+      });
+      expect(res.status).toBe(401);
+      expect(mockEmailUpdateMany).not.toHaveBeenCalled();
+      expect(mockNewsletterUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects a large streamed event before signature or integration lookup", async () => {
+      const cancel = vi.fn();
+      let reads = 0;
+      const stream = new ReadableStream({
+        pull(controller) {
+          reads += 1;
+          controller.enqueue(new Uint8Array(1_048_577));
+          if (reads === 4) controller.close();
+        },
+        cancel,
+      });
+      const res = await buildApp().request(new Request("http://localhost/webhooks/resend", {
+        method: "POST", body: stream, duplex: "half",
+      } as RequestInit));
+      expect(res.status).toBe(413);
+      expect(mockGetIntegration).not.toHaveBeenCalled();
+      expect(mockVerifyResendSig).not.toHaveBeenCalled();
+      expect(cancel).toHaveBeenCalledOnce();
+    });
+
     it("updates email delivery and newsletter state for a bounce", async () => {
       mockGetIntegration.mockResolvedValueOnce("whsec_test");
       mockVerifyResendSig.mockReturnValueOnce(true);

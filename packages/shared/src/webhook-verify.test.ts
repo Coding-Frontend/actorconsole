@@ -37,4 +37,23 @@ describe("Resend webhook signature verification", () => {
     expect(verifyResendSignature({ ...signedRequest(), signature: null })).toBe(false);
     expect(verifyResendSignature({ ...signedRequest(), timestamp: "1" })).toBe(false);
   });
+
+  it("rejects unsupported signature versions", () => {
+    const request = signedRequest();
+    expect(verifyResendSignature({ ...request, signature: request.signature.replace("v1,", "v2,") })).toBe(false);
+  });
+
+  it("rejects non-ASCII signatures without throwing", () => {
+    expect(verifyResendSignature({ ...signedRequest(), signature: `v1,${"é".repeat(44)}` })).toBe(false);
+  });
+
+  it("rejects a malformed candidate with extra signature fields", () => {
+    const request = signedRequest();
+    expect(verifyResendSignature({ ...request, signature: `${request.signature},extra` })).toBe(false);
+  });
+
+  it("accepts a valid signature during key rotation", () => {
+    const request = signedRequest();
+    expect(verifyResendSignature({ ...request, signature: `v1,invalid ${request.signature}` })).toBe(true);
+  });
 });
