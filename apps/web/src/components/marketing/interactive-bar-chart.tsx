@@ -93,7 +93,8 @@ export function InteractiveBarChart({
                 hide={!visibleSeries.has("value")}
                 fill={toneColors[tone]}
                 maxBarSize={44}
-                minPointSize={3}
+                // Keep captured zeros visible without drawing bars for missing days.
+                minPointSize={(_value, index) => (data[index]?.value == null ? 0 : 3)}
                 radius={[3, 3, 0, 0]}
                 label={
                   dataLabelsVisible
