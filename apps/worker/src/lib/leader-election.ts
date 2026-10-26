@@ -14,6 +14,8 @@ import type IORedis from "ioredis";
 export interface LeaderLock {
   /** Acquire the lock. Returns true if this caller holds it. */
   tryAcquire(redis: IORedis): Promise<boolean>;
+  /** Extend the TTL only while this instance still owns the same Redis token. */
+  renew(redis: IORedis): Promise<boolean>;
   /** Release the lock IFF this caller still holds it. */
   release(redis: IORedis): Promise<boolean>;
 }
@@ -31,6 +33,22 @@ export function createLeaderLock(key: string, ttlSeconds: number): LeaderLock {
       }
       currentToken = null;
       return false;
+    },
+
+    async renew(redis: IORedis): Promise<boolean> {
+      const token = currentToken;
+      if (!token) return false;
+      const script = `
+        if redis.call("GET", KEYS[1]) == ARGV[1] then
+          return redis.call("EXPIRE", KEYS[1], ARGV[2])
+        else
+          return 0
+        end
+      `;
+      const result = (await redis.eval(script, 1, key, token, ttlSeconds)) as number;
+      if (currentToken !== token) return false;
+      if (result !== 1) currentToken = null;
+      return result === 1;
     },
 
     async release(redis: IORedis): Promise<boolean> {

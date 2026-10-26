@@ -6,6 +6,8 @@ Status: **historical remediation/planning snapshot — no accepted residual risk
 
 **Subsequent authorization:** the user has now authorized scoped fixes, commits and normal pushes to the isolated integration branch. The planning-only restrictions below record the earlier audit phase; current implementation and exact verification status are maintained in [the integration record](../audit/2026-10-integration.md). Main, merges, deployments, production effects and security-policy changes remain outside authorization.
 
+**Later BQ-S2 follow-up:** a bounded reproduction confirmed long-run publishing overlap. The separately authorized renewal/ownership change is tracked in [its report](../audit/2026-10-bq-s2-publishing-lease.md) and the integration record; it is not added to the original 18-ID baseline count. AUTH-08/09 and BQ-S1 remain policy holds.
+
 This plan retains the reconciled five phases and links each owner's detailed exact-file/test-first plan. It does not invent missing file-level instructions from other workspaces. Retrieve the detailed owner plans before implementation. This document records the original planning phase; the subsequent user authorization permits scoped repository fixes, commits and normal integration-branch pushes, as recorded above. CI/security-setting changes, main updates, merges and deployment remain excluded.
 
 ## Detailed owner plans and evidence
