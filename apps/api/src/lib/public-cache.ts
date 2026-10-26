@@ -8,7 +8,11 @@ export function publicCache<A extends unknown[], T>(
     const existing = entries.get(key);
     if (existing && existing.expires > Date.now()) return existing.value;
     if (entries.size >= 256) entries.delete(entries.keys().next().value!);
-    const value = load(...args).catch((error) => { entries.delete(key); throw error; });
+    const value = load(...args).catch((error) => {
+      // An expired load may finish after a newer request replaces its entry.
+      if (entries.get(key)?.value === value) entries.delete(key);
+      throw error;
+    });
     entries.set(key, { expires: Date.now() + options.revalidate * 1000, value });
     return value;
   };

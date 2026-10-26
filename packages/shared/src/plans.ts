@@ -126,5 +126,8 @@ export function actorLimitForPlan(plan: string): number | null {
 }
 
 export function planHasFeature(plan: string, feature: PlanFeature): boolean {
-  return PLAN_FEATURES[plan as Plan]?.has(feature) ?? PLAN_FEATURES.FREE.has(feature);
+  const features = Object.prototype.hasOwnProperty.call(PLAN_FEATURES, plan)
+    ? PLAN_FEATURES[plan as Plan]
+    : PLAN_FEATURES.FREE;
+  return features.has(feature);
 }

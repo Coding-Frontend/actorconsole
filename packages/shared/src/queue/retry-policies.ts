@@ -75,5 +75,7 @@ export type QueueNameWithPolicy = keyof typeof QUEUE_RETRY_POLICIES;
 
 /** Returns the retry policy for a queue, or undefined if not registered. */
 export function retryPolicyFor(queue: string): RetryPolicy | undefined {
-  return QUEUE_RETRY_POLICIES[queue];
+  return Object.prototype.hasOwnProperty.call(QUEUE_RETRY_POLICIES, queue)
+    ? QUEUE_RETRY_POLICIES[queue]
+    : undefined;
 }

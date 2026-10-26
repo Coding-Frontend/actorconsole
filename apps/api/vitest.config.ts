@@ -10,6 +10,7 @@ export default defineConfig({
       reporter: ["text", "html", "json-summary"],
       include: [
         "src/lib/cache.ts",
+        "src/lib/public-cache.ts",
         "src/lib/query.ts",
         "src/lib/user-audit.ts",
         "src/middleware/auth.ts",
