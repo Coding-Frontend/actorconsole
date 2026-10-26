@@ -30,7 +30,7 @@
     "dodopayments": "2.55.0",
     "hono": "^4.13.13",
     "ioredis": "^5.11.1",
-    "nodemailer": "7.0.7",
+    "nodemailer": "10.1.4",
     "octokit": "^5.0.5",
     "razorpay": "^2.9.8",
     "resend": "^6.34.1",
