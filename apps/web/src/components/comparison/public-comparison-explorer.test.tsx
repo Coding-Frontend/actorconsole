@@ -133,6 +133,6 @@ describe("public comparison explorer", () => {
     expect((screen.getByRole("textbox", { name: "Find a metric" }) as HTMLInputElement).value).toBe(
       "Published Actors",
     );
-    expect(screen.getByText("1 of 16 details")).toBeTruthy();
+    expect(screen.getByText("1 of 17 details")).toBeTruthy();
   });
 });
