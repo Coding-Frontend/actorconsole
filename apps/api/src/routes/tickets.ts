@@ -14,6 +14,7 @@ import { sendTicketReplyEmail } from "../lib/email";
 import { checkRateLimit } from "../lib/rate-limit";
 import { trackEvent } from "../lib/analytics";
 import type { AppEnv } from "../app.js";
+import { requireInteractiveSession } from "../middleware/auth.js";
 
 function isAdmin(c: any): boolean {
   const a = c.get?.("adminSession" as any);
@@ -38,6 +39,7 @@ async function notifyAuthor(opts: {
 }
 
 export const ticketRoutes = new Hono<AppEnv>()
+  .use("*", requireInteractiveSession())
   // ---- user actions ----
 
   .post("/", zValidator("json", createTicketSchema), async (c) => {

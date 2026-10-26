@@ -1,6 +1,7 @@
 import { JsonResponse } from "../../lib/http-context.js";
 import { requestCookies } from "../../lib/http-context.js";
 import { getLogger } from "@actorconsole/shared";
+import { ORIGINAL_SESSION_COOKIE, ORIGINAL_WORKSPACE_COOKIE } from "../../lib/impersonation.js";
 
 const log = getLogger("api:auth");
 
@@ -15,19 +16,23 @@ const log = getLogger("api:auth");
 export async function POST() {
   try {
     const cookieStore = await requestCookies();
-    const sessionToken =
-      cookieStore.get("__Secure-authjs.session-token")?.value ??
-      cookieStore.get("authjs.session-token")?.value;
+    const sessionTokens = [...new Set([
+      cookieStore.get("__Secure-authjs.session-token")?.value,
+      cookieStore.get("authjs.session-token")?.value,
+      cookieStore.get(ORIGINAL_SESSION_COOKIE)?.value,
+    ].filter((token): token is string => Boolean(token)))];
 
-    if (sessionToken) {
+    if (sessionTokens.length) {
       // Delete session from DB
       const { db } = await import("@actorconsole/db");
-      await db.session.deleteMany({ where: { sessionToken } });
+      await db.session.deleteMany({ where: { sessionToken: { in: sessionTokens } } });
     }
 
     // Clear the cookie
     cookieStore.delete("authjs.session-token");
     cookieStore.delete("__Secure-authjs.session-token");
+    cookieStore.delete(ORIGINAL_SESSION_COOKIE);
+    cookieStore.delete(ORIGINAL_WORKSPACE_COOKIE);
 
     return JsonResponse.json({ ok: true });
   } catch (err: unknown) {

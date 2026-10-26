@@ -17,6 +17,7 @@ const {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    session: { deleteMany: vi.fn() },
     subscription: {
       count: vi.fn(),
       findMany: vi.fn(),

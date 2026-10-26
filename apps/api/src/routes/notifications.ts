@@ -5,7 +5,7 @@ import { AppError } from "../middleware/error.js";
 import { getUserApifyClient, type ApifyConsoleNotification } from "@actorconsole/apify";
 import type { AppEnv } from "../app.js";
 import { booleanQuery, integerQuery, limitQuery } from "../lib/query.js";
-import { assertApiKeyCapability } from "../middleware/api-key-scope.js";
+import { assertApiKeyCapability, requireApiKeyMethodScope } from "../middleware/api-key-scope.js";
 
 const APIFY_NOTIFICATION_PREFIX = "apify:";
 const APIFY_FEED_BUDGET_MS = 400;
@@ -241,6 +241,7 @@ async function buildNotificationDetail(
 
 export const notificationRoutes = new Hono<AppEnv>()
   .use("*", requireAuth())
+  .use("*", requireApiKeyMethodScope({ allowGranularMcp: true }))
 
   // GET /notifications — list user's notifications, newest first
   .get("/", async (c) => {

@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { apiEnv } from "../config/env.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
+import { resolveClientIp } from "../lib/client-ip.js";
+import { setAuthRequestIp } from "../lib/auth-request-ip.js";
 import { JsonResponse, withRequestContext } from "../lib/http-context.js";
 import { readWebSession } from "../lib/web-session.js";
 import { canRecoverMimicSession } from "../lib/session-recovery.js";
@@ -57,7 +59,8 @@ for (const [path, handler, schema] of handlers) {
     let body: unknown;
     try { body = JSON.parse(payload); } catch { return c.json({ ok: false, error: "Invalid JSON" }, 400); }
     if (!schema.safeParse(body).success) return c.json({ ok: false, error: "Invalid request" }, 400);
-    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("x-real-ip") ?? "unknown";
+    const ip = resolveClientIp(c);
+    setAuthRequestIp(c.req.raw, ip);
     const limit = await checkRateLimit(`authentication:${path}:${ip}`, { windowMs: 15 * 60_000, max: 30 });
     if (!limit.allowed) {
       c.header("retry-after", String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))));

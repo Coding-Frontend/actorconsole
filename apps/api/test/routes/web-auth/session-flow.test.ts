@@ -91,7 +91,7 @@ describe("API-owned browser sessions", () => {
     });
     expect(logout.status).toBe(200);
     expect(mocks.deleteSession).toHaveBeenCalledOnce();
-    expect(logout.headers.getSetCookie()).toHaveLength(2);
+    expect(logout.headers.getSetCookie()).toHaveLength(4);
     expect(logout.headers.getSetCookie().every((value) => value.includes("Max-Age=0"))).toBe(true);
   });
   it("rejects cross-origin JSON login and logout", async () => {
@@ -106,6 +106,35 @@ describe("API-owned browser sessions", () => {
     ).toBe(403);
     expect(mocks.user).not.toHaveBeenCalled();
     expect(mocks.deleteSession).not.toHaveBeenCalled();
+  });
+  it("revokes every presented browser session and removes impersonation recovery on logout", async () => {
+    const response = await app.request("/auth/signout", {
+      method: "POST",
+      headers: { cookie: [
+        "__Secure-authjs.session-token=mimic-token",
+        "authjs.session-token=older-token",
+        "actorconsole.original-session=administrator-token",
+        "actorconsole.original-workspace=admin-workspace",
+      ].join("; ") },
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.deleteSession).toHaveBeenCalledWith({
+      where: { sessionToken: { in: ["mimic-token", "older-token", "administrator-token"] } },
+    });
+    const cookies = response.headers.getSetCookie();
+    for (const name of ["__Secure-authjs.session-token", "authjs.session-token",
+      "actorconsole.original-session", "actorconsole.original-workspace"]) {
+      expect(cookies.find((cookie) => cookie.startsWith(`${name}=`))).toContain("Max-Age=0");
+    }
+  });
+  it("revokes a saved administrator session even after the mimic cookie expires", async () => {
+    const response = await app.request("/auth/signout", {
+      method: "POST", headers: { cookie: "actorconsole.original-session=administrator-token" },
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.deleteSession).toHaveBeenCalledWith({
+      where: { sessionToken: { in: ["administrator-token"] } },
+    });
   });
   it("returns null for missing or expired cookies", async () => {
     expect(await (await app.request("/auth/session")).json()).toBeNull();
