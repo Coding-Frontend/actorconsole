@@ -28,6 +28,7 @@ import {
   ticketStatusSchema,
 } from "@actorconsole/shared";
 import { requireAdmin } from "../middleware/admin.js";
+import { assertCanManageUserSuspension } from "../lib/admin-user-access.js";
 import { adminUserWorkspaceRoutes } from "./admin-user-workspaces.js";
 import {
   deleteIntegration,
@@ -584,6 +585,9 @@ export const adminRoutes = new Hono<AppEnv>()
       const before = await db.user.findUnique({ where: { id } });
       if (!before) return c.json({ ok: false, error: { code: "not_found" } }, 404);
       const admin = c.get("adminSession" as any);
+      if (body.suspendedAt !== undefined) {
+        assertCanManageUserSuspension(admin.role, before.role);
+      }
       if (body.role && body.role !== before.role && admin?.role !== "SUPER_ADMIN") {
         return c.json({ ok: false, error: { code: "super_admin_required" } }, 403);
       }
@@ -612,7 +616,7 @@ export const adminRoutes = new Hono<AppEnv>()
         }
       }
 
-      const updated = await db.user.update({
+      const update = db.user.update({
         where: { id },
         data: {
           ...body,
@@ -624,6 +628,14 @@ export const adminRoutes = new Hono<AppEnv>()
                 : undefined,
         },
       });
+
+      const revokeSessions = Boolean(body.suspendedAt);
+      const updated = revokeSessions
+        ? (await db.$transaction([
+            update,
+            db.session.deleteMany({ where: { userId: id } }),
+          ]))[0]
+        : await update;
 
       await recordAudit(c, "user.update", `user:${id}`, before, updated);
       return c.json({ ok: true, data: updated });
@@ -638,9 +650,7 @@ export const adminRoutes = new Hono<AppEnv>()
     if (admin?.adminId === id) {
       return c.json({ ok: false, error: { code: "self_lockout" } }, 400);
     }
-    if (before.role !== "USER" && admin?.role !== "SUPER_ADMIN") {
-      return c.json({ ok: false, error: { code: "super_admin_required" } }, 403);
-    }
+    assertCanManageUserSuspension(admin.role, before.role);
     const suspendedAt = new Date();
     const [, updated] = await db.$transaction([
       db.session.deleteMany({ where: { userId: id } }),
@@ -654,6 +664,7 @@ export const adminRoutes = new Hono<AppEnv>()
     const id = c.req.param("id");
     const before = await db.user.findUnique({ where: { id } });
     if (!before) return c.json({ ok: false, error: { code: "not_found" } }, 404);
+    assertCanManageUserSuspension(c.get("adminSession").role, before.role);
     const updated = await db.user.update({
       where: { id },
       data: { suspendedAt: null, bannedReason: null },

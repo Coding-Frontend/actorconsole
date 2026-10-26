@@ -4,6 +4,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { db, Prisma } from "@actorconsole/db";
 import { decrypt, getLogger, hashRecoveryCode, verifyTotpCode } from "@actorconsole/shared";
 import { getAuthSessionCookieName, getAuthSessionCookieOptions } from "./auth-session-cookie.js";
+import { consumeTwoFactorRecoveryCode } from "./two-factor-recovery.js";
+import { getAuthRequestIp } from "./auth-request-ip.js";
 
 const log = getLogger("api:auth");
 const TOTP_KEY_PREFIX = "totp:";
@@ -23,20 +25,12 @@ export const authUserSelect = {
 
 export type AuthUser = Prisma.UserGetPayload<{ select: typeof authUserSelect }>;
 
-function requestIp(req: Request): string | null {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim().slice(0, 64) ??
-    req.headers.get("x-real-ip")?.trim().slice(0, 64) ??
-    null
-  );
-}
-
 export async function recordLoginEvent(req: Request, userId: string, success: boolean) {
   await db.loginEvent
     .create({
       data: {
         userId,
-        ip: requestIp(req),
+        ip: getAuthRequestIp(req),
         userAgent: req.headers.get("user-agent")?.slice(0, 191) ?? null,
         success,
       },
@@ -136,24 +130,12 @@ export async function completeUserLogin(
 
     if (recoveryHash) {
       const consumed = await db.$transaction(async (tx) => {
-        const freshUser = await tx.user.findUnique({
-          where: { id: user.id },
-          select: { totpRecoveryCodes: true },
-        });
-        const recoveryCodes = Array.isArray(freshUser?.totpRecoveryCodes)
-          ? freshUser.totpRecoveryCodes.filter((item): item is string => typeof item === "string")
-          : [];
-        if (!recoveryCodes.includes(recoveryHash)) return false;
         const claim = await tx.twoFactorChallenge.updateMany({
           where: { id: challenge.id, usedAt: null, attempts: challenge.attempts },
           data: { usedAt: new Date() },
         });
         if (claim.count !== 1) return false;
-        await tx.user.update({
-          where: { id: user.id },
-          data: { totpRecoveryCodes: recoveryCodes.filter((item) => item !== recoveryHash) },
-        });
-        return true;
+        return consumeTwoFactorRecoveryCode(tx, user.id, recoveryHash, user.totpSecretEncrypted ?? "");
       });
       if (!consumed) {
         return JsonResponse.json(
