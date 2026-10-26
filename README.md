@@ -79,6 +79,8 @@ Secret scanning requires [Gitleaks](https://github.com/gitleaks/gitleaks); CI in
 
 See [deployment](deployment.instructions.md), [runbook](docs/RUNBOOK.md), [contributing](CONTRIBUTING.md) and [security](SECURITY.md).
 
+See [requester address trust](docs/CLIENT_IP_TRUST.md) and [API byte limits](docs/API_DATA_BOUNDARIES.md) before configuring proxy-based requester quotas. Forwarding headers are trusted only from explicitly verified socket peers; the default trusts no proxy. API/proxy bodies are capped at 6 MiB (1 MiB for Resend), and remote logo reads enforce their byte limits while streaming.
+
 ## License
 
 [MIT](LICENSE). Preserve [third-party notices](THIRD_PARTY_NOTICES.md).
