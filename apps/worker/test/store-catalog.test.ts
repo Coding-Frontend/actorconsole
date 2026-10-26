@@ -577,5 +577,8 @@ describe("Apify Store catalog synchronization", () => {
     // The similar owner name returned by public Store search must not enter
     // the selected builder's daily snapshot.
     expect(result.processedCount).toBe(1_001);
+    expect(database.storeCatalogSync.create).toHaveBeenCalledWith({
+      data: { operation: "SEARCH", status: "RUNNING" },
+    });
   });
 });

@@ -342,7 +342,10 @@ export async function syncStoreSearchCatalog(
   // Keep full public catalog passes distinct from targeted builder refreshes.
   // A successful Crawler Bros refresh must never make the daily global
   // leaderboard think its 60k-Actor snapshot is complete.
-  const run = await createSyncRun(database, completeCatalog ? "SEARCH_FULL" : "SEARCH");
+  const run = await createSyncRun(
+    database,
+    completeCatalog && !builderUsername ? "SEARCH_FULL" : "SEARCH",
+  );
   const result: StoreCatalogSyncResult = {
     expectedCount: null,
     processedCount: 0,
