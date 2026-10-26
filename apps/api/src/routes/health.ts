@@ -45,11 +45,11 @@ async function withTimeout(
       }),
     ]);
     return { status: "ok", latencyMs: Date.now() - start };
-  } catch (err) {
+  } catch {
     return {
       status: "fail",
       latencyMs: Date.now() - start,
-      error: err instanceof Error ? err.message : String(err),
+      error: `${label}_unavailable`,
     };
   } finally {
     if (timer) clearTimeout(timer);

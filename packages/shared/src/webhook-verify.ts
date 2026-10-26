@@ -25,8 +25,10 @@ export function verifyResendSignature(input: {
     .update(`${id}.${timestamp}.${body}`, "utf8")
     .digest("base64");
   return signature.split(" ").some((candidate) => {
-    const [, value] = candidate.split(",", 2);
-    if (!value || value.length !== signed.length) return false;
-    return timingSafeEqual(Buffer.from(value), Buffer.from(signed));
+    const [version, value, extra] = candidate.split(",");
+    if (version !== "v1" || extra !== undefined || !value || !/^[A-Za-z0-9+/]{43}=$/.test(value)) return false;
+    const actual = Buffer.from(value, "base64");
+    const expected = Buffer.from(signed, "base64");
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
   });
 }
