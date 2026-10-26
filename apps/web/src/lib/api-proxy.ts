@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 import { revalidateTag } from "next/cache";
 import { isPublicCachePath, PUBLIC_CACHE_SECONDS, PUBLIC_CATALOG_TAG } from "./public-cache-policy";
+import { readProxyBody, RequestBodyTooLarge } from "./request-body-limit";
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -58,7 +59,7 @@ export async function proxyApiRequest(request: Request, path: string[]) {
     const upstream = await fetch(target, {
       method: request.method,
       headers: upstreamHeaders,
-      body: hasBody ? await request.arrayBuffer() : undefined,
+      body: hasBody ? await readProxyBody(request, path.join("/") === "webhooks/resend" ? 1_048_576 : 6 * 1024 * 1024) : undefined,
       cache: "no-store",
       redirect: "manual",
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(30_000)]),
@@ -103,7 +104,13 @@ export async function proxyApiRequest(request: Request, path: string[]) {
       status: upstream.status,
       headers: responseHeaders,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof RequestBodyTooLarge) {
+      return NextResponse.json(
+        { ok: false, error: { code: "payload_too_large", message: "Request payload is too large" } },
+        { status: 413 },
+      );
+    }
     return NextResponse.json(
       {
         ok: false,

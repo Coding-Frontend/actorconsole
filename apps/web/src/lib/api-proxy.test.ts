@@ -98,4 +98,42 @@ describe("proxyApiRequest", () => {
     expect(invalidate).toHaveBeenCalledTimes(1);
     expect(invalidate).toHaveBeenCalledWith("actorconsole-public-catalog");
   });
+
+  it.each([undefined, "1"])("rejects and cancels oversized chunked requests before forwarding (declared length %s)", async (length) => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const cancel = vi.fn();
+    let reads = 0;
+    const request = new Request("https://actorconsole.test/api/contact", {
+      method: "POST", headers: length ? { "content-length": length } : {},
+      body: new ReadableStream({
+        pull(controller) { reads += 1; controller.enqueue(new Uint8Array(1024 * 1024)); if (reads > 15) controller.close(); }, cancel,
+      }), duplex: "half",
+    } as RequestInit);
+    expect((await proxyApiRequest(request, ["contact"])).status).toBe(413);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(reads).toBeLessThan(10);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("applies the smaller Resend limit before forwarding signed webhook bodies", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await proxyApiRequest(new Request("https://actorconsole.test/api/webhooks/resend", {
+      method: "POST", body: new Uint8Array(1_048_577),
+    }), ["webhooks", "resend"]);
+    expect(response.status).toBe(413);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves exact signed body bytes and signature headers within the limit", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetch);
+    const bytes = new Uint8Array([123, 34, 233, 34, 58, 13, 10, 125]);
+    await proxyApiRequest(new Request("https://actorconsole.test/api/webhooks/resend", {
+      method: "POST", body: bytes, headers: { "svix-signature": "v1,fabricated" },
+    }), ["webhooks", "resend"]);
+    expect(new Uint8Array(fetch.mock.calls[0][1].body)).toEqual(bytes);
+    expect(fetch.mock.calls[0][1].headers.get("svix-signature")).toBe("v1,fabricated");
+  });
 });

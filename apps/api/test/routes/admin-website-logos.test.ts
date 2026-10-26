@@ -12,7 +12,7 @@ const { db, tx } = vi.hoisted(() => {
   return {
     tx: transactionClient,
     db: {
-      websiteLogo: { findFirst: vi.fn(), count: vi.fn() },
+      websiteLogo: { findFirst: vi.fn(), count: vi.fn(), upsert: vi.fn() },
       websiteIdentity: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
       actor: { findMany: vi.fn(), count: vi.fn(), updateMany: vi.fn() },
       storeActor: { count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
@@ -32,6 +32,7 @@ const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn() }));
 vi.mock("../../src/lib/queue.js", () => ({ enqueue }));
 
 import { adminWebsiteLogoRoutes } from "../../src/routes/admin-website-logos.js";
+import { storeWebsiteLogo } from "@actorconsole/logo-catalog";
 
 function request(path: string, init?: RequestInit) {
   const app = new Hono();
@@ -73,6 +74,29 @@ describe("Admin website logo routes", () => {
 
   afterEach(() => {
     delete process.env.ADMIN_API_KEY;
+  });
+
+  it("rejects a file above the 5 MiB image cap before normalization or database writes", async () => {
+    db.websiteIdentity.findUnique.mockResolvedValue({ id: "website_1" });
+    const body = new FormData();
+    body.set("file", new File([new Uint8Array(5 * 1024 * 1024 + 1)], "fixture.png", { type: "image/png" }));
+    const response = await request("/admin/website-logos/website_1/upload", { method: "POST", body });
+    expect(response.status).toBe(413);
+    expect(storeWebsiteLogo).not.toHaveBeenCalled();
+    expect(db.websiteLogo.upsert).not.toHaveBeenCalled();
+  });
+
+  it("preserves accepted uploads through the image normalizer", async () => {
+    db.websiteIdentity.findUnique.mockResolvedValue({ id: "website_1" });
+    vi.mocked(storeWebsiteLogo).mockResolvedValue({
+      storagePath: "website-logos/website_1/checksum.webp", checksum: "checksum", contentType: "image/webp", width: 512, height: 512, byteSize: 100,
+    });
+    db.websiteLogo.upsert.mockResolvedValue({ id: "logo_1" });
+    const body = new FormData();
+    body.set("file", new File(["fabricated image"], "fixture.png", { type: "image/png" }));
+    const response = await request("/admin/website-logos/website_1/upload", { method: "POST", body });
+    expect(response.status).toBe(200);
+    expect(storeWebsiteLogo).toHaveBeenCalledWith("website_1", Buffer.from("fabricated image"));
   });
 
   it("activates a version and creates deduplicated workspace notifications", async () => {
