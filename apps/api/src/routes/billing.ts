@@ -2,7 +2,21 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import Stripe from "stripe";
-import { db, Prisma } from "@actorconsole/db";
+import { reconcileBillingSubscription } from "../lib/billing-state.js";
+import { recordPaymentCapture } from "../lib/billing-payment-state.js";
+import { providerAmount } from "../lib/billing-amount.js";
+import { db } from "@actorconsole/db";
+import { subscriptionBlocksCheckout } from "@actorconsole/shared";
+import {
+  reserveBillingCheckout,
+  completeBillingCheckout,
+  failBillingCheckout,
+} from "../lib/billing-checkout-operations.js";
+import {
+  claimPaymentWebhook,
+  completePaymentWebhook,
+  failPaymentWebhook,
+} from "../lib/payment-webhook-delivery.js";
 import {
   cancelProviderSubscription,
   createProviderCheckout,
@@ -19,7 +33,10 @@ import {
   type GatewayContext,
 } from "../lib/payment-gateway-settings.js";
 import { trackEvent } from "../lib/analytics.js";
-import { isDodoLivePaymentsUnavailable } from "../lib/billing-provider-errors.js";
+import {
+  isDodoLivePaymentsUnavailable,
+  isDefinitiveProviderRejection,
+} from "../lib/billing-provider-errors.js";
 import type { AppEnv } from "../app.js";
 
 const checkoutBody = z
@@ -29,17 +46,6 @@ const checkoutBody = z
     interval: z.enum(["month", "year"]),
   })
   .strict();
-
-const ACTIVE_STATUSES = new Set([
-  "open",
-  "created",
-  "authenticated",
-  "active",
-  "trialing",
-  "pending",
-  "on_hold",
-  "cancellation_pending",
-]);
 
 export const billingRoutes = new Hono<AppEnv>()
   .post("/checkout", zValidator("json", checkoutBody), async (c) => {
@@ -102,7 +108,7 @@ export const billingRoutes = new Hono<AppEnv>()
     ]);
     if (!user) return c.json({ ok: false, error: { code: "user_not_found" } }, 404);
 
-    if (existing && existing.provider === "manual" && ACTIVE_STATUSES.has(existing.status)) {
+    if (existing && existing.provider === "manual" && subscriptionBlocksCheckout(existing)) {
       return c.json(
         {
           ok: false,
@@ -114,7 +120,7 @@ export const billingRoutes = new Hono<AppEnv>()
         409,
       );
     }
-    if (existing && ACTIVE_STATUSES.has(existing.status)) {
+    if (existing && subscriptionBlocksCheckout(existing)) {
       if (
         existing.provider === gateway &&
         (await subscriptionMatchesMode(existing, context)) &&
@@ -144,6 +150,13 @@ export const billingRoutes = new Hono<AppEnv>()
       );
     }
 
+    const operationId = await reserveBillingCheckout({
+      businessProfileId: session.businessProfileId,
+      userId: session.userId,
+      context,
+      productId: selectedProductId,
+      interval,
+    });
     let checkout;
     try {
       const actor = {
@@ -151,9 +164,11 @@ export const billingRoutes = new Hono<AppEnv>()
         businessProfileId: session.businessProfileId,
         email: user.email,
         name: user.name,
+        operationId,
       };
       checkout = await createProviderCheckout(gateway, plan, actor, interval, context);
     } catch (error) {
+      await failBillingCheckout(operationId, error);
       if (gateway === "dodo" && context.mode === "live" && isDodoLivePaymentsUnavailable(error)) {
         return c.json(
           {
@@ -180,41 +195,8 @@ export const billingRoutes = new Hono<AppEnv>()
       );
     }
 
-    await db.subscription.upsert({
-      where: { businessProfileId: session.businessProfileId },
-      create: {
-        userId: session.userId,
-        businessProfileId: session.businessProfileId,
-        provider: gateway,
-        billingMode: context.mode,
-        source: "gateway",
-        providerSubscriptionId: checkout.providerSubscriptionId,
-        providerProductId: checkout.providerProductId,
-        providerCheckoutId: checkout.checkoutId,
-        razorpaySubscriptionId:
-          gateway === "razorpay" ? checkout.providerSubscriptionId : undefined,
-        razorpayPlanId: gateway === "razorpay" ? checkout.providerProductId : undefined,
-        status: checkout.status,
-        shortUrl: checkout.checkoutUrl,
-      },
-      update: {
-        userId: session.userId,
-        provider: gateway,
-        billingMode: context.mode,
-        source: "gateway",
-        providerCustomerId: null,
-        providerSubscriptionId: checkout.providerSubscriptionId,
-        providerProductId: checkout.providerProductId,
-        providerCheckoutId: checkout.checkoutId,
-        razorpayCustomerId: null,
-        razorpaySubscriptionId: gateway === "razorpay" ? checkout.providerSubscriptionId : null,
-        razorpayPlanId: gateway === "razorpay" ? checkout.providerProductId : null,
-        status: checkout.status,
-        cancelAtPeriodEnd: false,
-        currentPeriodEnd: null,
-        shortUrl: checkout.checkoutUrl,
-      },
-    });
+    // A persistence failure after provider acceptance retains the reservation.
+    await completeBillingCheckout(operationId, checkout);
     trackEvent("subscription.checkout_created", {
       userId: session.userId,
       properties: { gateway, plan, interval, checkoutId: checkout.checkoutId },
@@ -233,6 +215,18 @@ export const billingRoutes = new Hono<AppEnv>()
     if (!subscription || subscription.provider === "manual") {
       return c.json({ ok: false, error: { code: "no_gateway_subscription" } }, 404);
     }
+    if (!subscription.providerSubscriptionId && !subscription.razorpaySubscriptionId) {
+      return c.json(
+        {
+          ok: false,
+          error: {
+            code: "checkout_in_progress",
+            message: "Reconcile the pending checkout before cancellation.",
+          },
+        },
+        409,
+      );
+    }
     if (subscription.cancelAtPeriodEnd || subscription.status === "cancellation_pending") {
       return c.json(
         {
@@ -244,24 +238,33 @@ export const billingRoutes = new Hono<AppEnv>()
     }
 
     const claimed = await db.subscription.updateMany({
-      where: { id: subscription.id, status: subscription.status },
-      data: { status: "cancellation_pending" },
+      where: {
+        id: subscription.id,
+        status: subscription.status,
+        cancelAtPeriodEnd: false,
+        stateVersion: subscription.stateVersion ?? 0,
+        providerSubscriptionId: subscription.providerSubscriptionId,
+        updatedAt: subscription.updatedAt,
+      },
+      data: { status: "cancellation_pending", stateVersion: { increment: 1 } },
     });
     if (!claimed.count) {
       return c.json({ ok: false, error: { code: "subscription_changed" } }, 409);
     }
+    let result;
     try {
-      const result = await cancelProviderSubscription(subscription);
-      const updated = await db.subscription.update({
-        where: { id: subscription.id },
-        data: { status: result.status, cancelAtPeriodEnd: result.cancelAtPeriodEnd },
-      });
-      return c.json({ ok: true, data: updated });
+      result = await cancelProviderSubscription(subscription);
     } catch (error) {
-      await db.subscription.update({
-        where: { id: subscription.id },
-        data: { status: subscription.status },
-      });
+      if (isDefinitiveProviderRejection(error))
+        await db.subscription.updateMany({
+          where: {
+            id: subscription.id,
+            status: "cancellation_pending",
+            cancelAtPeriodEnd: false,
+            stateVersion: (subscription.stateVersion ?? 0) + 1,
+          },
+          data: { status: subscription.status, stateVersion: { increment: 1 } },
+        });
       return c.json(
         {
           ok: false,
@@ -273,6 +276,23 @@ export const billingRoutes = new Hono<AppEnv>()
         502,
       );
     }
+    // Provider webhooks may have already advanced the subscription while this
+    // request was in flight. Never replace their newer state with this snapshot.
+    await db.subscription.updateMany({
+      where: {
+        id: subscription.id,
+        status: "cancellation_pending",
+        cancelAtPeriodEnd: false,
+        stateVersion: (subscription.stateVersion ?? 0) + 1,
+      },
+      data: {
+        status: result.status,
+        cancelAtPeriodEnd: result.cancelAtPeriodEnd,
+        stateVersion: { increment: 1 },
+      },
+    });
+    const updated = await db.subscription.findUnique({ where: { id: subscription.id } });
+    return c.json({ ok: true, data: updated });
   })
 
   .post("/webhooks/stripe", async (c) => {
@@ -297,19 +317,21 @@ export const billingRoutes = new Hono<AppEnv>()
     }
     if (event.livemode !== undefined && event.livemode !== (context.mode === "live"))
       return c.json({ ok: false, error: { code: "mode_mismatch" } }, 400);
-    if (await webhookSeen(source, event.id)) return c.json({ ok: true, duplicate: true });
-    const deliveryId = await createWebhookDelivery(
+    const claim = await claimPaymentWebhook({
       source,
-      event.id,
-      event.type,
-      summarizeStripeEvent(event),
-    );
+      externalId: event.id,
+      eventType: event.type,
+      payload: summarizeStripeEvent(event),
+    });
+    if (claim.state === "duplicate") return c.json({ ok: true, duplicate: true });
+    if (claim.state !== "claimed")
+      return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
     try {
       await processStripeEvent(event, context);
-      await completeWebhookDelivery(deliveryId);
+      await completePaymentWebhook(claim.lease);
       return c.json({ ok: true });
     } catch (error) {
-      await failWebhookDelivery(deliveryId, error);
+      await failPaymentWebhook(claim.lease, error);
       throw error;
     }
   })
@@ -336,93 +358,28 @@ export const billingRoutes = new Hono<AppEnv>()
       return c.json({ ok: false, error: { code: "invalid_signature" } }, 400);
     }
     const eventId = headers["webhook-id"];
-    const previous = await db.webhookDelivery.findUnique({
-      where: { source_externalId: { source, externalId: eventId } },
-      select: { id: true, status: true, attemptedAt: true },
+    const claim = await claimPaymentWebhook({
+      source,
+      externalId: eventId,
+      eventType: event.type,
+      payload: {
+        type: event.type,
+        subscriptionId: event.data?.subscription_id,
+        paymentId: event.data?.payment_id,
+      },
     });
-    if (previous?.status === "processed") return c.json({ ok: true, duplicate: true });
-    const staleBefore = new Date(Date.now() - 5 * 60_000);
-    if (previous?.status === "received" && previous.attemptedAt >= staleBefore) {
+    if (claim.state === "duplicate") return c.json({ ok: true, duplicate: true });
+    if (claim.state !== "claimed")
       return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
-    }
-    let deliveryId: string;
-    if (previous?.status === "failed" || previous?.status === "received") {
-      const claim = await db.webhookDelivery.updateMany({
-        where: {
-          id: previous.id,
-          status: previous.status,
-          ...(previous.status === "received" ? { attemptedAt: { lt: staleBefore } } : {}),
-        },
-        data: { status: "received", error: null, attemptedAt: new Date() },
-      });
-      if (!claim.count) {
-        return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
-      }
-      deliveryId = previous.id;
-    } else {
-      try {
-        deliveryId = await createWebhookDelivery(source, eventId, event.type, {
-          type: event.type,
-          subscriptionId: event.data?.subscription_id,
-          paymentId: event.data?.payment_id,
-        });
-      } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-          return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
-        }
-        throw error;
-      }
-    }
     try {
       await processDodoEvent(event, context);
-      await completeWebhookDelivery(deliveryId);
+      await completePaymentWebhook(claim.lease);
       return c.json({ ok: true });
     } catch (error) {
-      await failWebhookDelivery(deliveryId, error);
+      await failPaymentWebhook(claim.lease, error);
       throw error;
     }
   });
-
-async function webhookSeen(source: string, externalId: string) {
-  return db.webhookDelivery.findUnique({
-    where: { source_externalId: { source, externalId } },
-    select: { id: true },
-  });
-}
-
-async function createWebhookDelivery(
-  source: string,
-  externalId: string,
-  eventType: string,
-  payload: Record<string, unknown>,
-) {
-  const row = await db.webhookDelivery.create({
-    data: {
-      source,
-      externalId,
-      eventType,
-      payload: payload as Prisma.InputJsonValue,
-      status: "received",
-      signatureOk: true,
-    },
-    select: { id: true },
-  });
-  return row.id;
-}
-
-async function completeWebhookDelivery(id: string) {
-  await db.webhookDelivery.update({ where: { id }, data: { status: "processed" } });
-}
-
-async function failWebhookDelivery(id: string, error: unknown) {
-  await db.webhookDelivery.update({
-    where: { id },
-    data: {
-      status: "failed",
-      error: (error instanceof Error ? error.message : String(error)).slice(0, 1_000),
-    },
-  });
-}
 
 function summarizeStripeEvent(event: Stripe.Event) {
   const object = event.data.object as any;
@@ -452,91 +409,81 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
     )
       return;
     const subscriptionId = externalId(object.subscription);
-    const customerId = externalId(object.customer);
-    await db.$transaction([
-      db.subscription.upsert({
-        where: { businessProfileId: businessProfile.id },
-        create: {
-          userId: metadata.userId,
-          businessProfileId: businessProfile.id,
-          provider: "stripe",
-          billingMode: context.mode,
-          providerCustomerId: customerId,
-          providerSubscriptionId: subscriptionId,
-          providerCheckoutId: object.id,
-          status: object.payment_status === "paid" ? "active" : (object.status ?? "complete"),
-          shortUrl: object.url ?? null,
-        },
-        update: {
-          provider: "stripe",
-          billingMode: context.mode,
-          providerCustomerId: customerId,
-          providerSubscriptionId: subscriptionId,
-          providerCheckoutId: object.id,
-          status: object.payment_status === "paid" ? "active" : (object.status ?? "complete"),
-        },
-      }),
-      db.businessProfile.update({ where: { id: businessProfile.id }, data: { plan: "PRO" } }),
-    ]);
+    if (subscriptionId) {
+      await reconcileBillingSubscription({
+        context,
+        id: subscriptionId,
+        businessProfileId: businessProfile.id,
+        userId: metadata.userId,
+        checkoutId: object.id,
+        provisionalCheckout: true,
+      });
+    } else {
+      // Keep the established provisional policy, but never let an unlinked
+      // checkout overwrite a subscription already confirmed by another event.
+      await db.$transaction(async (tx) => {
+        const { lockBillingWorkspace } = await import("../lib/billing-checkout-operations.js");
+        await lockBillingWorkspace(tx, businessProfile.id);
+        const current = await tx.subscription.findUnique({
+          where: { businessProfileId: businessProfile.id },
+        });
+        if (
+          current?.checkoutOperationId &&
+          current.checkoutOperationId !== metadata.checkoutOperationId
+        )
+          return;
+        if (
+          current?.providerSubscriptionId ||
+          (current &&
+            (current.provider !== "stripe" ||
+              !(await subscriptionMatchesMode(current, context)) ||
+              (current.providerCheckoutId && current.providerCheckoutId !== object.id)))
+        )
+          return;
+        await tx.subscription.upsert({
+          where: { businessProfileId: businessProfile.id },
+          create: {
+            userId: metadata.userId,
+            businessProfileId: businessProfile.id,
+            provider: "stripe",
+            billingMode: context.mode,
+            providerCheckoutId: object.id,
+            status: object.status ?? "complete",
+          },
+          update: {
+            providerCheckoutId: object.id,
+            status: object.status ?? "complete",
+            stateVersion: { increment: 1 },
+          },
+        });
+        await tx.businessProfile.update({
+          where: { id: businessProfile.id },
+          data: { plan: "PRO" },
+        });
+      });
+    }
     return;
   }
 
   if (event.type.startsWith("customer.subscription.")) {
-    const metadata = object.metadata ?? {};
-    let existing = await db.subscription.findUnique({
+    const existing = await db.subscription.findUnique({
       where: {
-        provider_providerSubscriptionId: {
-          provider: "stripe",
-          providerSubscriptionId: object.id,
-        },
+        provider_providerSubscriptionId: { provider: "stripe", providerSubscriptionId: object.id },
       },
     });
-    const businessProfile =
-      (existing?.businessProfileId
-        ? { id: existing.businessProfileId }
-        : await resolveWebhookBusinessProfile(metadata.userId, metadata.businessProfileId)) ?? null;
+    const businessProfile = existing?.businessProfileId
+      ? { id: existing.businessProfileId }
+      : await resolveWebhookBusinessProfile(
+          object.metadata?.userId,
+          object.metadata?.businessProfileId,
+        );
     if (!businessProfile) return;
-    if (
-      !(await subscriptionMatchesMode(existing, context)) ||
-      !(await webhookMayUpdateWorkspace(businessProfile.id, context, object.id))
-    )
-      return;
-    const periodEnd = stripePeriodEnd(object);
-    const status = object.status ?? "unknown";
-    const ended = ["canceled", "unpaid", "incomplete_expired", "paused"].includes(status);
-    const entitled =
-      ["active", "trialing", "past_due"].includes(status) ||
-      (ended && Boolean(periodEnd && periodEnd > new Date()));
-    const update = db.subscription.upsert({
-      where: { businessProfileId: businessProfile.id },
-      create: {
-        userId: metadata.userId,
-        businessProfileId: businessProfile.id,
-        provider: "stripe",
-        billingMode: context.mode,
-        providerCustomerId: externalId(object.customer),
-        providerSubscriptionId: object.id,
-        status,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: Boolean(object.cancel_at_period_end),
-      },
-      update: {
-        provider: "stripe",
-        billingMode: context.mode,
-        providerCustomerId: externalId(object.customer),
-        providerSubscriptionId: object.id,
-        status,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: Boolean(object.cancel_at_period_end),
-      },
+    await reconcileBillingSubscription({
+      context,
+      id: object.id,
+      businessProfileId: businessProfile.id,
+      userId: object.metadata?.userId,
     });
-    await db.$transaction([
-      update,
-      db.businessProfile.update({
-        where: { id: businessProfile.id },
-        data: { plan: entitled ? "PRO" : "FREE" },
-      }),
-    ]);
     return;
   }
 
@@ -558,7 +505,7 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
       select: { billingMode: true },
     });
     if (existingPayment && !(await subscriptionMatchesMode(existingPayment, context))) return;
-    await db.payment.upsert({
+    await recordPaymentCapture({
       where: {
         provider_providerPaymentId: { provider: "stripe", providerPaymentId },
       },
@@ -570,8 +517,7 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
         billingMode: context.mode,
         providerPaymentId,
         providerInvoiceId: object.id,
-        amount: minorToMajor(object.amount_paid ?? object.total ?? 0, object.currency),
-        currency: String(object.currency ?? "usd").toUpperCase(),
+        ...providerAmount(object.amount_paid ?? object.total, object.currency),
         status: "captured",
         method: "stripe",
         capturedAt: new Date(),
@@ -584,7 +530,12 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
   if (event.type === "invoice.payment_failed") {
     const providerInvoiceId = object.id;
     await db.payment.updateMany({
-      where: { provider: "stripe", providerInvoiceId, billingMode: context.mode },
+      where: {
+        provider: "stripe",
+        providerInvoiceId,
+        billingMode: context.mode,
+        status: { notIn: ["captured", "refunded", "partially_refunded"] },
+      },
       data: { status: "failed" },
     });
   }
@@ -594,77 +545,28 @@ async function processDodoEvent(event: any, context: GatewayContext) {
   const data = event.data ?? {};
   if (data.metadata?.billingMode && data.metadata.billingMode !== context.mode) return;
   if (event.type.startsWith("subscription.")) {
-    const metadata = data.metadata ?? {};
-    const existing = data.subscription_id
-      ? await db.subscription.findUnique({
-          where: {
-            provider_providerSubscriptionId: {
-              provider: "dodo",
-              providerSubscriptionId: data.subscription_id,
-            },
-          },
-        })
-      : null;
-    const businessProfile =
-      (existing?.businessProfileId
-        ? { id: existing.businessProfileId }
-        : await resolveWebhookBusinessProfile(metadata.userId, metadata.businessProfileId)) ?? null;
-    if (!businessProfile) return;
-    const current = await db.subscription.findUnique({
-      where: { businessProfileId: businessProfile.id },
-      select: { provider: true, providerSubscriptionId: true, billingMode: true },
+    if (!data.subscription_id) return;
+    const existing = await db.subscription.findUnique({
+      where: {
+        provider_providerSubscriptionId: {
+          provider: "dodo",
+          providerSubscriptionId: data.subscription_id,
+        },
+      },
     });
-    if (!current && (await getGatewayContext(context.gateway)).mode !== context.mode) return;
-    if (
-      current &&
-      (!(await subscriptionMatchesMode(current, context)) ||
-        current.provider !== "dodo" ||
-        (current.providerSubscriptionId && current.providerSubscriptionId !== data.subscription_id))
-    ) {
-      return;
-    }
-    if (
-      !(await subscriptionMatchesMode(existing, context)) ||
-      (metadata.billingMode && metadata.billingMode !== context.mode)
-    )
-      return;
-    const periodEnd = data.next_billing_date ? new Date(data.next_billing_date) : null;
-    const ended = ["cancelled", "failed", "expired"].includes(data.status);
-    const entitled =
-      data.status === "active" ||
-      (data.status === "on_hold" && Boolean(periodEnd && periodEnd > new Date())) ||
-      (ended && Boolean(periodEnd && periodEnd > new Date()));
-    await db.$transaction([
-      db.subscription.upsert({
-        where: { businessProfileId: businessProfile.id },
-        create: {
-          userId: metadata.userId,
-          businessProfileId: businessProfile.id,
-          provider: "dodo",
-          billingMode: context.mode,
-          providerCustomerId: data.customer?.customer_id,
-          providerSubscriptionId: data.subscription_id,
-          providerProductId: data.product_id,
-          status: data.status,
-          currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd: Boolean(data.cancel_at_next_billing_date),
-        },
-        update: {
-          provider: "dodo",
-          billingMode: context.mode,
-          providerCustomerId: data.customer?.customer_id,
-          providerSubscriptionId: data.subscription_id,
-          providerProductId: data.product_id,
-          status: data.status,
-          currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd: Boolean(data.cancel_at_next_billing_date),
-        },
-      }),
-      db.businessProfile.update({
-        where: { id: businessProfile.id },
-        data: { plan: entitled ? "PRO" : "FREE" },
-      }),
-    ]);
+    const businessProfile = existing?.businessProfileId
+      ? { id: existing.businessProfileId }
+      : await resolveWebhookBusinessProfile(
+          data.metadata?.userId,
+          data.metadata?.businessProfileId,
+        );
+    if (!businessProfile) return;
+    await reconcileBillingSubscription({
+      context,
+      id: data.subscription_id,
+      businessProfileId: businessProfile.id,
+      userId: data.metadata?.userId,
+    });
     return;
   }
 
@@ -692,81 +594,21 @@ async function processDodoEvent(event: any, context: GatewayContext) {
     ) {
       return;
     }
-    // Dodo explicitly does not guarantee webhook ordering. If the successful
-    // payment arrives before subscription.active, reconstruct the local
-    // subscription from checkout metadata so the charge is never dropped.
-    if (
-      subscription?.businessProfileId &&
-      data.subscription_id &&
-      !subscription.providerSubscriptionId
-    ) {
-      const businessProfileId = subscription.businessProfileId;
-      subscription = await db.subscription.update({
-        where: { id: subscription.id },
-        data: { providerSubscriptionId: data.subscription_id, status: "active" },
-      });
-      await db.businessProfile.update({
-        where: { id: businessProfileId },
-        data: { plan: "PRO" },
-      });
-    }
-    if (!subscription && data.subscription_id) {
-      const metadata = data.metadata ?? {};
-      const businessProfile = await resolveWebhookBusinessProfile(
-        metadata.userId,
-        metadata.businessProfileId,
-      );
-      if (businessProfile) {
-        const current = await db.subscription.findUnique({
-          where: { businessProfileId: businessProfile.id },
-          select: {
-            provider: true,
-            providerSubscriptionId: true,
-            providerCheckoutId: true,
-            billingMode: true,
-          },
+    if (data.subscription_id && !subscription?.providerSubscriptionId) {
+      const businessProfile = subscription?.businessProfileId
+        ? { id: subscription.businessProfileId }
+        : await resolveWebhookBusinessProfile(
+            data.metadata?.userId,
+            data.metadata?.businessProfileId,
+          );
+      if (businessProfile)
+        subscription = await reconcileBillingSubscription({
+          context,
+          id: data.subscription_id,
+          businessProfileId: businessProfile.id,
+          userId: subscription?.userId ?? data.metadata?.userId,
+          checkoutId: data.checkout_session_id,
         });
-        if (!current && (await getGatewayContext(context.gateway)).mode !== context.mode) return;
-        if (
-          current &&
-          (!(await subscriptionMatchesMode(current, context)) ||
-            current.provider !== "dodo" ||
-            (current.providerSubscriptionId &&
-              current.providerSubscriptionId !== data.subscription_id) ||
-            (current.providerCheckoutId &&
-              data.checkout_session_id &&
-              current.providerCheckoutId !== data.checkout_session_id))
-        ) {
-          return;
-        }
-        subscription = await db.subscription.upsert({
-          where: { businessProfileId: businessProfile.id },
-          create: {
-            userId: metadata.userId,
-            businessProfileId: businessProfile.id,
-            provider: "dodo",
-            billingMode: context.mode,
-            providerCustomerId: data.customer?.customer_id,
-            providerSubscriptionId: data.subscription_id,
-            providerProductId: data.product_cart?.[0]?.product_id,
-            providerCheckoutId: data.checkout_session_id,
-            status: "active",
-          },
-          update: {
-            provider: "dodo",
-            billingMode: context.mode,
-            providerCustomerId: data.customer?.customer_id,
-            providerSubscriptionId: data.subscription_id,
-            providerProductId: data.product_cart?.[0]?.product_id,
-            providerCheckoutId: data.checkout_session_id,
-            status: "active",
-          },
-        });
-        await db.businessProfile.update({
-          where: { id: businessProfile.id },
-          data: { plan: "PRO" },
-        });
-      }
     }
     if (!subscription || !data.payment_id) return;
     const existingPayment = await db.payment.findUnique({
@@ -776,7 +618,7 @@ async function processDodoEvent(event: any, context: GatewayContext) {
       select: { status: true, billingMode: true },
     });
     if (existingPayment && !(await subscriptionMatchesMode(existingPayment, context))) return;
-    await db.payment.upsert({
+    await recordPaymentCapture({
       where: {
         provider_providerPaymentId: { provider: "dodo", providerPaymentId: data.payment_id },
       },
@@ -788,8 +630,7 @@ async function processDodoEvent(event: any, context: GatewayContext) {
         billingMode: context.mode,
         providerPaymentId: data.payment_id,
         providerInvoiceId: data.invoice_id,
-        amount: minorToMajor(data.total_amount ?? 0, data.currency),
-        currency: String(data.currency ?? "usd").toUpperCase(),
+        ...providerAmount(data.total_amount, data.currency),
         status: "captured",
         method: data.payment_method ?? "dodo",
         capturedAt: new Date(),
@@ -805,7 +646,12 @@ async function processDodoEvent(event: any, context: GatewayContext) {
   }
   if (event.type === "payment.failed" && data.payment_id) {
     await db.payment.updateMany({
-      where: { provider: "dodo", providerPaymentId: data.payment_id, billingMode: context.mode },
+      where: {
+        provider: "dodo",
+        providerPaymentId: data.payment_id,
+        billingMode: context.mode,
+        status: { notIn: ["captured", "refunded", "partially_refunded"] },
+      },
       data: { status: "failed" },
     });
     return;
@@ -852,9 +698,12 @@ async function processDodoEvent(event: any, context: GatewayContext) {
     const refundedAmount =
       providerPayment.refund_status === "full"
         ? Number(payment.amount)
-        : minorToMajor(refundedMinor, payment.currency);
-    await db.payment.update({
-      where: { id: payment.id },
+        : providerAmount(refundedMinor, payment.currency).amount;
+    await db.payment.updateMany({
+      where: {
+        id: payment.id,
+        OR: [{ refundedAmount: null }, { refundedAmount: { lte: refundedAmount } }],
+      },
       data: {
         refundedAmount,
         status: refundedAmount >= Number(payment.amount) ? "refunded" : "partially_refunded",
@@ -882,40 +731,6 @@ function stripeInvoiceSubscriptionId(invoice: any): string | null {
     externalId(invoice?.parent?.subscription_details?.subscription) ??
     externalId(invoice?.subscription_details?.subscription)
   );
-}
-
-function stripePeriodEnd(subscription: any): Date | null {
-  const timestamps = [
-    subscription?.current_period_end,
-    ...(Array.isArray(subscription?.items?.data)
-      ? subscription.items.data.map((item: any) => item.current_period_end)
-      : []),
-  ].filter((value): value is number => typeof value === "number");
-  return timestamps.length ? new Date(Math.max(...timestamps) * 1000) : null;
-}
-
-function minorToMajor(amount: number, currency?: string): number {
-  const zeroDecimal = new Set([
-    "bif",
-    "clp",
-    "djf",
-    "gnf",
-    "jpy",
-    "kmf",
-    "krw",
-    "mga",
-    "pyg",
-    "rwf",
-    "ugx",
-    "vnd",
-    "vuv",
-    "xaf",
-    "xof",
-    "xpf",
-  ]);
-  const threeDecimal = new Set(["bhd", "iqd", "jod", "kwd", "lyd", "omr", "tnd"]);
-  const normalized = String(currency).toLowerCase();
-  return amount / (zeroDecimal.has(normalized) ? 1 : threeDecimal.has(normalized) ? 1_000 : 100);
 }
 
 async function resolveWebhookBusinessProfile(userId?: string, requestedId?: string) {

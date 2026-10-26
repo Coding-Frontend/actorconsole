@@ -79,3 +79,8 @@ export function retryPolicyFor(queue: string): RetryPolicy | undefined {
     ? QUEUE_RETRY_POLICIES[queue]
     : undefined;
 }
+
+/** API acknowledgement recovery and worker dispatch must use exactly the same ID. */
+export function bulkActorStatusJobId(operationId: string) {
+  return `actor-status-${encodeURIComponent(operationId)}`;
+}
