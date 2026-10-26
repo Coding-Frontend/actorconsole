@@ -3,6 +3,8 @@ import { webAuthRoutes } from "./routes/web-auth.js";
 import { publicCatalogRoutes } from "./routes/public-catalog.js";
 import { cors } from "hono/cors";
 import { csrf } from "hono/csrf";
+import { routePath } from "hono/route";
+import { requestBodyLimit } from "./middleware/request-body-limit.js";
 import { apiSecurityHeaders } from "./middleware/security-headers.js";
 import { healthRoutes } from "./routes/health.js";
 import { intelligenceRoutes } from "./routes/intelligence.js";
@@ -82,14 +84,18 @@ app.use("*", async (c, next) => {
     await next();
   } finally {
     const durationSec = (performance.now() - started) / 1000;
-    const path = c.req.path.replace(/\/[a-zA-Z0-9_-]{16,}/g, "/:id");
+    // Registered patterns keep arbitrary paths and identifiers out of metric labels.
+    const registeredPath = routePath(c, -1);
+    const path = registeredPath && !["*", "/*"].includes(registeredPath) ? registeredPath : "unmatched";
+    const method = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "CONNECT"].includes(c.req.method)
+      ? c.req.method : "OTHER";
     incrementMetric("actorconsole_http_requests_total", {
-      method: c.req.method,
+      method,
       path,
       status: c.res.status,
     });
     observeMetric("actorconsole_http_request_duration_seconds", durationSec, {
-      method: c.req.method,
+      method,
       path,
     });
     requestLog.info(
@@ -146,6 +152,10 @@ app.use("*", async (c, next) => {
 app.use("*", apiSecurityHeaders);
 app.use("*", errorHandler());
 app.onError(onErrorHandler);
+// Allow the existing 5 MiB image upload plus multipart overhead while bounding all parsers.
+const defaultBodyLimit = requestBodyLimit(6 * 1024 * 1024);
+const resendBodyLimit = requestBodyLimit(1_048_576);
+app.use("*", (c, next) => (c.req.path === "/webhooks/resend" ? resendBodyLimit : defaultBodyLimit)(c, next));
 
 // API-owned auth and public catalog routes precede protected actor/admin prefixes.
 app.route("/", webAuthRoutes);
