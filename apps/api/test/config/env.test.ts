@@ -24,3 +24,7 @@ it("accepts an independent production installation with all core secrets", async
   const { apiEnv } = await import("../../src/config/env.js");
   expect(apiEnv.AUTH_URL).toBe("https://app.example.org");
 });
+it("rejects wildcard trust instead of accepting arbitrary client forwarding headers", async () => {
+  vi.stubEnv("TRUSTED_PROXY_IPS", "*");
+  await expect(import("../../src/config/env.js")).rejects.toThrow("TRUSTED_PROXY_IPS");
+});

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isIP } from "node:net";
 
 const originList = z.string().superRefine((value, ctx) => {
   const origins = value
@@ -31,6 +32,10 @@ const schema = z
     AUTH_URL: z.string().url().optional(),
     SUPPORT_EMAIL: z.string().email().optional(),
     CORS_ORIGINS: originList.default("http://localhost:8080,http://localhost:3001"),
+    TRUSTED_PROXY_IPS: z.string().default("").refine(
+      (value) => value.split(",").every((entry) => !entry.trim() || Boolean(isIP(entry.trim()))),
+      "TRUSTED_PROXY_IPS must contain exact comma-separated IP addresses",
+    ),
     AUTH_SECRET: z.string().optional(),
     ADMIN_API_KEY: z.string().optional(),
     APP_ENCRYPTION_KEY: z.string().optional(),
