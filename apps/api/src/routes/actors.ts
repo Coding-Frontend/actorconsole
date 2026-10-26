@@ -495,7 +495,11 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
   .get("/dashboard-list", async (c) => {
     const session = c.get("session");
     const q = stringQuery(c.req.query("q"), "q", 120);
-    const page = Math.max(1, Number(c.req.query("page")) || 1);
+    const page = integerQuery(c.req.query("page"), {
+      name: "page",
+      defaultValue: 1,
+      max: 100_000,
+    });
     const limit = limitQuery(c.req.query("limit"), 25, 500);
     const sort = c.req.query("sort") ?? "updated-desc";
     const readiness = actorReadinessFilterSchema.catch("all").parse(c.req.query("readiness"));
@@ -1021,8 +1025,13 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
       });
     }
     if (section === "dataset") {
-      const offset = Math.min(100_000, Math.max(0, Number(c.req.query("offset")) || 0));
       const limit = 20;
+      const offset = integerQuery(c.req.query("offset"), {
+        name: "offset",
+        defaultValue: 0,
+        min: 0,
+        max: Number.MAX_SAFE_INTEGER - limit,
+      });
       const page = run.defaultDatasetId
         ? await raw.dataset().listItems({ offset, limit })
         : { items: [], total: 0 };

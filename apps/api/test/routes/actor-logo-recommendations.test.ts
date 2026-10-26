@@ -32,8 +32,9 @@ vi.mock("../../src/lib/user-audit.js", () => ({
 }));
 
 import { actorLogoRecommendationRoutes } from "../../src/routes/actor-logo-recommendations.js";
+import { requireActorApiKeyCapability, requireApiKeyMethodScope } from "../../src/middleware/api-key-scope.js";
 
-function app() {
+function app(actorIds?: string[], scopes = ["actors:read", "actors:write"]) {
   const instance = new Hono();
   instance.onError(onErrorHandler);
   instance.use("*", async (c: any, next) => {
@@ -42,9 +43,12 @@ function app() {
       email: "owner@example.com",
       plan: "PRO",
       businessProfileId: "workspace_1",
+      ...(actorIds ? { authMethod: "api-key", apiKeyActorIds: actorIds, apiKeyScopes: scopes } : {}),
     });
     await next();
   });
+  instance.use("/actors/*", requireApiKeyMethodScope({ allowGranularMcp: true }));
+  instance.use("/actors/*", requireActorApiKeyCapability());
   instance.route("/actors", actorLogoRecommendationRoutes);
   return instance;
 }
@@ -164,5 +168,52 @@ describe("Actor logo recommendation routes", () => {
       expect.objectContaining({ data: expect.objectContaining({ status: "DISMISSED" }) }),
     );
     expect(getUserApifyClient).not.toHaveBeenCalled();
+  });
+
+  it("filters both recommendation rows and count to the credential's selected Actors", async () => {
+    db.actorLogoRecommendation.findMany.mockImplementation(async ({ where }) =>
+      where.actor.apifyActorId?.in.includes("apify_actor_1") ? [recommendation] : [],
+    );
+    db.actorLogoRecommendation.count.mockImplementation(async ({ where }) =>
+      where.actor.apifyActorId?.in.includes("apify_actor_1") ? 1 : 0,
+    );
+    const response = await app(["other_actor"]).request("/actors/logo-recommendations");
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toMatchObject({ items: [], total: 0 });
+    const where = {
+      status: "PENDING",
+      actor: { userId: "user_1", businessProfileId: "workspace_1", apifyActorId: { in: ["other_actor"] } },
+    };
+    expect(db.actorLogoRecommendation.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+    expect(db.actorLogoRecommendation.count).toHaveBeenCalledWith({ where });
+  });
+
+  it.each(["apply", "dismiss"])("denies %s outside the selected Actors before any side effect", async (action) => {
+    const response = await app(["other_actor"]).request(
+      `/actors/logo-recommendations/recommendation_1/${action}`,
+      { method: "POST" },
+    );
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("api_key_actor_denied");
+    expect(getUserApifyClient).not.toHaveBeenCalled();
+    expect(readWebsiteLogo).not.toHaveBeenCalled();
+    expect(updateActorMetadata).not.toHaveBeenCalled();
+    expect(db.actor.update).not.toHaveBeenCalled();
+    expect(db.actorLogoRecommendation.update).not.toHaveBeenCalled();
+  });
+
+  it("allows an included Actor while retaining the mutation capability check", async () => {
+    const permitted = await app(["apify_actor_1"]).request(
+      "/actors/logo-recommendations/recommendation_1/dismiss", { method: "POST" },
+    );
+    expect(permitted.status).toBe(200);
+    db.actorLogoRecommendation.update.mockClear();
+    const denied = await app(["apify_actor_1"], ["actors:read"]).request(
+      "/actors/logo-recommendations/recommendation_1/dismiss", { method: "POST" },
+    );
+    expect(denied.status).toBe(403);
+    expect(db.actorLogoRecommendation.update).not.toHaveBeenCalled();
   });
 });

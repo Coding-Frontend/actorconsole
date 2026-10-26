@@ -247,7 +247,11 @@ export default async function ActorRunPage({
                 data.keyValueStore.items.map((item) => (
                   <Link
                     key={item.key}
-                    href={`${base}?section=key-value-store&key=${encodeURIComponent(item.key)}`}
+                    href={`${base}?${new URLSearchParams({
+                      section: "key-value-store",
+                      ...(query.cursor ? { cursor: query.cursor } : {}),
+                      key: item.key,
+                    })}`}
                     className="hover:bg-muted block rounded-sm px-2 py-2 text-xs"
                   >
                     <span className="block break-all font-mono">{item.key}</span>

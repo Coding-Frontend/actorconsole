@@ -488,6 +488,40 @@ describe("Actor routes", () => {
       expect(response.status).toBe(404);
     });
 
+    it("continues dataset pagination beyond 100,000 items", async () => {
+      const listItems = vi.fn().mockResolvedValue({ items: [{ result: "later" }], total: 100_021 });
+      mockGetUserApifyClient.mockResolvedValue({
+        getRun: vi.fn().mockResolvedValue(run),
+        rawClient: () => ({ run: () => ({ dataset: () => ({ listItems }) }) }),
+      });
+
+      const response = await buildApp().request(
+        "/actors/by-id/a1/runs/run-1?section=dataset&offset=100020",
+      );
+
+      expect(response.status).toBe(200);
+      expect(listItems).toHaveBeenCalledWith({ offset: 100_020, limit: 20 });
+      expect(await response.json()).toMatchObject({ data: { dataset: { offset: 100_020 } } });
+    });
+
+    it.each(["-1", "1.5", "Infinity", "NaN", "9007199254740992"])(
+      "rejects invalid dataset offset %s instead of showing a different page",
+      async (offset) => {
+        const listItems = vi.fn().mockResolvedValue({ items: [], total: 0 });
+        mockGetUserApifyClient.mockResolvedValue({
+          getRun: vi.fn().mockResolvedValue(run),
+          rawClient: () => ({ run: () => ({ dataset: () => ({ listItems }) }) }),
+        });
+
+        const response = await buildApp().request(
+          `/actors/by-id/a1/runs/run-1?section=dataset&offset=${offset}`,
+        );
+
+        expect(response.status).toBe(400);
+        expect(listItems).not.toHaveBeenCalled();
+      },
+    );
+
     it("shows logs and text records from the run's own storage", async () => {
       const listKeys = vi.fn().mockImplementation(({ prefix }: { prefix?: string }) =>
         Promise.resolve({
@@ -1849,6 +1883,14 @@ describe("Actor routes", () => {
 });
 
 describe("GET /actors/dashboard-list", () => {
+  it.each(["-1", "1.5", "Infinity", "NaN", "100001"])("rejects invalid page %s", async (page) => {
+    mockFindManyActors.mockClear();
+    const response = await buildApp().request(`/actors/dashboard-list?page=${page}`);
+
+    expect(response.status).toBe(400);
+    expect(mockFindManyActors).not.toHaveBeenCalled();
+  });
+
   it("filters pending logo reviews and exposes the effective website picture", async () => {
     mockFindManyActors.mockResolvedValueOnce([
       {

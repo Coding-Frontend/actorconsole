@@ -6,9 +6,17 @@ export const BULK_PUBLISH_ELIGIBLE_ACTOR_STATUSES = ["PENDING", "QUOTA_BLOCKED"]
 type ActorRunClient = Pick<ApifyClientWrapper, "listActorRuns" | "startActorRun" | "waitForRun">;
 
 const IN_PROGRESS_RUN_STATUSES = new Set(["READY", "RUNNING", "STARTING", "STOPPING", "ABORTING"]);
+const FAILED_RUN_STATUSES = new Set(["FAILED", "ABORTED", "TIMED-OUT"]);
 
 function isSuccessfulRun(run: ApifyRun): boolean {
   return run.status.trim().toUpperCase() === "SUCCEEDED";
+}
+
+function assertRunFinished(run: ApifyRun): void {
+  if (isSuccessfulRun(run) || FAILED_RUN_STATUSES.has(run.status.trim().toUpperCase())) return;
+  throw new Error(
+    `Actor validation run ${run.id} is still in progress (status ${run.status || "UNKNOWN"}); wait for it to finish before retrying publication.`,
+  );
 }
 
 /**
@@ -32,10 +40,14 @@ export async function ensureSuccessfulActorRun(
     if (isSuccessfulRun(finishedExistingRun)) {
       return { run: finishedExistingRun, started: false };
     }
+    // The SDK resolves with an unfinished run when waitSecs expires. Only
+    // replace a confirmed terminal failure, never a run still doing work.
+    assertRunFinished(finishedExistingRun);
   }
 
   const startedRun = await apify.startActorRun(actorId, input);
   const finishedRun = await apify.waitForRun(startedRun.id, waitSecs);
+  assertRunFinished(finishedRun);
   if (!isSuccessfulRun(finishedRun)) {
     throw new Error(
       `Actor validation run ${finishedRun.id} finished with status ${finishedRun.status || "UNKNOWN"}; the Actor must complete a successful run before publishing.`,
