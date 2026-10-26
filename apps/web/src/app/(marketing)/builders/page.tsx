@@ -28,8 +28,12 @@ export const metadata: Metadata = {
   title: "Apify Builder Leaderboard",
   description: "Rank Apify builders by estimated monthly creator revenue, Actors, users, and runs.",
 };
-const compact = (value: number) =>
-  new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+const compact = (value: number | null) =>
+  value == null
+    ? "—"
+    : new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(
+        value,
+      );
 const initials = (name: string) =>
   (name.match(/[\p{L}\p{N}]+/gu) ?? [])
     .slice(0, 2)
@@ -80,7 +84,7 @@ export default async function BuildersPage({ searchParams }: { searchParams: Pro
       <PublicGridSection>
         <header>
           <h1 className="font-display-tight text-3xl sm:text-4xl">Apify builder leaderboard</h1>
-          <p className="text-muted-foreground mt-2 max-w-[75ch] text-sm leading-6">
+          <p className="mt-2 max-w-[75ch] text-sm leading-6 text-muted-foreground">
             Rank builders by estimated monthly creator revenue, portfolio size, users, or runs.
           </p>
         </header>
@@ -112,9 +116,9 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
   } catch (error) {
     log.error({ error }, "Could not load builder leaderboard");
     return (
-      <div role="alert" className="border-border border p-6">
+      <div role="alert" className="border border-border p-6">
         <h2 className="font-semibold">Leaderboard could not load</h2>
-        <p className="text-muted-foreground mt-2 text-sm">
+        <p className="mt-2 text-sm text-muted-foreground">
           Public catalog data is temporarily unavailable.
         </p>
         <Button className="mt-4" variant="outline" asChild>
@@ -130,7 +134,7 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
     filters.metric === "monthly-runs" ? "monthly-runs" : "total-runs";
   return (
     <>
-      <div className="text-muted-foreground mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <p>
           {data.totalBuilders.toLocaleString("en-US")} builders ranked
           {filters.query ? ` · ${data.total.toLocaleString("en-US")} matches` : ""}
@@ -141,7 +145,7 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
         </p>
       </div>
       <div
-        className="border-border overflow-x-auto border-y"
+        className="overflow-x-auto border-y border-border"
         role="region"
         aria-label="Builder leaderboard"
       >
@@ -149,7 +153,7 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
           <caption className="sr-only">
             Builder rankings with public usage and estimated monthly creator revenue in US dollars.
           </caption>
-          <thead className="bg-muted/40 text-muted-foreground border-border border-b text-xs">
+          <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th scope="col" className="w-8 px-2 py-3 text-left sm:w-14 sm:px-4">
                 #
@@ -183,7 +187,7 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
               </th>
             </tr>
           </thead>
-          <tbody className="divide-border divide-y">
+          <tbody className="divide-y divide-border">
             {data.items.map((builder) => {
               const name = builder.name ?? builder.username;
               const selectedUsage = {
@@ -196,9 +200,11 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
                 "estimated-revenue": 0,
               }[filters.metric];
               return (
-                <tr key={builder.username} className="hover:bg-muted/30 transition-colors">
-                  <td className="text-muted-foreground px-2 py-4 align-top font-mono text-xs tabular-nums sm:px-4 lg:align-middle">
-                    {builder.rank}
+                <tr key={builder.username} className="transition-colors hover:bg-muted/30">
+                  <td className="px-2 py-4 align-top font-mono text-xs tabular-nums text-muted-foreground sm:px-4 lg:align-middle">
+                    {filters.metric === "new-actors" && builder.newActorCount == null
+                      ? "—"
+                      : builder.rank}
                   </td>
                   <th
                     scope="row"
@@ -208,20 +214,20 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
                       href={`/builders/${encodeURIComponent(builder.username)}?window=${filters.window}`}
                       className="group flex min-w-0 items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"
                     >
-                      <Avatar className="border-border hidden h-9 w-9 shrink-0 border sm:flex">
+                      <Avatar className="hidden h-9 w-9 shrink-0 border border-border sm:flex">
                         {builder.pictureUrl && <AvatarImage src={builder.pictureUrl} alt="" />}
                         <AvatarFallback className="text-xs">{initials(name)}</AvatarFallback>
                       </Avatar>
                       <span className="min-w-0">
-                        <span className="group-hover:text-signal-blue block break-words font-semibold sm:truncate">
+                        <span className="block break-words font-semibold group-hover:text-signal-blue sm:truncate">
                           {name}
                         </span>
-                        <span className="text-muted-foreground mt-1 hidden font-mono text-xs sm:block">
+                        <span className="mt-1 hidden font-mono text-xs text-muted-foreground sm:block">
                           @{builder.username}
                         </span>
                       </span>
                     </Link>
-                    <p className="text-muted-foreground mt-2 text-[11px] lg:hidden">
+                    <p className="mt-2 text-[11px] text-muted-foreground lg:hidden">
                       {filters.metric === "estimated-revenue" ? (
                         <>
                           {compact(builder.actorCount)} Actors · {compact(builder.activeUsers)}{" "}
@@ -242,11 +248,24 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
                     {compact(
                       actorMetric === "new-actors" ? builder.newActorCount : builder.actorCount,
                     )}
+                    {actorMetric === "new-actors" && builder.newActorCount == null ? (
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Publication dates incomplete
+                      </p>
+                    ) : null}
                   </td>
                   <td className="hidden px-4 py-4 text-right tabular-nums lg:table-cell">
                     {compact(
                       runsMetric === "monthly-runs" ? builder.recentRuns : builder.totalRuns,
                     )}
+                    {runsMetric === "monthly-runs" &&
+                    builder.runCounterCoverage &&
+                    builder.runCounterCoverage.known < builder.runCounterCoverage.total ? (
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Partial · {builder.runCounterCoverage.known}/
+                        {builder.runCounterCoverage.total} Actor counters
+                      </p>
+                    ) : null}
                   </td>
                   <td className="hidden px-4 py-4 text-right tabular-nums lg:table-cell">
                     {compact(
@@ -255,7 +274,7 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
                   </td>
                   <td className="w-[48%] px-2 py-4 align-top sm:w-64 sm:px-4 lg:w-72 lg:align-middle">
                     <EarningsBand value={builder.earnings} compact emphasizeCentral />
-                    <p className="text-muted-foreground mt-2 text-[10px] sm:text-[11px]">
+                    <p className="mt-2 text-[10px] text-muted-foreground sm:text-[11px]">
                       {builder.earnings?.coveredActors ?? 0}/{builder.actorCount} Actors covered
                       {builder.earnings?.unavailableActors ? " · Partial" : ""}
                     </p>
@@ -279,7 +298,14 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
           </div>
         )}
       </div>
-      <p className="text-muted-foreground mt-4 max-w-[90ch] text-xs leading-5">
+      {filters.metric === "new-actors" ? (
+        <p className="mt-4 max-w-[90ch] text-xs leading-5 text-muted-foreground">
+          New Actor counts use verified first-publication dates. Portfolios with incomplete
+          publication dates are unavailable and unranked; upload dates and catalog discovery dates
+          are excluded.
+        </p>
+      ) : null}
+      <p className="mt-4 max-w-[90ch] text-xs leading-5 text-muted-foreground">
         Revenue bands sum covered Actors’ public 30-day scenarios after an assumed creator share,
         before costs. Missing estimates appear last. User counts sum usage across Actors and may
         count people more than once. Official Apify and deprecated Actors are excluded.
@@ -297,7 +323,7 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
               <span>Previous</span>
             )}
           </Button>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             Page {data.page} of {data.pageCount}
           </p>
           <Button

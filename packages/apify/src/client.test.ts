@@ -1468,6 +1468,26 @@ describe("ApifyClientWrapper marketplace publishing", () => {
     });
   });
 
+  it("preserves SDK Date publication timestamps without substituting creation dates", async () => {
+    storeList.mockResolvedValueOnce({
+      total: 1,
+      items: [
+        {
+          id: "date-actor",
+          username: "builder",
+          name: "newly-public",
+          createdAt: new Date("2026-09-01"),
+          firstPublishedAt: new Date("2026-10-20"),
+        },
+      ],
+    });
+    const page = await createApifyClient({}).searchStorePage({
+      q: "builder",
+      searchBackend: "public",
+    });
+    expect(page.items[0]?.firstPublishedAt).toBe("2026-10-20T00:00:00.000Z");
+  });
+
   it("uses API-token auth for private run analytics", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(

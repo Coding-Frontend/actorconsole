@@ -2014,6 +2014,14 @@ function toActorSummary(a: any): ApifyActorSummary {
     pricingInfos: a.pricingInfos ?? (a.currentPricingInfo ? [a.currentPricingInfo] : undefined),
     createdAt: a.createdAt,
     modifiedAt: a.modifiedAt,
+    firstPublishedAt:
+      a.firstPublishedAt instanceof Date
+        ? Number.isFinite(a.firstPublishedAt.getTime())
+          ? a.firstPublishedAt.toISOString()
+          : undefined
+        : typeof a.firstPublishedAt === "string"
+          ? a.firstPublishedAt
+          : undefined,
     userFullName: a.userFullName ?? null,
     userPictureUrl: a.userPictureUrl ?? null,
     reviewCount: a.actorReviewCount ?? a.stats?.actorReviewCount,
@@ -2184,7 +2192,7 @@ function toStoreSearchResult(a: any): ApifyStoreSearchResult {
     metaLabelDetails: summary.metaLabelDetails,
     createdAt: summary.createdAt,
     modifiedAt: summary.modifiedAt,
-    firstPublishedAt: typeof a.firstPublishedAt === "string" ? a.firstPublishedAt : undefined,
+    firstPublishedAt: summary.firstPublishedAt,
     url: summary.url,
   };
 }

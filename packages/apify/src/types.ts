@@ -73,6 +73,7 @@ export interface ApifyActorSummary {
   pricingInfos?: ApifyPricingInfo[];
   createdAt?: string;
   modifiedAt?: string;
+  firstPublishedAt?: string;
   userFullName?: string | null;
   userPictureUrl?: string | null;
   reviewCount?: number;

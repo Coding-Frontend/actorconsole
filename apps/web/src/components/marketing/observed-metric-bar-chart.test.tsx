@@ -16,6 +16,39 @@ vi.mock("recharts", () => ({
 afterEach(cleanup);
 
 describe("ObservedMetricBarChart", () => {
+  it("shows a covered partial total without a misleading growth delta", () => {
+    render(
+      <ObservedMetricBarChart
+        label="30-day runs"
+        tone="orange"
+        points={[
+          { date: "2026-10-24", value: 10, coverage: { known: 1, total: 2 } },
+          { date: "2026-10-25", value: 12, coverage: { known: 1, total: 2 } },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/Partial total/)).toBeTruthy();
+    expect(screen.getByText(/Latest coverage: 1 of 2 Actors/)).toBeTruthy();
+    expect(screen.getByText("Change unavailable: incomplete coverage")).toBeTruthy();
+    expect(screen.queryByText(/\+2 since/)).toBeNull();
+  });
+
+  it("does not label a complete latest reading as partial when earlier coverage was incomplete", () => {
+    render(
+      <ObservedMetricBarChart
+        label="30-day runs"
+        tone="orange"
+        points={[
+          { date: "2026-10-24", value: 10, coverage: { known: 1, total: 2 } },
+          { date: "2026-10-25", value: 20, coverage: { known: 2, total: 2 } },
+        ]}
+      />,
+    );
+    expect(screen.queryByText(/Latest captured 30-day runs · Partial total/)).toBeNull();
+    expect(screen.getByText(/Latest coverage: 2 of 2 Actors/)).toBeTruthy();
+    expect(screen.getByText("Change unavailable: incomplete coverage")).toBeTruthy();
+  });
+
   it("shows a clear baseline state until a second daily observation exists", () => {
     render(
       <ObservedMetricBarChart
