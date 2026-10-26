@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOutFirebase } from "@/lib/firebase";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { BusinessProfileSwitcher } from "@/components/dashboard/business-profile-switcher";
+import { NavigationDrawer } from "@/components/ui/navigation-drawer";
 import { WorkspacePlanBanner } from "@/components/dashboard/workspace-plan-banner";
 import type { WorkspaceAccess } from "@actorconsole/shared/workspace-access";
 import {
@@ -405,19 +406,15 @@ export function DashboardSidebar({
       </aside>
 
       {/* Mobile sidebar overlay */}
-      {mobileOpen && (
-        <>
-          <button
-            type="button"
-            className="bg-ink/70 fixed inset-0 z-40 backdrop-blur-sm md:hidden"
-            onClick={onMobileClose}
-            aria-label="Close navigation"
-          />
-          <aside className="border-border bg-card fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r shadow-2xl md:hidden">
-            {sidebarContent(true)}
-          </aside>
-        </>
-      )}
+      <NavigationDrawer
+        open={Boolean(mobileOpen)}
+        onClose={() => onMobileClose?.()}
+        title="Dashboard navigation"
+        desktopQuery="(min-width: 768px)"
+        className="w-[280px] md:hidden"
+      >
+        {sidebarContent(true)}
+      </NavigationDrawer>
     </>
   );
 }

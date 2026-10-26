@@ -73,6 +73,10 @@ import SeoPage from "./seo/page";
 beforeEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
+  // Exercise the mobile navigation flow below at a mobile breakpoint.
+  vi.stubGlobal("matchMedia", vi.fn((media: string) => ({
+    media, matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+  })));
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: mocks.access }) }),
@@ -122,7 +126,7 @@ describe("dashboard research tool routes", () => {
         );
       }
       fireEvent.click(screen.getByRole("button", { name: "Toggle sidebar" }));
-      const mobileSidebar = screen.getAllByRole("complementary")[1];
+      const mobileSidebar = screen.getByRole("dialog", { name: "Dashboard navigation" });
       const mobileLink = within(mobileSidebar).getByRole("link", { name: title });
       expect(mobileLink.getAttribute("href")).toBe(mocks.path);
       expect(mobileLink.getAttribute("aria-current")).toBe("page");

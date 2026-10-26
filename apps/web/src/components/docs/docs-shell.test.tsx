@@ -16,6 +16,17 @@ afterEach(() => {
 });
 
 describe("persistent documentation navigation", () => {
+  it("focuses search from click and keyboard, then restores the trigger on Escape", () => {
+    render(<DocsLayout><h1>Guide</h1></DocsLayout>);
+    const trigger = screen.getByRole("button", { name: /^Search docs$/ });
+    fireEvent.click(trigger);
+    expect(document.activeElement).toBe(screen.getByRole("searchbox"));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(document.activeElement).toBe(screen.getByRole("searchbox"));
+  });
   it("retains the sidebar, toolbar, scroll and expanded groups as guide content changes", () => {
     const { rerender } = render(
       <DocsLayout>
