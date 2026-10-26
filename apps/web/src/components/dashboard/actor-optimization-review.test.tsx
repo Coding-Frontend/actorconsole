@@ -1,12 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { toastSuccess, toastError } = vi.hoisted(() => ({
+const { toastSuccess, toastError, toastWarning } = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  toastWarning: vi.fn(),
 }));
 
-vi.mock("sonner", () => ({ toast: { success: toastSuccess, error: toastError } }));
+vi.mock("sonner", () => ({ toast: { success: toastSuccess, error: toastError, warning: toastWarning } }));
 
 import { ActorOptimizationReview } from "./actor-optimization-review";
 
@@ -103,6 +104,58 @@ describe("ActorOptimizationReview", () => {
     expect(JSON.parse(String((approvalCall[1] as RequestInit).body))).toEqual({
       items: [{ resultId: "result_1", fields: ["title", "description"] }],
     });
+  });
+
+  it("shows completed results without a generation spinner", async () => {
+    vi.mocked(fetch).mockReset().mockResolvedValue(Response.json({ data: {
+      ...run, status: "APPLIED", results: [{ ...run.results[0], status: "APPLIED" }],
+    } }));
+    render(<ActorOptimizationReview runId="run_1" />);
+    await screen.findByText("Approved fields were applied to Apify.");
+    expect(screen.queryByText("Generating the proposal…")).toBeNull();
+  });
+
+  it.each([
+    ["APPROVED", "Approved changes are queued for application."],
+    ["APPLYING", "Applying approved fields to Apify…"],
+  ])("shows the actual %s operation", async (status, message) => {
+    vi.mocked(fetch).mockReset().mockResolvedValue(Response.json({ data: {
+      ...run, status: "APPLYING", results: [{ ...run.results[0], status }],
+    } }));
+    render(<ActorOptimizationReview runId="run_1" />);
+    await screen.findByText(message);
+    expect(screen.queryByText("Generating the proposal…")).toBeNull();
+  });
+
+  it.each([
+    [0, "No changes were queued. 1 Actor could not be queued."],
+    [1, "Changes queued for 1 Actor; 1 Actor could not be queued."],
+  ])("reports enqueue failures truthfully when %s changes were queued", async (queued, message) => {
+    vi.mocked(fetch).mockReset()
+      .mockResolvedValueOnce(Response.json({ data: run }))
+      .mockResolvedValueOnce(Response.json({ data: { queued, failed: 1 } }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ data: run }));
+    render(<ActorOptimizationReview runId="run_1" />);
+    await screen.findByText("The listing can be clearer.");
+    fireEvent.click(screen.getAllByRole("checkbox", { name: "Include this change" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Review selected changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply to Apify" }));
+    await waitFor(() => expect(queued ? toastWarning : toastError).toHaveBeenCalledWith(message));
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it("catches a failed recheck request and restores its control", async () => {
+    vi.mocked(fetch).mockReset()
+      .mockResolvedValueOnce(Response.json({ data: {
+        ...run, results: [{ ...run.results[0], status: "STALE", error: "Metadata changed" }],
+      } }))
+      .mockRejectedValueOnce(new Error("Connection lost"));
+    render(<ActorOptimizationReview runId="run_1" />);
+    const button = await screen.findByRole("button", { name: "Recheck Actor" });
+    fireEvent.click(button);
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Connection lost"));
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 
   it("bulk selects and clears the same field across every eligible Actor", async () => {

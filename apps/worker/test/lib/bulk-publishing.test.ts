@@ -93,6 +93,42 @@ describe("ensureSuccessfulActorRun", () => {
     expect(apify.waitForRun).toHaveBeenNthCalledWith(2, "run-2", 900);
   });
 
+  it.each(["RUNNING", "READY", "STARTING", "STOPPING", "ABORTING"])("does not start a duplicate validation run while the existing run remains %s", async (status) => {
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([run("run-1", "RUNNING")]),
+      startActorRun: vi.fn().mockResolvedValue(run("run-2", "READY")),
+      waitForRun: vi.fn().mockResolvedValue(run("run-1", status)),
+    };
+
+    await expect(ensureSuccessfulActorRun(apify, "actor-1", {}, 120)).rejects.toThrow(
+      "Actor validation run run-1 is still in progress",
+    );
+    expect(apify.startActorRun).not.toHaveBeenCalled();
+    expect(apify.waitForRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses a successful run that finishes during the wait", async () => {
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([run("run-1", "RUNNING")]),
+      startActorRun: vi.fn(),
+      waitForRun: vi.fn().mockResolvedValue(run("run-1", "SUCCEEDED")),
+    };
+    expect(await ensureSuccessfulActorRun(apify, "actor-1")).toMatchObject({ started: false, run: { id: "run-1" } });
+    expect(apify.startActorRun).not.toHaveBeenCalled();
+  });
+
+  it("keeps a newly started unfinished run retryable without publishing", async () => {
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([]),
+      startActorRun: vi.fn().mockResolvedValue(run("run-1", "READY")),
+      waitForRun: vi.fn().mockResolvedValue(run("run-1", "RUNNING")),
+    };
+    const error = await ensureSuccessfulActorRun(apify, "actor-1").catch((failure: Error) => failure);
+    expect(error).toBeInstanceOf(Error);
+    expect(resolveBulkPublishingFailure(error, false)).toMatchObject({ retryable: true });
+    expect(apify.startActorRun).toHaveBeenCalledTimes(1);
+  });
+
   it("does not publish when the validation run does not succeed", async () => {
     const apify = {
       listActorRuns: vi.fn().mockResolvedValue([]),
