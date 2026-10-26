@@ -93,9 +93,9 @@ describe("ensureSuccessfulActorRun", () => {
     expect(apify.waitForRun).toHaveBeenNthCalledWith(2, "run-2", 900);
   });
 
-  it.each(["RUNNING", "READY", "STARTING", "STOPPING", "ABORTING"])("does not start a duplicate validation run while the existing run remains %s", async (status) => {
+  it.each(["RUNNING", "READY", "STARTING", "STOPPING", "ABORTING", "TIMING-OUT"])("does not start a duplicate validation run while the existing run remains %s", async (status) => {
     const apify = {
-      listActorRuns: vi.fn().mockResolvedValue([run("run-1", "RUNNING")]),
+      listActorRuns: vi.fn().mockResolvedValue([run("run-1", status)]),
       startActorRun: vi.fn().mockResolvedValue(run("run-2", "READY")),
       waitForRun: vi.fn().mockResolvedValue(run("run-1", status)),
     };
@@ -105,6 +105,40 @@ describe("ensureSuccessfulActorRun", () => {
     );
     expect(apify.startActorRun).not.toHaveBeenCalled();
     expect(apify.waitForRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for a timing-out run that still succeeds without starting a replacement", async () => {
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([run("run-1", "TIMING-OUT")]),
+      startActorRun: vi.fn().mockResolvedValue(run("run-2", "READY")),
+      waitForRun: vi.fn(async (id: string) => run(id, "SUCCEEDED")),
+    };
+
+    expect(await ensureSuccessfulActorRun(apify, "actor-1")).toMatchObject({ started: false, run: { id: "run-1" } });
+    expect(apify.startActorRun).not.toHaveBeenCalled();
+  });
+
+  it.each(["UNRECOGNIZED", ""])("does not replace an unconfirmed terminal state %j", async (status) => {
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([run("run-1", status)]),
+      startActorRun: vi.fn().mockResolvedValue(run("run-2", "READY")),
+      waitForRun: vi.fn(async (id: string) => run(id, status)),
+    };
+
+    await expect(ensureSuccessfulActorRun(apify, "actor-1")).rejects.toThrow("still in progress");
+    expect(apify.startActorRun).not.toHaveBeenCalled();
+  });
+
+  it.each(["FAILED", "ABORTED", "TIMED-OUT"])("replaces a confirmed terminal %s run once", async (status) => {
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([run("run-1", status)]),
+      startActorRun: vi.fn().mockResolvedValue(run("run-2", "READY")),
+      waitForRun: vi.fn().mockResolvedValue(run("run-2", "SUCCEEDED")),
+    };
+
+    expect(await ensureSuccessfulActorRun(apify, "actor-1")).toMatchObject({ started: true, run: { id: "run-2" } });
+    expect(apify.startActorRun).toHaveBeenCalledTimes(1);
+    expect(apify.waitForRun).toHaveBeenCalledWith("run-2", 900);
   });
 
   it("reuses a successful run that finishes during the wait", async () => {

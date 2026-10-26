@@ -5,7 +5,6 @@ export const BULK_PUBLISH_ELIGIBLE_ACTOR_STATUSES = ["PENDING", "QUOTA_BLOCKED"]
 
 type ActorRunClient = Pick<ApifyClientWrapper, "listActorRuns" | "startActorRun" | "waitForRun">;
 
-const IN_PROGRESS_RUN_STATUSES = new Set(["READY", "RUNNING", "STARTING", "STOPPING", "ABORTING"]);
 const FAILED_RUN_STATUSES = new Set(["FAILED", "ABORTED", "TIMED-OUT"]);
 
 function isSuccessfulRun(run: ApifyRun): boolean {
@@ -35,7 +34,7 @@ export async function ensureSuccessfulActorRun(
     return { run: latestRun, started: false };
   }
 
-  if (latestRun && IN_PROGRESS_RUN_STATUSES.has(latestRun.status.trim().toUpperCase())) {
+  if (latestRun && !FAILED_RUN_STATUSES.has(latestRun.status.trim().toUpperCase())) {
     const finishedExistingRun = await apify.waitForRun(latestRun.id, waitSecs);
     if (isSuccessfulRun(finishedExistingRun)) {
       return { run: finishedExistingRun, started: false };

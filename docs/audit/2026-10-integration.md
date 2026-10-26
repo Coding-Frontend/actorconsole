@@ -60,17 +60,41 @@ Only owner commits accompanied by a verified ready SHA and test receipt from the
 | --- | --- |
 | `fixes/actorconsole-20261026-auth` | Pending parent receipt; not integrated |
 | `fixes/actorconsole-20261026-api` | Pending parent receipt; not integrated |
-| `fixes/actorconsole-20261026-actors` | Pending parent receipt; not integrated |
+| `fixes/actorconsole-20261026-actors` | Approved review receipt: `c54f28be3704b66edbdb11972de464189b13ed3b`; source `80909babf4670dd03c2f081e52dfac5ad83dd735` → integration `563eab49fd6a439896d121160556806e5b29a276`; owner reports → `c0bdc40c1bec239bceb009a50f7d577174ef3481`. Accepted with the AD-02 follow-up below. |
 | `fixes/actorconsole-20261026-billing` | Pending parent receipt; not integrated |
-| `fixes/actorconsole-20261026-ui` | Pending parent receipt; not integrated |
+| `fixes/actorconsole-20261026-ui` | Approved review receipt: `5469cd0f7506672e0e38105e08411079623ed676`. Source `4d595cb45c2dc124a36ffa6934f9d51311f0e623` / `5fb7fe358f336b16bee1fd55367dec7d8effae28` → integration `7ff20c16a9e692cea0d9f62e47e36d7a377d1aa0` / `2d1c8d05851c93dfb89306afe94e5f91969ba85c`. Two reports imported selectively; raw evidence retained on owner branch. |
 
 API owns route labels for DH-03/AQ-01; the issue remains one canonical API Medium finding with architecture's earlier severity-review note. This batch handles serializer correctness, not a new arbitrary shared metric eviction policy. API cache helper/test changes here need to be preserved if the API handoff touches adjacent infrastructure.
+
+### Actor and UI review batch
+
+The Actor handoff changes 17 application/test paths and two scoped documents, with no overlap with the shared utility batch. AD-01 through AD-08 are addressed for the confirmed cases: metadata snapshot/fingerprint parity, validation-run reuse, Actor-restricted logo list/writes, terminal/version recheck claims and counters, safe dataset/list pagination, KV cursor retention and lifecycle feedback. The extracted Worker handlers were compared against the original implementation; commercial pricing semantics and the shared queue contract were retained. Previously generated proposals need an explicit recheck, not an automatic fingerprint backfill.
+
+Review found that the owner's initial in-progress status list omitted installed Apify's `TIMING-OUT` (`node_modules/@apify/consts/esm/index.d.mts:25–34`). A bounded mocked reproduction observed a replacement start while the prior run could still complete. Four added assertions failed against the handoff (17 passed). The integration follow-up now waits for any existing run unless its failure is confirmed terminal; it covers timing-out success, unfinished/unknown states and each terminal failure. All **21 publishing tests** and **33 focused Worker tests** pass. No live validation run was started. Real DB recheck contention and ambiguous Redis accepted-then-timeout behavior remain unverified; AD-04's finite fixtures do not close BQ-09's queue uncertainty.
+
+The UI handoff contributes 22 application/test paths. Only its two source commits and two reports were imported from the 68-file branch; bulk logs, JSON, patches and scratch browser harnesses remain on the [verified owner branch](https://github.com/Coding-Frontend/actorconsole/tree/5469cd0f7506672e0e38105e08411079623ed676/audit/ui-ux). Local docs link that retained evidence. The 12 confirmed UI findings (UI-01–09, UI-11, UI-13, UI-14) are implemented: shared modal navigation lifecycle, step-aware 2FA submission, preserved drafts, accessible feedback/contrast, ticket-close retry, palette/docs focus, notification ordering and privacy navigation. UI-10 remains suspected; UI-12 remains rejected. Server recovery/session/key policy is still auth ownership.
+
+The React review checked hooks/cleanup, request ordering, focus lifecycle, accessible names and imports against installed Radix Dialog code (`node_modules/@radix-ui/react-dialog/dist/index.js:195–238`); no broader refactor was required. Corrected the UI report's stale Vite mismatch claim: root Vite 5.4.21 belongs to Vitest 2.1.9, while `apps/web/node_modules/vite` resolves to 8.3.5. No clean-install or CI parity is claimed.
+
+Combined checks on the Actor/UI tree:
+
+| Check | Actual result |
+| --- | --- |
+| Focused API / Worker / web | **101 / 33 / 41 passed** |
+| Aggregate root tests | **1,940 passed, 3 opt-in DB skipped**; 240 files passed, one skipped |
+| Typecheck / lint | **16 / 11 tasks passed**; changed root scripts also pass zero-warning ESLint |
+| Expanded coverage runner | All **10 suites passed**; seven existing numerical thresholds retained |
+| Script checks / web boundary | **13 passed** / boundary passed |
+| Synthetic production build | **10 tasks passed**; loopback-only build configuration and optional uploads disabled |
+| Preservation / whitespace | Original checkout's **8/8 hashes match**, including all four pre-planning source/test files; `git diff --check` passes |
+
+The first aggregate-test invocation was rejected by pnpm's argument parser before running tests; the corrected `pnpm run test --maxWorkers=2 --minWorkers=1` passed as reported. Logs are retained outside Git under `/workspace/audit-artifacts/architecture-quality/integration-actors-ui-*`; the four expected red follow-up assertions are in `integration-actor-status-red.log`. No gate was weakened. Publication and redacted secret-scan receipts are appended when complete. Auth/API/billing are not included and their blockers remain open. The UI owner's 594 tests and 14 browser assertions are its independent receipt, not additions to combined totals or a coordinator browser rerun.
 
 ### Shared client-address contract for AUTH-07 / DH-04
 
 Before combined acceptance, auth and contact must consume one server-side resolver contract: a validated, normalized transport/client IP string or the fixed `unknown` bucket. Use the transport peer by default. Forwarding headers are usable only behind an explicitly verified trusted-peer/ingress contract; never infer trust from the presence of CF-Connecting-IP, X-Forwarded-For or X-Real-IP. Unresolved requests share a fixed bucket rather than a request-selected value. Preserve existing authentication/contact quotas and the separate contact email key.
 
-Required bounded regressions cover direct/proxied requests, missing/invalid transport peer, caller header rotation, malformed/multiple values, and IPv4/IPv6 normalization. The supplied nginx examples overwrite X-Real-IP, but the deployed socket/peer chain is not verified here. No proxy, infrastructure or operational trust setting is changed; header-dependent findings remain open until the owner implementation and supported ingress contract are reviewed together. Parent will relay the shared contract to both owners.
+Required bounded regressions cover direct/proxied requests, missing/invalid transport peer, caller header rotation, malformed/multiple values, and IPv4/IPv6 normalization. The supplied nginx examples overwrite X-Real-IP, but the deployed socket/peer chain is not verified here. No proxy, infrastructure or operational trust setting is changed; header-dependent findings remain open until the owner implementation and supported ingress contract are reviewed together. Parent relayed the shared contract to both owners. The API's verified dependency commit `b1f5db62b3e5b4f754380a564bed1f5eb94a7430` exports `resolveClientIp(c: Context): string` from `apps/api/src/lib/client-ip.ts`; the full API handoff is still pending. Auth will consume that exact dependency. It has not been independently cherry-picked here, avoiding duplicate application before complete receipts. AUTH-08/09 policy decisions remain isolated and pending explicit user direction.
 
 ## Environment and outstanding limits
 
