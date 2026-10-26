@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onErrorHandler } from "../../src/middleware/error.js";
+import { encrypt, hashRecoveryCode, totpCode } from "@actorconsole/shared";
 
 /**
  * Tests for /account/* — profile, sessions, api-keys, export, delete.
@@ -22,6 +23,7 @@ const { mockDb, mockRateLimit, mockTrackEvent, mockSession, mockGetApifyAccountI
       user: {
         findUnique: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
       },
       session: {
         findMany: vi.fn(),
@@ -116,6 +118,98 @@ function buildApp() {
 }
 
 describe("account", () => {
+  describe("two-factor credential races", () => {
+    const passphrase = "local-account-two-factor-fixture";
+    const secret = "JBSWY3DPEHPK3PXP";
+    const recoveryCode = "ABCDE-12345";
+    let state: { totpEnabled: boolean; totpSecretEncrypted: string; totpRecoveryCodes: string[] };
+
+    beforeEach(() => {
+      vi.stubEnv("APP_ENCRYPTION_KEY", passphrase);
+      state = {
+        totpEnabled: true,
+        totpSecretEncrypted: encrypt(secret, passphrase, `totp:${mockSession.userId}`),
+        totpRecoveryCodes: [hashRecoveryCode(recoveryCode, mockSession.userId, passphrase)],
+      };
+      mockDb.user.findUnique.mockImplementation(async () => structuredClone(state));
+      mockDb.user.update.mockImplementation(async ({ data }) => {
+        Object.assign(state, data);
+        return structuredClone(state);
+      });
+      mockDb.user.updateMany.mockImplementation(async ({ where, data }) => {
+        if (where.totpEnabled !== state.totpEnabled ||
+          (where.totpSecretEncrypted !== undefined && where.totpSecretEncrypted !== state.totpSecretEncrypted) ||
+          (where.totpRecoveryCodes && JSON.stringify(where.totpRecoveryCodes.equals) !== JSON.stringify(state.totpRecoveryCodes))) {
+          return { count: 0 };
+        }
+        Object.assign(state, data);
+        return { count: 1 };
+      });
+    });
+    afterEach(() => vi.unstubAllEnvs());
+
+    function factorRequest(path: string, code = recoveryCode) {
+      return buildApp().request(path, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }),
+      });
+    }
+
+    it("consumes a recovery code once across concurrent recovery-code regeneration requests", async () => {
+      const responses = await Promise.all([
+        factorRequest("/2fa/recovery-codes"), factorRequest("/2fa/recovery-codes"),
+      ]);
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 400]);
+      const successful = await responses.find((response) => response.status === 200)!.json();
+      expect(state.totpRecoveryCodes).toEqual(successful.data.recoveryCodes.map((code: string) =>
+        hashRecoveryCode(code, mockSession.userId, passphrase),
+      ));
+    });
+
+    it("does not overwrite a factor enabled while a setup request was in flight", async () => {
+      mockDb.user.findUnique.mockResolvedValueOnce({ totpEnabled: false });
+      const before = structuredClone(state);
+      const response = await buildApp().request("/2fa/setup", { method: "POST" });
+      expect(response.status).toBe(409);
+      expect(state).toEqual(before);
+    });
+
+    it("does not confirm a pending factor replaced while confirmation was in flight", async () => {
+      state.totpEnabled = false;
+      const oldPending = structuredClone(state);
+      mockDb.user.findUnique.mockImplementationOnce(async () => {
+        state.totpSecretEncrypted = "replacement-pending-secret";
+        return oldPending;
+      });
+      const response = await factorRequest("/2fa/confirm", totpCode(secret));
+      expect(response.status).toBe(409);
+      expect(state.totpEnabled).toBe(false);
+      expect(state.totpSecretEncrypted).toBe("replacement-pending-secret");
+    });
+
+    it("confirms the current pending factor and returns usable recovery codes", async () => {
+      state.totpEnabled = false;
+      const response = await factorRequest("/2fa/confirm", totpCode(secret));
+      expect(response.status).toBe(200);
+      const { data } = await response.json();
+      expect(state.totpEnabled).toBe(true);
+      expect(data.recoveryCodes).toHaveLength(8);
+      expect(state.totpRecoveryCodes).toEqual(data.recoveryCodes.map((code: string) =>
+        hashRecoveryCode(code, mockSession.userId, passphrase),
+      ));
+    });
+
+    it.each(["disable", "recovery-codes"])("does not apply %s to a factor replaced after verification", async (action) => {
+      mockDb.user.findUnique.mockImplementationOnce(async () => {
+        const loaded = structuredClone(state);
+        state.totpSecretEncrypted = "newly-confirmed-factor";
+        return loaded;
+      });
+      const response = await factorRequest(`/2fa/${action}`, totpCode(secret));
+      expect(response.status).toBe(409);
+      expect(state.totpEnabled).toBe(true);
+      expect(state.totpSecretEncrypted).toBe("newly-confirmed-factor");
+    });
+  });
   describe("workspace access and MCP scope discovery", () => {
     it("returns unrestricted setup before a workspace exists", async () => {
       const response = await buildApp().request("/workspace-access");

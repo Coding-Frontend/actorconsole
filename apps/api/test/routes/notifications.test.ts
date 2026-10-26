@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { onErrorHandler } from "../../src/middleware/error.js";
 
 /**
  * Tests for the /notifications route (Phase 2.1).
@@ -9,11 +10,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockDb,
+  mockAuthSession,
   getUserApifyClient,
   listConsoleNotifications,
   markConsoleNotificationRead,
   markAllConsoleNotificationsRead,
 } = vi.hoisted(() => ({
+  mockAuthSession: { authMethod: "session", apiKeyScopes: [] as string[] },
   mockDb: {
     notification: {
       findMany: vi.fn(),
@@ -44,6 +47,7 @@ vi.mock("../../src/middleware/auth.js", () => ({
       email: "t@a.com",
       plan: "FREE",
       businessProfileId: "workspace_1",
+      ...mockAuthSession,
     });
     await next();
   },
@@ -53,6 +57,7 @@ import { notificationRoutes } from "../../src/routes/notifications.js";
 
 function buildApp() {
   const app = new Hono();
+  app.onError(onErrorHandler);
   app.route("/", notificationRoutes);
   return app;
 }
@@ -71,12 +76,52 @@ const sampleNotification = {
 describe("notifications", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthSession.authMethod = "session";
+    mockAuthSession.apiKeyScopes = [];
     getUserApifyClient.mockResolvedValue(null);
     mockDb.actor.findMany.mockResolvedValue([]);
     mockDb.ticket.findFirst.mockResolvedValue(null);
   });
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it.each(["/n_1/read", "/read-all"])(
+    "rejects notification mutation %s by a legacy read-only API key", async (path) => {
+      mockAuthSession.authMethod = "api-key";
+      mockAuthSession.apiKeyScopes = ["read"];
+      mockDb.notification.updateMany.mockResolvedValue({ count: 1 });
+      const response = await buildApp().request(path, { method: "POST" });
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe("api_key_scope_denied");
+      expect(mockDb.notification.updateMany).not.toHaveBeenCalled();
+      expect(getUserApifyClient).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects notification reads by a legacy write-only API key", async () => {
+    mockAuthSession.authMethod = "api-key";
+    mockAuthSession.apiKeyScopes = ["write"];
+    const response = await buildApp().request("/");
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("api_key_scope_denied");
+    expect(mockDb.notification.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["write"], ["mcp", "notifications:write"], [],
+  ])("allows notification mutations for compatible permissions %j", async (...scopes) => {
+    mockAuthSession.authMethod = "api-key";
+    mockAuthSession.apiKeyScopes = scopes;
+    mockDb.notification.updateMany.mockResolvedValue({ count: 1 });
+    expect((await buildApp().request("/n_1/read", { method: "POST" })).status).toBe(200);
+  });
+
+  it("rejects a granular key without notification write permission", async () => {
+    mockAuthSession.authMethod = "api-key";
+    mockAuthSession.apiKeyScopes = ["mcp", "notifications:read"];
+    expect((await buildApp().request("/n_1/read", { method: "POST" })).status).toBe(403);
+    expect(mockDb.notification.updateMany).not.toHaveBeenCalled();
   });
 
   describe("GET /", () => {

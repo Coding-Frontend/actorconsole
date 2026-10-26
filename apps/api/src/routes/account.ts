@@ -11,6 +11,7 @@ import { assertPlanFeature, refreshWorkspacePlanUsage } from "../lib/plan-access
 import { recordUserAudit } from "../lib/user-audit.js";
 import { loadDefaultDashboard } from "../lib/default-dashboard.js";
 import { loadPublishingOverview } from "../lib/publishing-overview.js";
+import { consumeTwoFactorRecoveryCode } from "../lib/two-factor-recovery.js";
 import { checkRateLimit } from "../lib/rate-limit";
 import { ApifyClientError, getApifyAccountIdentity } from "@actorconsole/apify";
 import { createHash, randomBytes } from "node:crypto";
@@ -102,23 +103,20 @@ function capabilityArrayFromJson(value: unknown): McpCapability[] {
 async function verifySecondFactor(
   userId: string,
   code: string,
-): Promise<"totp" | "recovery" | null> {
+): Promise<{ factor: "totp" | "recovery"; encryptedSecret: string } | null> {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { totpEnabled: true, totpSecretEncrypted: true, totpRecoveryCodes: true },
   });
   if (!user?.totpEnabled || !user.totpSecretEncrypted) return null;
   const secret = decrypt(user.totpSecretEncrypted, encryptionKey(), `${TOTP_KEY_PREFIX}${userId}`);
-  if (verifyTotpCode(secret, code)) return "totp";
+  if (verifyTotpCode(secret, code)) {
+    return { factor: "totp", encryptedSecret: user.totpSecretEncrypted };
+  }
 
   const hashed = hashRecoveryCode(code, userId, encryptionKey());
-  const remaining = recoveryCodesFromJson(user.totpRecoveryCodes);
-  if (!remaining.includes(hashed)) return null;
-  await db.user.update({
-    where: { id: userId },
-    data: { totpRecoveryCodes: remaining.filter((candidate) => candidate !== hashed) },
-  });
-  return "recovery";
+  return await consumeTwoFactorRecoveryCode(db, userId, hashed, user.totpSecretEncrypted)
+    ? { factor: "recovery", encryptedSecret: user.totpSecretEncrypted } : null;
 }
 
 async function enforceTwoFactorRateLimit(userId: string, action: string, max = 5) {
@@ -729,8 +727,8 @@ export const accountRoutes = new Hono<AppEnv>()
       );
     }
     const secret = generateTotpSecret();
-    await db.user.update({
-      where: { id: session.userId },
+    const setup = await db.user.updateMany({
+      where: { id: session.userId, totpEnabled: false },
       data: {
         totpSecretEncrypted: encrypt(
           secret,
@@ -740,6 +738,9 @@ export const accountRoutes = new Hono<AppEnv>()
         totpRecoveryCodes: [],
       },
     });
+    if (setup.count !== 1) {
+      throw new AppError("totp_already_enabled", "Two-factor authentication is already enabled", 409);
+    }
     return c.json({
       ok: true,
       data: {
@@ -774,8 +775,12 @@ export const accountRoutes = new Hono<AppEnv>()
         throw new AppError("totp_invalid", "That verification code is not valid", 400);
       }
       const recoveryCodes = generateRecoveryCodes();
-      await db.user.update({
-        where: { id: session.userId },
+      const confirmed = await db.user.updateMany({
+        where: {
+          id: session.userId,
+          totpEnabled: false,
+          totpSecretEncrypted: user.totpSecretEncrypted,
+        },
         data: {
           totpEnabled: true,
           totpRecoveryCodes: recoveryCodes.map((value) =>
@@ -783,6 +788,9 @@ export const accountRoutes = new Hono<AppEnv>()
           ),
         },
       });
+      if (confirmed.count !== 1) {
+        throw new AppError("totp_setup_changed", "Two-factor setup changed. Please try again.", 409);
+      }
       await recordUserAudit(c, session, "security.2fa.enabled", `user:${session.userId}`);
       return c.json({ ok: true, data: { enabled: true, recoveryCodes } });
     },
@@ -796,12 +804,15 @@ export const accountRoutes = new Hono<AppEnv>()
       await enforceTwoFactorRateLimit(session.userId, "disable");
       const factor = await verifySecondFactor(session.userId, c.req.valid("json").code);
       if (!factor) throw new AppError("totp_invalid", "That verification code is not valid", 400);
-      await db.user.update({
-        where: { id: session.userId },
+      const disabled = await db.user.updateMany({
+        where: { id: session.userId, totpEnabled: true, totpSecretEncrypted: factor.encryptedSecret },
         data: { totpEnabled: false, totpSecretEncrypted: null, totpRecoveryCodes: [] },
       });
+      if (disabled.count !== 1) {
+        throw new AppError("totp_setup_changed", "Two-factor setup changed. Please try again.", 409);
+      }
       await recordUserAudit(c, session, "security.2fa.disabled", `user:${session.userId}`, {
-        factor,
+        factor: factor.factor,
       });
       return c.json({ ok: true, data: { enabled: false } });
     },
@@ -816,14 +827,17 @@ export const accountRoutes = new Hono<AppEnv>()
       const factor = await verifySecondFactor(session.userId, c.req.valid("json").code);
       if (!factor) throw new AppError("totp_invalid", "That verification code is not valid", 400);
       const recoveryCodes = generateRecoveryCodes();
-      await db.user.update({
-        where: { id: session.userId },
+      const regenerated = await db.user.updateMany({
+        where: { id: session.userId, totpEnabled: true, totpSecretEncrypted: factor.encryptedSecret },
         data: {
           totpRecoveryCodes: recoveryCodes.map((value) =>
             hashRecoveryCode(value, session.userId, encryptionKey()),
           ),
         },
       });
+      if (regenerated.count !== 1) {
+        throw new AppError("totp_setup_changed", "Two-factor setup changed. Please try again.", 409);
+      }
       await recordUserAudit(
         c,
         session,

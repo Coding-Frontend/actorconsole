@@ -52,7 +52,8 @@ mockRateLimit.checkRateLimit.mockResolvedValue({
 
 vi.mock("@actorconsole/db", () => ({ db: mockDb }));
 
-vi.mock("../../src/middleware/auth.js", () => ({
+vi.mock("../../src/middleware/auth.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/middleware/auth.js")>()),
   requireAuth: () => async (c: any, next: any) => {
     c.set("session", {
       userId: "user_test_1",
