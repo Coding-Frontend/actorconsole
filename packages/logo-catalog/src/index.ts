@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { isIP } from "node:net";
-import { lookup } from "node:dns/promises";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import sharp from "sharp";
+import { assertSafeLogoUrl, fetchLogoResource, readLimitedResponse } from "./safe-fetch";
+export { assertSafeLogoUrl, isPrivateAddress } from "./safe-fetch";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
 const MAX_REDIRECTS = 4;
@@ -95,17 +95,22 @@ function externalRetryDelay(headers: Headers, attempt: number) {
   return Math.min(5_000, 400 * 2 ** attempt);
 }
 
-async function fetchExternal(fetchImpl: typeof fetch, url: URL, headers: Record<string, string>) {
+async function fetchExternal(fetchImpl: typeof fetch | undefined, url: URL, headers: Record<string, string>) {
   for (let attempt = 0; attempt <= FETCH_RETRIES; attempt += 1) {
-    const response = await fetchImpl(url, {
-      redirect: "manual",
-      headers: {
-        ...headers,
-        "accept-language": "en-US,en;q=0.8",
-        "user-agent": LOGO_USER_AGENT,
-      },
-      signal: AbortSignal.timeout(15_000),
-    });
+    const requestHeaders = {
+      ...headers,
+      "accept-language": "en-US,en;q=0.8",
+      "user-agent": LOGO_USER_AGENT,
+    };
+    const signal = AbortSignal.timeout(15_000);
+    let response: Response;
+    if (fetchImpl) {
+      // Explicit transport injection is used by disposable tests only.
+      await assertSafeLogoUrl(url, signal);
+      response = await fetchImpl(url, { redirect: "manual", headers: requestHeaders, signal });
+    } else {
+      response = await fetchLogoResource(url, requestHeaders, signal);
+    }
     const retryable = response.status === 429 || response.status >= 500;
     if (!retryable || attempt === FETCH_RETRIES) return response;
     await response.body?.cancel().catch(() => undefined);
@@ -116,70 +121,24 @@ async function fetchExternal(fetchImpl: typeof fetch, url: URL, headers: Record<
   throw new Error("Website logo request exhausted its retry policy");
 }
 
-export function isPrivateAddress(address: string): boolean {
-  const normalized = address.toLowerCase();
-  if (normalized.includes(":")) {
-    const mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
-    if (mapped) return isPrivateAddress(mapped);
-    return (
-      normalized === "::1" ||
-      normalized === "::" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      /^fe[89ab]/.test(normalized) ||
-      normalized.startsWith("2001:db8:")
-    );
-  }
-  const octets = normalized.split(".").map(Number);
-  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part))) return true;
-  const [a, b] = octets as [number, number, number, number];
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    a >= 224 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 192 && b === 0) ||
-    (a === 192 && b === 0 && octets[2] === 2) ||
-    (a === 198 && (b === 18 || b === 19 || b === 51)) ||
-    (a === 203 && b === 0 && octets[2] === 113)
-  );
-}
-
-export async function assertSafeLogoUrl(url: URL) {
-  if (url.protocol !== "https:") throw new Error("Logo sources must use HTTPS");
-  const hostname = url.hostname.toLowerCase();
-  if (hostname === "localhost" || hostname.endsWith(".local")) {
-    throw new Error("Local logo hosts are not allowed");
-  }
-  const addresses = isIP(hostname)
-    ? [{ address: hostname }]
-    : await lookup(hostname, { all: true, verbatim: true });
-  if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
-    throw new Error("Private network logo hosts are not allowed");
-  }
-}
-
-export async function downloadLogoSource(rawUrl: string, fetchImpl: typeof fetch = fetch) {
+export async function downloadLogoSource(rawUrl: string, fetchImpl?: typeof fetch) {
   let url = new URL(rawUrl);
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-    await assertSafeLogoUrl(url);
     const response = await fetchExternal(fetchImpl, url, {
       accept: "image/avif,image/webp,image/png,image/svg+xml,image/*;q=0.8",
     });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
+      await response.body?.cancel().catch(() => undefined);
       if (!location) throw new Error("Logo redirect did not include a location");
       url = new URL(location, url);
       continue;
     }
-    if (!response.ok) throw new Error(`Logo source returned HTTP ${response.status}`);
-    const declaredLength = Number(response.headers.get("content-length") ?? 0);
-    if (declaredLength > MAX_SOURCE_BYTES) throw new Error("Logo source exceeds 5 MB");
-    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error(`Logo source returned HTTP ${response.status}`);
+    }
+    const bytes = await readLimitedResponse(response, MAX_SOURCE_BYTES, "Logo source exceeds 5 MB");
     if (!bytes.length || bytes.length > MAX_SOURCE_BYTES)
       throw new Error("Logo source exceeds 5 MB");
     const contentType =
@@ -372,21 +331,23 @@ export function iconCandidatesFromHtml(html: string, pageUrl: string): IconCandi
   return candidates.sort((left, right) => right.score - left.score);
 }
 
-async function fetchSafeText(rawUrl: string, fetchImpl: typeof fetch, accept: string) {
+async function fetchSafeText(rawUrl: string, fetchImpl: typeof fetch | undefined, accept: string) {
   let url = new URL(rawUrl);
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-    await assertSafeLogoUrl(url);
     const response = await fetchExternal(fetchImpl, url, { accept });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
+      await response.body?.cancel().catch(() => undefined);
       if (!location) throw new Error("Website redirect did not include a location");
       url = new URL(location, url);
       continue;
     }
-    if (!response.ok) throw new Error(`Official website returned HTTP ${response.status}`);
-    const declaredLength = Number(response.headers.get("content-length") ?? 0);
-    if (declaredLength > 1_000_000) throw new Error("Official website response is too large");
-    return { text: (await response.text()).slice(0, 1_000_000), finalUrl: url.toString() };
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error(`Official website returned HTTP ${response.status}`);
+    }
+    const bytes = await readLimitedResponse(response, 1_000_000, "Official website response is too large");
+    return { text: new TextDecoder().decode(bytes), finalUrl: url.toString() };
   }
   throw new Error("Official website exceeded the redirect limit");
 }
@@ -400,7 +361,7 @@ function manifestUrlsFromHtml(html: string, pageUrl: string) {
   });
 }
 
-export async function discoverOfficialLogo(domain: string, fetchImpl: typeof fetch = fetch) {
+export async function discoverOfficialLogo(domain: string, fetchImpl?: typeof fetch) {
   const pageUrl = new URL(`https://${domain}`);
   const page = await fetchSafeText(
     pageUrl.toString(),
