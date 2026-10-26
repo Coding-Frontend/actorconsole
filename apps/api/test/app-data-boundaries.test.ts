@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHmac } from "node:crypto";
 
-const { counter, duration } = vi.hoisted(() => ({ counter: vi.fn(), duration: vi.fn() }));
+const { counter, duration, delivery } = vi.hoisted(() => ({
+  counter: vi.fn(), duration: vi.fn(), delivery: vi.fn().mockResolvedValue({ count: 1 }),
+}));
 vi.mock("@actorconsole/shared", async (importOriginal) => ({
   ...await importOriginal<typeof import("@actorconsole/shared")>(),
   incrementMetric: counter,
@@ -8,7 +11,14 @@ vi.mock("@actorconsole/shared", async (importOriginal) => ({
 }));
 vi.mock("@actorconsole/db", async (importOriginal) => ({
   ...await importOriginal<typeof import("@actorconsole/db")>(),
-  db: { websiteLogo: { findUnique: vi.fn().mockResolvedValue(null) } },
+  db: {
+    websiteLogo: { findUnique: vi.fn().mockResolvedValue(null) },
+    emailLog: { updateMany: delivery },
+  },
+}));
+vi.mock("../src/lib/integrations.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/lib/integrations.js")>(),
+  getIntegration: vi.fn().mockResolvedValue(`whsec_${Buffer.from("test-resend-signing-key").toString("base64")}`),
 }));
 vi.mock("../src/lib/queue.js", () => ({ getRedis: () => null, enqueue: vi.fn(), getQueuedJob: vi.fn() }));
 import { app } from "../src/app.js";
@@ -43,5 +53,37 @@ describe("API data boundaries", () => {
     expect((await app.request(request)).status).toBe(413);
     expect(cancel).toHaveBeenCalledOnce();
     expect(reads).toBeLessThan(5);
+  });
+
+  it.each([false, true])("preserves real signature verification through both body guards (tampered: %s)", async (tampered) => {
+    const body = '\r\n{ "type": "email.delivered", "data": { "email_id": "fixture_delivery" }, "label": "é" }\r\n';
+    const id = "msg_body_guard_fixture";
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = createHmac("sha256", Buffer.from("test-resend-signing-key"))
+      .update(`${id}.${timestamp}.${body}`, "utf8").digest("base64");
+    const bytes = Buffer.from(tampered ? body.replace("é", "e") : body);
+    const split = bytes.indexOf(0xc3) + 1;
+    const response = await app.request(new Request("http://localhost/webhooks/resend", {
+      method: "POST",
+      headers: { "svix-id": id, "svix-timestamp": timestamp, "svix-signature": `v1,${signature}` },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(bytes.subarray(0, split));
+          controller.enqueue(bytes.subarray(split));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    } as RequestInit));
+    expect(response.status).toBe(tampered ? 401 : 200);
+    if (tampered) {
+      expect(delivery).not.toHaveBeenCalled();
+    } else {
+      expect(delivery).toHaveBeenCalledOnce();
+      expect(delivery).toHaveBeenCalledWith({
+        where: { providerId: "fixture_delivery" },
+        data: { status: "delivered", eventType: "email.delivered", error: null },
+      });
+    }
   });
 });

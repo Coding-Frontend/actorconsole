@@ -1,5 +1,7 @@
 # API data-handling remediation plan
 
+> Integration review: verified owner HEAD `1832d1e036fcc267713a907e74ef743ee786f8da` is imported. The coordinator additionally verifies the real shared signature helper through both API body guards: exact chunked UTF-8 bytes succeed and tampering fails before persistence. Owner-only counts below remain independent; see [the integration record](../audit/2026-10-integration.md) for exact accepted SHAs and combined checks. No actual ingress trust, DB contention or live-provider pass is implied.
+
 Base: `fc52f547286b14de2f483899b4aa5dcdfca8b5ea`; report: `docs/audit/2026-10-api-data-handling.md`.
 
 Implementation authorized by the user's subsequent request to fix, commit and push. Phases 1–5 below are implemented on `fixes/actorconsole-20261026-api` from the base above; the architecture chat remains sole integrator. The eleven pre-cutover files were preserved and completed. The original test-first plan is retained below as review context, not a pending planning-only restriction. No database migration, production configuration, CI/CD, commercial/access/retention policy or credentials were changed.
