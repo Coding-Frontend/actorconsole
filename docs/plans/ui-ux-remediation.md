@@ -10,7 +10,7 @@ Exact changed application/test files, finding statuses, code commits, commands/r
 
 ## Historical session plan
 
-The plan below was written during the earlier planning-only phase. Its prohibitions and unresolved-WIP descriptions are retained for provenance; the later authorization and implementation status above supersede them. Baseline and evidence are in [the scoped audit](../audit/2026-10-ui-ux-audit.md). The original seven-file patch remains at `audit/ui-ux/preplanning-wip.patch`; do not apply it again on this branch.
+The plan below was written during the earlier planning-only phase. Its prohibitions and unresolved-WIP descriptions are retained for provenance; the later authorization and implementation status above supersede them. Baseline and evidence are in [the scoped audit](../audit/2026-10-ui-ux-audit.md). The original seven-file patch remains at `audit/ui-ux/preplanning-wip.patch.json`; do not apply it again on this branch.
 
 The untouched frontend passes its gates. Product-owner UI launch policy is unresolved; sessions 1–4 address the strongest pre-launch acceptance risks. The existing WIP's two failing tests are an integration blocker. No migration is required by any session; none changes server contracts or CI/CD. Keep fixes in presentation ownership, and coordinate server-side or workspace-policy changes with their owners.
 

@@ -75,4 +75,6 @@ Screenshots of synthetic local UI were kept outside the source tree at `/tmp/ui-
 
 ## Preservation
 
-`preplanning-wip.patch` contains all seven application/test files changed before the user's planning-only instruction. `evidence/preplanning-wip-manifest.json` records their exact hashes. Applying it to the current working tree would duplicate already preserved changes. No branch, commit or publication was performed.
+The patch archive is a JSON object whose `patch` string restores the original UTF-8 unified diff byte for byte; `sha256` records the original bytes. For replay, decode that string to a disposable `.patch` file before using normal Git patch-review commands. This avoids treating required patch-context spaces as source whitespace defects. Terminal `.txt` transcripts have normalized line endings/trailing whitespace; assertion values and outcomes are unchanged. The original patch also remains in `/tmp/ui-ux-preplanning-wip-original.patch` in the task workspace.
+
+`preplanning-wip.patch.json` contains all seven application/test files changed before the user's planning-only instruction. `evidence/preplanning-wip-manifest.json` records their exact hashes. Applying its decoded patch to the current working tree would duplicate already preserved changes. This archive records the planning-only phase before branch creation and publication were authorized.

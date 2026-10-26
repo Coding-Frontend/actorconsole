@@ -23,4 +23,3 @@ AssertionError: expected "spy" to be called once, but got 2 times
       Tests  1 failed | 2 passed (3)
    Start at  08:22:42
    Duration  746ms (transform 68ms, setup 0ms, collect 193ms, tests 187ms, environment 108ms, prepare 36ms)
-

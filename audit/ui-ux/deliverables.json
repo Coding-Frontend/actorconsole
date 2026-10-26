@@ -96,7 +96,7 @@
     "audit/ui-ux/next-implementation.mjs",
     "audit/ui-ux/next-link.tsx",
     "audit/ui-ux/notification-race.mjs",
-    "audit/ui-ux/preplanning-wip.patch",
+    "audit/ui-ux/preplanning-wip.patch.json",
     "docs/audit/2026-10-ui-ux-audit.md",
     "docs/plans/ui-ux-remediation.md"
   ],

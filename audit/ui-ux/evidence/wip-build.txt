@@ -10,9 +10,9 @@
  ⚠ The Next.js plugin was not detected in your ESLint configuration. See https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config
    Collecting page data ...
    Generating static pages (0/58) ...
-   Generating static pages (14/58) 
-   Generating static pages (28/58) 
-   Generating static pages (43/58) 
+   Generating static pages (14/58)
+   Generating static pages (28/58)
+   Generating static pages (43/58)
  ✓ Generating static pages (58/58)
    Finalizing page optimization ...
    Collecting build traces ...
@@ -188,4 +188,3 @@ Route (app)                                                              Size  F
 ○  (Static)   prerendered as static content
 ●  (SSG)      prerendered as static HTML (uses generateStaticParams)
 ƒ  (Dynamic)  server-rendered on demand
-
