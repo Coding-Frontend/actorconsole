@@ -12,7 +12,7 @@ function normalizeLabels(labels: Labels): Record<string, string> {
     Object.entries(labels)
       .filter(([, value]) => value !== undefined)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => [key.replace(/[^a-zA-Z0-9_]/g, "_"), String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')]),
+      .map(([key, value]) => [key.replace(/[^a-zA-Z0-9_]/g, "_"), String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")]),
   );
 }
 
@@ -43,11 +43,12 @@ export function observeMetric(name: string, value: number, labels: Labels = {}, 
   current.count.value += 1;
   current.sum.value += value;
   for (const bucket of buckets) {
-    if (value <= bucket) {
-      const existing = current.buckets.get(String(bucket));
-      if (existing) existing.value += 1;
-      else current.buckets.set(String(bucket), { value: 1, labels: { ...normalized, le: String(bucket) } });
-    }
+    const existing = current.buckets.get(String(bucket)) ?? {
+      value: 0,
+      labels: { ...normalized, le: String(bucket) },
+    };
+    if (value <= bucket) existing.value += 1;
+    current.buckets.set(String(bucket), existing);
   }
   const infinity = current.buckets.get("+Inf");
   if (infinity) infinity.value += 1;
@@ -65,7 +66,11 @@ export function metricsText(): string {
     const [name] = key.split("|", 1);
     lines.push(`${name}_count{${labelKey(metric.count.labels)}} ${metric.count.value}`);
     lines.push(`${name}_sum{${labelKey(metric.sum.labels)}} ${metric.sum.value}`);
-    for (const bucket of metric.buckets.values()) {
+    const buckets = [...metric.buckets.values()].sort((a, b) =>
+      (a.labels.le === "+Inf" ? Infinity : Number(a.labels.le)) -
+      (b.labels.le === "+Inf" ? Infinity : Number(b.labels.le)),
+    );
+    for (const bucket of buckets) {
       lines.push(`${name}_bucket{${labelKey(bucket.labels)}} ${bucket.value}`);
     }
   }

@@ -41,4 +41,11 @@ describe("retryPolicyFor", () => {
   it("returns undefined for an unknown queue", () => {
     expect(retryPolicyFor("does-not-exist")).toBeUndefined();
   });
+
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty", ""])(
+    "does not resolve unregistered object property %j as a queue",
+    (queue) => {
+      expect(retryPolicyFor(queue)).toBeUndefined();
+    },
+  );
 });

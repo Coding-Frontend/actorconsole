@@ -20,6 +20,17 @@ describe("actorLimitForPlan", () => {
   });
 });
 
+describe("planHasFeature", () => {
+  it.each(["UNKNOWN", "constructor", "toString", "__proto__", "hasOwnProperty", ""])(
+    "preserves the Free fallback for unknown plan %j",
+    (plan) => {
+      for (const feature of ["workspace_operations", "publishing", "ai_copy"] as const) {
+        expect(planHasFeature(plan, feature)).toBe(planHasFeature("FREE", feature));
+      }
+    },
+  );
+});
+
 describe("workspacePlanUsage", () => {
   it("includes AI, pricing, publishing, and MCP in Free", () => {
     for (const feature of [
