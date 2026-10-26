@@ -9,6 +9,7 @@ import { Container, NavLink } from "@/components/ui/layout";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ActorMark } from "@/components/brand/actor-mark";
+import { NavigationDrawer } from "@/components/ui/navigation-drawer";
 
 /**
  * ActorConsole header — a quiet instrument strip with an active rule.
@@ -37,22 +38,6 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
     window.addEventListener("scroll", updateHeader, { passive: true });
     return () => window.removeEventListener("scroll", updateHeader);
   }, []);
-
-  useEffect(() => {
-    if (!mobileOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileOpen(false);
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [mobileOpen]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -134,7 +119,7 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
             className="workbench-control text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring focus-visible:ring-offset-background inline-flex h-10 w-10 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 lg:hidden"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            aria-controls="marketing-mobile-menu"
+            aria-haspopup="dialog"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -143,33 +128,13 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
       </header>
 
       {/* Mobile drawer lives outside the blurred header so fixed positioning uses the viewport. */}
-      <div
-        id="marketing-mobile-menu"
-        aria-hidden={!mobileOpen}
-        inert={!mobileOpen}
-        className={cn(
-          "fixed inset-0 z-40 lg:hidden",
-          mobileOpen ? "pointer-events-auto" : "pointer-events-none",
-        )}
+      <NavigationDrawer
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        title="Main menu"
+        overlayClassName="top-16"
+        className="bg-background left-auto right-0 top-16 w-[min(88vw,22rem)] overflow-y-auto border-l border-r-0 lg:hidden"
       >
-        <button
-          type="button"
-          aria-label="Close menu"
-          onClick={() => setMobileOpen(false)}
-          className={cn(
-            "bg-foreground/30 fixed inset-x-0 bottom-0 top-16 backdrop-blur-[2px] transition-opacity duration-200",
-            mobileOpen ? "opacity-100" : "opacity-0",
-          )}
-        />
-        <aside
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="marketing-mobile-menu-title"
-          className={cn(
-            "border-border bg-background fixed bottom-0 right-0 top-16 w-[min(88vw,22rem)] overflow-y-auto border-l shadow-2xl transition-transform duration-200 ease-out",
-            mobileOpen ? "translate-x-0" : "translate-x-full",
-          )}
-        >
           <div className="flex min-h-full flex-col p-5">
             <div className="border-border/70 flex items-center justify-between border-b pb-4">
               <div>
@@ -197,6 +162,7 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
                   key={href}
                   href={href}
                   onClick={() => setMobileOpen(false)}
+                  aria-current={isNavLinkActive(pathname, href) ? "page" : undefined}
                   className={cn(
                     "focus-visible:ring-ring block rounded-sm px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
                     isNavLinkActive(pathname, href)
@@ -228,8 +194,7 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
               </div>
             </div>
           </div>
-        </aside>
-      </div>
+      </NavigationDrawer>
     </>
   );
 }

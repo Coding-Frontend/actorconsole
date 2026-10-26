@@ -33,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ActorMark } from "@/components/brand/actor-mark";
 import { useAdminSidebar } from "./sidebar-provider";
+import { NavigationDrawer } from "@/components/ui/navigation-drawer";
 
 const groups = [
   {
@@ -180,19 +181,9 @@ export function AdminSidebar() {
       </aside>
 
       {/* Mobile sidebar overlay */}
-      {mobileOpen && (
-        <>
-          <button
-            type="button"
-            className="bg-ink/70 fixed inset-0 z-40 backdrop-blur-sm lg:hidden"
-            onClick={closeMobile}
-            aria-label="Close navigation"
-          />
-          <aside className="border-border bg-card fixed inset-y-0 left-0 z-50 flex w-[288px] flex-col border-r shadow-2xl lg:hidden">
-            {sidebarContent}
-          </aside>
-        </>
-      )}
+      <NavigationDrawer open={mobileOpen} onClose={closeMobile} title="Administration navigation" className="lg:hidden">
+        {sidebarContent}
+      </NavigationDrawer>
     </>
   );
 }

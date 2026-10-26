@@ -143,9 +143,9 @@ describe("DashboardSidebar", () => {
 
   it("renders a fixed full-height mobile drawer and exposes account destinations", () => {
     const onClose = vi.fn();
-    const { container } = render(<DashboardSidebar mobileOpen onMobileClose={onClose} />);
+    render(<DashboardSidebar mobileOpen onMobileClose={onClose} />);
 
-    const mobileDrawer = container.querySelector("aside.fixed.inset-y-0");
+    const mobileDrawer = screen.getByRole("dialog", { name: "Dashboard navigation" });
     expect(mobileDrawer).toBeTruthy();
 
     const mobile = within(mobileDrawer as HTMLElement);
