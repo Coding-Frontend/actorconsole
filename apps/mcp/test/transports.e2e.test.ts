@@ -93,6 +93,8 @@ describe("MCP transports", () => {
       cwd: mcpRoot,
       env: {
         ...process.env,
+        // CI also configures hosted HTTP; this fixture must select stdio explicitly.
+        MCP_TRANSPORT: "stdio",
         ACTORCONSOLE_API_KEY: validKey,
         API_BASE_URL: apiBaseUrl,
         OTEL_SDK_DISABLED: "true",
