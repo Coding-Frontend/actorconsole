@@ -244,6 +244,8 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
     const file = body.file;
     if (!(file instanceof File))
       return c.json({ ok: false, error: { code: "file_required" } }, 400);
+    if (file.size > 5 * 1024 * 1024)
+      return c.json({ ok: false, error: { code: "payload_too_large", message: "Logo source exceeds 5 MiB" } }, 413);
     const stored = await storeWebsiteLogo(website.id, Buffer.from(await file.arrayBuffer()));
     const logo = await db.websiteLogo.upsert({
       where: {
