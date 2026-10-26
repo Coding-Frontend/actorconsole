@@ -49,7 +49,7 @@ describe("GET /ready", () => {
   });
 
   it("returns 503 not ready when DB ping fails", async () => {
-    mockDbQueryRaw.mockRejectedValueOnce(new Error("connection refused"));
+    mockDbQueryRaw.mockRejectedValueOnce(new Error("DIAGNOSTIC_CANARY /private/client.ts SQL SELECT"));
     mockRedisPing.mockResolvedValueOnce("PONG");
 
     const app = buildApp();
@@ -59,20 +59,23 @@ describe("GET /ready", () => {
     expect(body.ok).toBe(false);
     expect(body.data.ready).toBe(false);
     expect(body.data.checks.db.status).toBe("fail");
-    expect(body.data.checks.db.error).toContain("connection refused");
+    expect(body.data.checks.db.error).toBe("db_unavailable");
+    expect(JSON.stringify(body)).not.toContain("DIAGNOSTIC_CANARY");
+    expect(JSON.stringify(body)).not.toContain("/private/");
     expect(body.data.checks.redis.status).toBe("ok");
   });
 
   it("returns 503 not ready when Redis ping fails", async () => {
     mockDbQueryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
-    mockRedisPing.mockRejectedValueOnce(new Error("redis offline"));
+    mockRedisPing.mockRejectedValueOnce(new Error("DIAGNOSTIC_CANARY redis://private-host"));
 
     const app = buildApp();
     const res = await app.request("/ready");
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.data.checks.redis.status).toBe("fail");
-    expect(body.data.checks.redis.error).toContain("redis offline");
+    expect(body.data.checks.redis.error).toBe("redis_unavailable");
+    expect(JSON.stringify(body)).not.toContain("DIAGNOSTIC_CANARY");
   });
 
   it("returns 503 with timeout error when DB ping hangs", async () => {
@@ -83,19 +86,11 @@ describe("GET /ready", () => {
     mockRedisPing.mockResolvedValueOnce("PONG");
 
     const app = buildApp();
-    // We can't wait 2s in unit tests, so override the timeout by
-    // checking the structure: the test below uses a real short
-    // hanging promise. To keep this fast, we instead directly assert
-    // that withTimeout returns fail by using a much shorter window
-    // through a controlled case. Skipping the timing assertion here
-    // and just verifying the failure status is reported:
     const res = await app.request("/ready");
-    // The DB call would eventually time out at 2s; the test may
-    // complete at either 200 (slow) or 503 (still running). To make
-    // this deterministic we just verify the shape regardless.
-    expect([200, 503]).toContain(res.status);
+    expect(res.status).toBe(503);
     const body = await res.json();
-    expect(body.data.checks.db.status).toMatch(/^(ok|fail)$/);
+    expect(body.data.checks.db.status).toBe("fail");
+    expect(body.data.checks.db.error).toBe("db_unavailable");
   });
 
   it("returns 200 ready when Redis is skipped (no REDIS_URL)", async () => {
