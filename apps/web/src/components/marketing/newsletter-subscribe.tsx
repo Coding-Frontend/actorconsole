@@ -17,10 +17,12 @@ export function NewsletterSubscribe() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return;
+    if (!email || isPending) return;
+    setError(null);
 
     startTransition(async () => {
       try {
@@ -32,13 +34,16 @@ export function NewsletterSubscribe() {
         });
         const data = await res.json();
 
-        if (data.ok) {
+        if (res.ok && data.ok) {
           setSubscribed(true);
           toast.success(data.message ?? "Subscribed! Check your inbox.");
         } else {
-          toast.error(data.error?.message ?? "Something went wrong.");
+          const message = data.error?.message ?? "Something went wrong.";
+          setError(message);
+          toast.error(message);
         }
       } catch {
+        setError("Could not connect. Please try again.");
         toast.error("Could not connect. Please try again.");
       }
     });
@@ -46,7 +51,7 @@ export function NewsletterSubscribe() {
 
   if (subscribed) {
     return (
-      <div className="flex flex-col items-center gap-3 text-center">
+      <div role="status" className="flex flex-col items-center gap-3 text-center">
         <div className="bg-secondary/60 flex h-12 w-12 items-center justify-center rounded-full">
           <CheckCircle className="text-foreground h-5 w-5" />
         </div>
@@ -58,8 +63,9 @@ export function NewsletterSubscribe() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full items-stretch gap-2">
-      <div className="relative flex-1">
+    <form onSubmit={onSubmit} className="w-full">
+      <div className="flex w-full items-stretch gap-2">
+      <div className="relative min-w-0 flex-1">
         <Mail className="text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" />
         <Input
           type="email"
@@ -72,8 +78,10 @@ export function NewsletterSubscribe() {
         />
       </div>
       <Button type="submit" size="lg" disabled={isPending} className="shrink-0 px-6">
-        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Subscribe"}
+        {isPending ? <><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />Subscribing…</> : "Subscribe"}
       </Button>
+      </div>
+      {error ? <p role="alert" className="text-destructive mt-2 text-sm">{error}</p> : null}
     </form>
   );
 }

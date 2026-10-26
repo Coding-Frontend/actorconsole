@@ -1,7 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api-base";
-import { useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,14 @@ export function TicketReplyBox({ ticketId }: { ticketId: string }) {
   const [closeOpen, setCloseOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const pending = useRef(false);
+  const draftVersion = useRef(0);
+  const replyId = useId();
 
   async function reply() {
-    if (!body.trim()) return;
+    if (pending.current || !body.trim()) return;
+    const submittedVersion = draftVersion.current;
+    pending.current = true;
     setError(null);
     setBusy(true);
     try {
@@ -33,16 +38,20 @@ export function TicketReplyBox({ ticketId }: { ticketId: string }) {
         setError(j?.error?.message ?? `Failed (${r.status})`);
         return;
       }
-      setBody("");
+      if (draftVersion.current === submittedVersion) setBody("");
       startTransition(() => router.refresh());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send the reply. Try again.");
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
 
   async function close() {
+    if (pending.current) throw new Error("Please wait for the current request to finish.");
+    pending.current = true;
+    setError(null);
     setBusy(true);
     try {
       const r = await fetch(`${apiBase}/tickets/${ticketId}/close`, {
@@ -51,27 +60,27 @@ export function TicketReplyBox({ ticketId }: { ticketId: string }) {
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
-        setError(j?.error?.message ?? `Could not close the ticket (${r.status}).`);
-        return;
+        throw new Error(j?.error?.message ?? `Could not close the ticket (${r.status}).`);
       }
       startTransition(() => router.refresh());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not close the ticket. Try again.");
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
 
   return (
     <div className="border-border/40 space-y-2 border-t pt-4">
+      <label htmlFor={replyId} className="sr-only">Reply</label>
       <textarea
+        id={replyId}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(e) => { draftVersion.current++; setBody(e.target.value); }}
         rows={4}
         placeholder="Write a reply…"
         className="border-input bg-background focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
       />
-      {error && <p className="text-destructive text-xs">{error}</p>}
+      {error && <p role="alert" className="text-destructive text-xs">{error}</p>}
       <div className="flex justify-between">
         <Button type="button" variant="ghost" onClick={() => setCloseOpen(true)} disabled={busy}>
           Close ticket
