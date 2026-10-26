@@ -6,7 +6,7 @@ Status: **historical remediation/planning snapshot — no accepted residual risk
 
 **Subsequent authorization:** the user has now authorized scoped fixes, commits and normal pushes to the isolated integration branch. The planning-only restrictions below record the earlier audit phase; current implementation and exact verification status are maintained in [the integration record](../audit/2026-10-integration.md). Main, merges, deployments, production effects and security-policy changes remain outside authorization.
 
-This plan retains the reconciled five phases and links each owner's detailed exact-file/test-first plan. It does not invent missing file-level instructions from other workspaces. Retrieve those plans through their verified evidence Pages before any later implementation session. No branch, source/test/config edit, CI/security-setting change, commit, push, merge or deployment is authorized by this document.
+This plan retains the reconciled five phases and links each owner's detailed exact-file/test-first plan. It does not invent missing file-level instructions from other workspaces. Retrieve the detailed owner plans before implementation. This document records the original planning phase; the subsequent user authorization permits scoped repository fixes, commits and normal integration-branch pushes, as recorded above. CI/security-setting changes, main updates, merges and deployment remain excluded.
 
 ## Detailed owner plans and evidence
 
@@ -19,11 +19,11 @@ This plan retains the reconciled five phases and links each owner's detailed exa
 | UI/UX | `docs/plans/ui-ux-remediation.md` | [UI and UX][ui] |
 | Architecture/test infrastructure/readiness | [Local detailed plan](architecture-readiness-remediation.md) | [Architecture and readiness][architecture] |
 
-Only the architecture pair is present locally in this checkout. The other plan paths identify their owner's source records, not broken relative links or claims of local inspection. Evidence Pages name exact source locations, reproductions, preserved inventories and future test-first work; use those records for session-level execution.
+The architecture, Actor and UI pairs are now present in the integration checkout. Other plan paths identify their owner's source records, not claims of local inspection. Evidence Pages name exact source locations, reproductions, preserved inventories and future test-first work; use those records for session-level execution.
 
 ## Phase 1 — prepare integration without changing behavior
 
-Owner: integration lead with all six scope owners. This phase is a review plan; applying any candidate requires the user's later authorization.
+Owner: integration lead with all six scope owners. The original phase was a review plan. Subsequent authorization now permits reviewed, owner-scoped candidates on the integration branch; accepted changes and tests are recorded separately.
 
 1. Review **47 preserved files** in their six task workspaces: authentication 9, API 11, Actor 10, billing 6, UI 7, architecture 4. Retain exact hashes/patch inventories and associate each change with its canonical finding. There are no exact path collisions in the reconciled inventories, but shared contracts and behavioral coupling still require review.
 2. Preserve failing baseline and working-copy regressions. The Actor working copy has **1,861 passed / 1 failed / 3 skipped** with AD-02 red. UI has **570 passed / 2 failed**, versus untouched frontend **572 passed**. Do not delete, skip, weaken or rewrite expectations merely to declare a pass.
@@ -110,9 +110,9 @@ Exit evidence is an explicit recorded result for each required release check and
 
 Conditional BQ-06 is outside that total; AQ-01 is the DH-03 alias; UI findings await product acceptance policy rather than an invented security-blocker count. AUTH-07 and DH-04 retain ingress-contract caveats. Independent working-copy test totals must not be summed or used as an integrated-gate result.
 
-Before each later session: retrieve its exact owner plan/evidence, agree nonoverlapping file ownership and policy, preserve the first failing regression, determine migration requirements, and obtain separate implementation authorization. After authorized implementation: run focused and required broader checks, retain failures/limits, review integrations and record the exact changed files. No release follows merely from completing a code candidate.
+Before each later session: retrieve its exact owner plan/evidence, agree nonoverlapping file ownership and policy, preserve the first failing regression, determine migration requirements, and confirm the action remains within the subsequent implementation authorization. Resolve any new policy decision separately. After implementation: run focused and required broader checks, retain failures/limits, review integrations and record the exact changed files. No release follows merely from completing a code candidate.
 
-This documentation consolidation does not apply any candidate, change a test/config, create a branch/commit, push, merge, deploy or alter live data. **Planning only remains active.**
+**Historical phase:** the original documentation consolidation applied no candidates and made no application edits, branches, commits or pushes. **Current phase:** scoped implementation, commits and normal integration-branch pushes are authorized and underway; see [the integration record](../audit/2026-10-integration.md) for exact accepted commits and checks. Main, merge, deployment, production and excluded security-policy actions remain prohibited. No residual risk is accepted.
 
 [auth]: https://chatgpt.com/space/page_8f254d9db4048191a69226b58e9ff6c6
 [api]: https://chatgpt.com/space/page_0ab9e088c08081919ac52f9326b68a03

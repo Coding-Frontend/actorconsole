@@ -1,5 +1,7 @@
 # Actor domain audit — implementation handoff, 2026-10-26
 
+> Integration review: the verified owner source `80909babf4670dd03c2f081e52dfac5ad83dd735` and report HEAD `c54f28be3704b66edbdb11972de464189b13ed3b` were imported. A missed initial `TIMING-OUT`/unknown-state AD-02 case reproduced four failing assertions; the coordinator follow-up waits unless failure is confirmed terminal. Publishing checks now total 21, with 33 focused Worker checks passing. Earlier owner-only totals below remain historical. Exact combined checks and accepted commits are in [the integration record](2026-10-integration.md). No DB contention or live-provider pass is inferred.
+
 ## Current implementation status
 
 The latest user instruction authorized implementation, local commits, and a normal push of **`fixes/actorconsole-20261026-actors`**. This supersedes the earlier planning-only phase. The original ten preserved application files were inspected before further edits; no unrelated work was present. Base remains **`fc52f547286b14de2f483899b4aa5dcdfca8b5ea`**. Main is not the push target. The architecture chat is the integration/publishing coordinator.

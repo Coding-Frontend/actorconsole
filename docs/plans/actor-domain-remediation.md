@@ -1,5 +1,7 @@
 # Actor domain remediation plan
 
+> Integration review: the verified owner source `80909babf4670dd03c2f081e52dfac5ad83dd735` and report HEAD `c54f28be3704b66edbdb11972de464189b13ed3b` were imported. A missed initial `TIMING-OUT`/unknown-state AD-02 case reproduced four failing assertions; the coordinator follow-up waits unless failure is confirmed terminal. Publishing checks now total 21, with 33 focused Worker checks passing. Earlier owner-only totals below remain historical. Exact combined checks and accepted commits are in [the integration record](../audit/2026-10-integration.md). No DB contention or live-provider pass is inferred.
+
 Base: `fc52f547286b14de2f483899b4aa5dcdfca8b5ea`, branch `work`, repository `/workspace/actorconsole`.
 
 The latest user instruction authorized implementation, local commits, and a normal push of `fixes/actorconsole-20261026-actors`. Main and production remain outside this authorization. The pre-steer draft was reviewed before editing; its patch remains in `/workspace/scratch/actor-domain-audit/pre-planning-changes.patch`. The confirmed fixes are implemented and checked; integration/publishing remains owned by the architecture coordinator. No shared auth/billing, commercial/access/retention policy, migration, dependency, CI/CD or security-setting changes were made.
