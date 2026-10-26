@@ -1,4 +1,5 @@
 import { NewsletterSubscribe } from "./newsletter-subscribe";
+import Link from "next/link";
 import { FileText, TrendingUp, CalendarClock, Sparkles } from "lucide-react";
 import { HomeGridCell, HomeGridRow, HomeGridSection } from "@/components/marketing/home-grid";
 
@@ -45,7 +46,7 @@ export function NewsletterCta() {
           </div>
           <p className="text-muted-foreground mt-4 text-xs">
             By subscribing you agree to our{" "}
-            <span className="underline underline-offset-2">privacy policy</span>.
+            <Link href="/legal/privacy" className="underline underline-offset-2">privacy policy</Link>.
           </p>
         </HomeGridCell>
       </HomeGridRow>
