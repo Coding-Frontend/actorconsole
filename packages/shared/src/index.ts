@@ -34,3 +34,4 @@ export * from "./totp";
 export * from "./mcp";
 export * from "./actor-intelligence";
 export * from "./watch-signals";
+export * from "./billing-entitlements";

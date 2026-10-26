@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { bulkActorStatusJobId } from "@actorconsole/shared";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import cronParser from "cron-parser";
@@ -416,57 +418,92 @@ export const bulkPublishingRoutes = new Hono<AppEnv>()
       const actorById = new Map(actors.map((actor) => [actor.id, actor]));
       const orderedActors = [...new Set(body.actorIds)].map((actorId) => actorById.get(actorId)!);
       const change = normalizeActorStatusChange(body);
-      const operation = await db.bulkActorStatusOperation.create({
-        data: {
-          userId: session.userId,
-          businessProfileId,
-          action: change.action,
-          underMaintenance: change.underMaintenance,
-          isDeprecated: change.isDeprecated,
-          actorCount: orderedActors.length,
-          items: {
-            create: orderedActors.map((actor, position) => ({
-              actorId: actor.id,
-              apifyActorId: actor.apifyActorId,
-              label: actor.title ?? actor.actorName,
-              position,
-            })),
-          },
-        },
-      });
-      let jobId: string | null = null;
-      try {
-        jobId = await enqueue("schedules", {
-          bulkActorStatus: {
-            operationId: operation.id,
-            userId: session.userId,
-            businessProfileId,
-          },
+      const rawKey = c.req.header("idempotency-key")?.trim();
+      if (rawKey && rawKey.length > 191)
+        throw new AppError("invalid_idempotency_key", "Idempotency key is too long", 400);
+      const idempotencyKey = rawKey ? createHash("sha256").update(rawKey).digest("hex") : null;
+      const requestHash = createHash("sha256")
+        .update(
+          JSON.stringify({
+            actorIds: orderedActors.map((actor) => actor.id).sort(),
+            change,
+          }),
+        )
+        .digest("hex");
+      const findExisting = () =>
+        db.bulkActorStatusOperation.findFirst({
+          where: { userId: session.userId, businessProfileId, idempotencyKey },
         });
-        if (!jobId) throw new Error("The job queue is not configured");
-        await db.bulkActorStatusOperation.update({
-          where: { id: operation.id },
-          data: { jobId },
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Could not queue status change";
-        await db.bulkActorStatusOperation.update({
-          where: { id: operation.id },
-          data: {
-            status: "FAILED",
-            error: message,
-            completedCount: orderedActors.length,
-            failedCount: orderedActors.length,
-            completedAt: new Date(),
-            items: {
-              updateMany: {
-                where: {},
-                data: { status: "FAILED", error: message, completedAt: new Date() },
+      let operation = idempotencyKey ? await findExisting() : null;
+      if (!operation) {
+        try {
+          operation = await db.bulkActorStatusOperation.create({
+            data: {
+              userId: session.userId,
+              businessProfileId,
+              idempotencyKey,
+              requestHash,
+              action: change.action,
+              underMaintenance: change.underMaintenance,
+              isDeprecated: change.isDeprecated,
+              actorCount: orderedActors.length,
+              items: {
+                create: orderedActors.map((actor, position) => ({
+                  actorId: actor.id,
+                  apifyActorId: actor.apifyActorId,
+                  label: actor.title ?? actor.actorName,
+                  position,
+                })),
               },
             },
-          },
-        });
-        throw new AppError("queue_unavailable", message, 503);
+          });
+        } catch (error) {
+          if (
+            !idempotencyKey ||
+            !error ||
+            typeof error !== "object" ||
+            !("code" in error) ||
+            error.code !== "P2002"
+          )
+            throw error;
+          operation = await findExisting();
+          if (!operation) throw error;
+        }
+      }
+      if (operation.requestHash && operation.requestHash !== requestHash) {
+        throw new AppError(
+          "idempotency_conflict",
+          "This idempotency key belongs to a different status operation",
+          409,
+        );
+      }
+      const jobId = bulkActorStatusJobId(operation.id);
+      let dispatchPending = false;
+      if (operation.status === "QUEUED" || !operation.status) {
+        await db.bulkActorStatusOperation.update({ where: { id: operation.id }, data: { jobId } });
+        try {
+          const acknowledged = await enqueue(
+            "schedules",
+            {
+              bulkActorStatus: {
+                operationId: operation.id,
+                userId: session.userId,
+                businessProfileId,
+              },
+            },
+            { jobId },
+          );
+          dispatchPending = !acknowledged;
+        } catch {
+          dispatchPending = true;
+        }
+        if (dispatchPending)
+          await db.bulkActorStatusOperation.updateMany({
+            where: { id: operation.id, status: "QUEUED" },
+            data: {
+              error: "Queue acknowledgement is pending; the durable operation will be reconciled.",
+            },
+          });
       }
       await recordUserAudit(c, session, "actors.bulk-status.updated", "actors", {
         operationId: operation.id,
@@ -479,6 +516,7 @@ export const bulkPublishingRoutes = new Hono<AppEnv>()
           ok: true,
           data: {
             jobId,
+            dispatchPending,
             operationId: operation.id,
             queued: orderedActors.length,
           },

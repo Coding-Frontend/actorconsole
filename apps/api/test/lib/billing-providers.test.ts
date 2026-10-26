@@ -137,6 +137,7 @@ describe("Dodo gateway readiness", () => {
           "/dashboard/settings/billing?checkout=complete&gateway=dodo",
         ),
       }),
+      { maxRetries: 0 },
     );
   });
 

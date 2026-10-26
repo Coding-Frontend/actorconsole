@@ -19,7 +19,6 @@ import {
   type ApifyActorDetail,
   type ApifyActorSummary,
   type ApifyPricingInfo,
-  type ApifyRun,
   ApifyClientError,
 } from "@actorconsole/apify";
 import { Resend } from "resend";
@@ -37,6 +36,9 @@ import {
 } from "@actorconsole/shared";
 import { initOpenTelemetry } from "@actorconsole/shared/telemetry";
 import { assertWorkspacePlanAccess } from "./lib/plan-access.js";
+import { dispatchPendingActorStatusOperations, claimActorStatusOperation } from "./lib/operation-dispatch.js";
+import { syncActorOperationalData } from "./lib/operational-usage.js";
+import { reconcileExpiredSubscriptions } from "./lib/subscription-expiry.js";
 import { refreshWorkspaceAudience } from "./lib/workspace-audience.js";
 
 import { createLeaderLock, scheduleTickLock } from "./lib/leader-election.js";
@@ -280,6 +282,9 @@ async function runBulkActorStatusOperation(job: Job, payload: BulkActorStatusPay
   });
   if (!operation) throw new Error("Bulk status operation is no longer available");
 
+  if (!["QUEUED", "RUNNING"].includes(operation.status)) return { status: operation.status };
+  if (!(await claimActorStatusOperation(operation, String(job.id)))) return { status: "ALREADY_CLAIMED" };
+
   const actorById = new Map(
     operation.items.flatMap((item) => (item.actor ? [[item.actor.id, item.actor] as const] : [])),
   );
@@ -306,11 +311,6 @@ async function runBulkActorStatusOperation(job: Job, payload: BulkActorStatusPay
       actorId: { in: [...actorById.keys()] },
     },
     data: { status: "QUEUED", error: null, startedAt: null, completedAt: null },
-  });
-
-  await db.bulkActorStatusOperation.update({
-    where: { id: operation.id },
-    data: { status: "RUNNING", startedAt: operation.startedAt ?? new Date(), error: null },
   });
 
   const publishProgress = async () => {
@@ -1405,162 +1405,6 @@ async function syncUsageCosts() {
   return { upserted, users: connectedUsers.length, skipped: connectedUsers.length === 0 };
 }
 
-type TrackedActorRef = { id: string; apifyActorId: string };
-
-async function syncActorOperationalData(
-  apify: NonNullable<Awaited<ReturnType<typeof getUserApifyClient>>>,
-  actor: TrackedActorRef,
-): Promise<void> {
-  const [actorSyncState, oldestStoredRun, liveActor] = await Promise.all([
-    db.actor.findUnique({
-      where: { id: actor.id },
-      select: { lastRunSyncAt: true },
-    }),
-    db.actorRunSnapshot.findFirst({
-      where: { actorId: actor.id },
-      orderBy: { startedAt: "asc" },
-      select: { startedAt: true },
-    }),
-    apify.getActor(actor.apifyActorId).catch(() => null),
-  ]);
-  const readiness = liveActor
-    ? await loadActorPublishReadiness(apify, liveActor).catch((error) => {
-        log.warn({ error, actorId: actor.id }, "Default build readiness could not be synchronized");
-        return null;
-      })
-    : null;
-  const historyFloor = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const hasHistoricalCoverage =
-    oldestStoredRun &&
-    oldestStoredRun.startedAt.getTime() <= historyFloor.getTime() + 24 * 60 * 60 * 1000;
-  const runFloor =
-    actorSyncState?.lastRunSyncAt && hasHistoricalCoverage
-      ? new Date(actorSyncState.lastRunSyncAt.getTime() - 24 * 60 * 60 * 1000)
-      : historyFloor;
-  const startedAfter = runFloor.toISOString();
-  const runs: ApifyRun[] = [];
-  for (let offset = 0; offset < 10_000; offset += 1000) {
-    const page = await apify.listActorRuns(actor.apifyActorId, {
-      limit: 1000,
-      offset,
-      startedAfter,
-      desc: true,
-    });
-    runs.push(...page);
-    if (page.length < 1000) break;
-  }
-  const resultCounts = new Map<string, number>();
-  for (let offset = 0; offset < runs.length; offset += 10) {
-    const batch = runs.slice(offset, offset + 10);
-    const counts = await Promise.all(
-      batch.map(async (run) => {
-        if (!run.defaultDatasetId) return [run.id, 0] as const;
-        try {
-          return [run.id, await apify.getDatasetItemCount(run.defaultDatasetId)] as const;
-        } catch {
-          return [run.id, 0] as const;
-        }
-      }),
-    );
-    for (const [runId, count] of counts) resultCounts.set(runId, count);
-  }
-
-  const daily = new Map<
-    string,
-    {
-      date: Date;
-      runs: number;
-      successfulRuns: number;
-      failedRuns: number;
-      abortedRuns: number;
-      timedOutRuns: number;
-      resultCount: number;
-      usageCostUsd: number;
-    }
-  >();
-  for (const run of runs) {
-    const startedAt = new Date(run.startedAt);
-    if (!Number.isFinite(startedAt.getTime())) continue;
-    const dayKey = startedAt.toISOString().slice(0, 10);
-    const bucket = daily.get(dayKey) ?? {
-      date: new Date(`${dayKey}T00:00:00.000Z`),
-      runs: 0,
-      successfulRuns: 0,
-      failedRuns: 0,
-      abortedRuns: 0,
-      timedOutRuns: 0,
-      resultCount: 0,
-      usageCostUsd: 0,
-    };
-    const status = run.status.toUpperCase();
-    bucket.runs += 1;
-    if (status === "SUCCEEDED") bucket.successfulRuns += 1;
-    else if (status === "FAILED") bucket.failedRuns += 1;
-    else if (status === "ABORTED") bucket.abortedRuns += 1;
-    else if (status === "TIMED-OUT") bucket.timedOutRuns += 1;
-    bucket.resultCount += resultCounts.get(run.id) ?? 0;
-    bucket.usageCostUsd += run.usageTotalUsd ?? 0;
-    daily.set(dayKey, bucket);
-
-    await db.actorRunSnapshot.upsert({
-      where: { actorId_apifyRunId: { actorId: actor.id, apifyRunId: run.id } },
-      create: {
-        actorId: actor.id,
-        apifyRunId: run.id,
-        buildId: run.buildId ?? null,
-        status: run.status,
-        origin: run.origin ?? null,
-        resultCount: resultCounts.get(run.id) ?? 0,
-        usageCostUsd: run.usageTotalUsd == null ? null : String(run.usageTotalUsd),
-        startedAt,
-        finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
-      },
-      update: {
-        status: run.status,
-        origin: run.origin ?? null,
-        resultCount: resultCounts.get(run.id) ?? 0,
-        usageCostUsd: run.usageTotalUsd == null ? null : String(run.usageTotalUsd),
-        finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
-      },
-    });
-  }
-
-  for (const bucket of daily.values()) {
-    await db.usageDaily.upsert({
-      where: { actorId_date: { actorId: actor.id, date: bucket.date } },
-      create: {
-        actorId: actor.id,
-        date: bucket.date,
-        usageCostUsd: String(bucket.usageCostUsd),
-        runs: bucket.runs,
-        successfulRuns: bucket.successfulRuns,
-        failedRuns: bucket.failedRuns,
-        abortedRuns: bucket.abortedRuns,
-        timedOutRuns: bucket.timedOutRuns,
-        resultCount: bucket.resultCount,
-        adjustmentUsd: null,
-      },
-      update: {
-        usageCostUsd: String(bucket.usageCostUsd),
-        runs: bucket.runs,
-        successfulRuns: bucket.successfulRuns,
-        failedRuns: bucket.failedRuns,
-        abortedRuns: bucket.abortedRuns,
-        timedOutRuns: bucket.timedOutRuns,
-        resultCount: bucket.resultCount,
-      },
-    });
-  }
-  await db.actor.update({
-    where: { id: actor.id },
-    data: {
-      lastOperationalSyncAt: new Date(),
-      lastRunSyncAt: new Date(),
-      ...(readiness ? actorReadinessData(readiness) : {}),
-    },
-  });
-}
-
 // ----- worker bootstrap ------------------------------------------------------
 
 function redisConnectionOptions(redis: IORedis): ConnectionOptions {
@@ -1601,12 +1445,12 @@ async function tickScheduleQueue() {
       where: { enabled: true, nextRunAt: { lte: now } },
       take: 25,
     });
-    if (dueBulk.length === 0) return;
     const q = new Queue("schedules", {
       connection: redisConnectionOptions(redis),
       defaultJobOptions: QUEUE_RETRY_POLICIES.schedules,
     });
     try {
+      await dispatchPendingActorStatusOperations(q);
       for (const schedule of dueBulk) {
         await q.add(
           "bulk-publishing",
@@ -1978,32 +1822,8 @@ async function start() {
       await pruneOldSnapshots();
       const count = await purgeDueUsers();
       if (count > 0) log.info({ count }, "Purged accounts past their deletion grace period");
-      const expired = await db.subscription.findMany({
-        where: {
-          currentPeriodEnd: { lt: new Date() },
-          businessProfileId: { not: null },
-          OR: [
-            { provider: "manual", status: "active" },
-            { status: { in: ["cancelled", "completed"] } },
-          ],
-        },
-        select: { id: true, businessProfileId: true },
-      });
-      for (const subscription of expired) {
-        if (!subscription.businessProfileId) continue;
-        await db.$transaction([
-          db.subscription.update({
-            where: { id: subscription.id },
-            data: { status: "expired", cancelAtPeriodEnd: true },
-          }),
-          db.businessProfile.update({
-            where: { id: subscription.businessProfileId },
-            data: { plan: "FREE" },
-          }),
-        ]);
-      }
-      if (expired.length > 0)
-        log.info({ count: expired.length }, "Expired manual grants reconciled");
+      const expired = await reconcileExpiredSubscriptions();
+      if (expired > 0) log.info({ count: expired }, "Expired subscription periods reconciled");
     } catch (err) {
       await retentionLock.release(redis).catch(() => undefined);
       throw err;

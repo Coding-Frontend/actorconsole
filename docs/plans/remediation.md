@@ -19,7 +19,7 @@ This plan retains the reconciled five phases and links each owner's detailed exa
 | UI/UX | `docs/plans/ui-ux-remediation.md` | [UI and UX][ui] |
 | Architecture/test infrastructure/readiness | [Local detailed plan](architecture-readiness-remediation.md) | [Architecture and readiness][architecture] |
 
-The architecture, Actor, UI and API pairs are now present in the integration checkout. Other plan paths identify their owner's source records, not claims of local inspection. Evidence Pages name exact source locations, reproductions, preserved inventories and future test-first work; use those records for session-level execution.
+All six scoped owner audit/plan records are now present in the integration checkout; exact accepted code and current verification are tracked in the integration record. Historical recommendations below retain their original baseline context. Evidence Pages name exact source locations, reproductions, preserved inventories and future test-first work; use those records for session-level execution.
 
 ## Phase 1 — prepare integration without changing behavior
 

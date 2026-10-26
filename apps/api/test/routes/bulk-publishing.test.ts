@@ -28,6 +28,7 @@ const { mockDb, mockApify, mockEnqueue, mockGetQueuedJob, mockAudit, mockAssertP
         findUnique: vi.fn(),
       },
       bulkActorStatusOperation: {
+        updateMany: vi.fn(),
         findMany: vi.fn(),
         findFirst: vi.fn(),
         count: vi.fn(),
@@ -123,6 +124,8 @@ describe("bulk publishing routes", () => {
       validationError: null,
     });
     mockDb.bulkActorStatusOperation.findMany.mockResolvedValue([]);
+    mockDb.bulkActorStatusOperation.findFirst.mockResolvedValue(null);
+    mockDb.bulkActorStatusOperation.updateMany.mockResolvedValue({ count: 1 });
     mockDb.bulkActorStatusOperation.count.mockResolvedValue(0);
     mockDb.bulkActorStatusOperation.create.mockResolvedValue({ id: "operation_1" });
     mockDb.bulkActorStatusOperation.update.mockResolvedValue({ id: "operation_1" });
@@ -307,10 +310,10 @@ describe("bulk publishing routes", () => {
         userId: "user_1",
         businessProfileId: "workspace_1",
       },
-    });
+    }, { jobId: "actor-status-operation_1" });
     expect((await response.json()).data).toMatchObject({
       queued: 1,
-      jobId: "job_1",
+      jobId: "actor-status-operation_1",
       operationId: "operation_1",
     });
   });
@@ -332,7 +335,7 @@ describe("bulk publishing routes", () => {
     });
   });
 
-  it("persists a terminal failure when the operation cannot be queued", async () => {
+  it("retains dispatch intent when the queue acknowledgement is unavailable", async () => {
     mockEnqueue.mockResolvedValueOnce(null);
 
     const response = await buildApp().request("/actors/status", {
@@ -341,16 +344,13 @@ describe("bulk publishing routes", () => {
       body: JSON.stringify({ actorIds: ["actor_1"], isDeprecated: true }),
     });
 
-    expect(response.status).toBe(503);
-    expect(mockDb.bulkActorStatusOperation.update).toHaveBeenCalledWith({
-      where: { id: "operation_1" },
-      data: expect.objectContaining({
-        status: "FAILED",
-        completedCount: 1,
-        failedCount: 1,
-        completedAt: expect.any(Date),
-      }),
+    expect(response.status).toBe(202);
+    expect(await response.json()).toMatchObject({ data: { operationId: "operation_1", jobId: "actor-status-operation_1", dispatchPending: true } });
+    expect(mockDb.bulkActorStatusOperation.updateMany).toHaveBeenCalledWith({
+      where: { id: "operation_1", status: "QUEUED" },
+      data: { error: expect.stringContaining("acknowledgement is pending") },
     });
+
   });
 
   it("rejects clearing maintenance while marking the Actor deprecated", async () => {
@@ -577,4 +577,25 @@ describe("bulk publishing routes", () => {
       progress: { completed: 2, total: 5 },
     });
   });
+  it("reuses the same durable operation after a timed-out enqueue and client retry", async () => {
+    mockEnqueue.mockRejectedValueOnce(new Error("Redis command timed out"));
+    const submit = () => buildApp().request("/actors/status", { method: "PATCH", headers: { "content-type": "application/json", "idempotency-key": "retry-fixture-key" }, body: JSON.stringify({ actorIds: ["actor_1"], isDeprecated: true }) });
+    const first = await submit();
+    expect(first.status).toBe(202);
+    expect(await first.json()).toMatchObject({ data: { dispatchPending: true, jobId: "actor-status-operation_1" } });
+    const data = mockDb.bulkActorStatusOperation.create.mock.calls[0][0].data;
+    expect(data.idempotencyKey).not.toBe("retry-fixture-key");
+    mockDb.bulkActorStatusOperation.findFirst.mockResolvedValue({ id: "operation_1", status: "QUEUED", requestHash: data.requestHash });
+    expect((await submit()).status).toBe(202);
+    expect(mockDb.bulkActorStatusOperation.create).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenLastCalledWith("schedules", expect.anything(), { jobId: "actor-status-operation_1" });
+  });
+  it("rejects an idempotency key reused for different operation input", async () => {
+    mockDb.bulkActorStatusOperation.findFirst.mockResolvedValue({ id: "operation_1", status: "QUEUED", requestHash: "another-input" });
+    const response = await buildApp().request("/actors/status", { method: "PATCH", headers: { "content-type": "application/json", "idempotency-key": "retry-fixture-key" }, body: JSON.stringify({ actorIds: ["actor_1"], isDeprecated: true }) });
+    expect(response.status).toBe(409);
+    expect(mockEnqueue).not.toHaveBeenCalled();
+    expect(mockDb.bulkActorStatusOperation.create).not.toHaveBeenCalled();
+  });
+
 });

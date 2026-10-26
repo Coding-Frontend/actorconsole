@@ -27,6 +27,7 @@ export interface CheckoutActor {
   businessProfileId: string;
   email: string;
   name?: string | null;
+  operationId?: string;
 }
 
 export interface CheckoutResult {
@@ -226,7 +227,7 @@ export async function createProviderCheckout(
     if (!stripe) throw new Error("Stripe secret key is not configured.");
     if (!priceId) throw new Error(`Stripe recurring Price for ${plan} is not configured.`);
     const successUrl = `${callbackWithState(callback, gateway, "success")}&session_id={CHECKOUT_SESSION_ID}`;
-    const session = await stripe.checkout.sessions.create({
+    const params: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: actor.businessProfileId,
@@ -239,6 +240,7 @@ export async function createProviderCheckout(
         plan,
         billingMode: context.mode,
         billingInterval: interval,
+        ...(actor.operationId ? { checkoutOperationId: actor.operationId } : {}),
       },
       subscription_data: {
         metadata: {
@@ -247,9 +249,13 @@ export async function createProviderCheckout(
           plan,
           billingMode: context.mode,
           billingInterval: interval,
+          ...(actor.operationId ? { checkoutOperationId: actor.operationId } : {}),
         },
       },
-    });
+    };
+    const session = actor.operationId
+      ? await stripe.checkout.sessions.create(params, { idempotencyKey: actor.operationId })
+      : await stripe.checkout.sessions.create(params);
     if (!session.url) throw new Error("Stripe did not return a checkout URL.");
     return {
       gateway,
@@ -270,20 +276,24 @@ export async function createProviderCheckout(
     ]);
     if (!dodo) throw new Error("Dodo Payments API key is not configured.");
     if (!productId) throw new Error(`Dodo subscription Product for ${plan} is not configured.`);
-    const session = await dodo.checkoutSessions.create({
-      product_cart: [{ product_id: productId, quantity: 1 }],
-      customer: { email: actor.email, name: actor.name || actor.email },
-      return_url: callbackWithState(callback, gateway, "complete"),
-      cancel_url: callbackWithState(callback, gateway, "cancelled"),
-      metadata: {
-        userId: actor.userId,
-        businessProfileId: actor.businessProfileId,
-        plan,
-        billingMode: context.mode,
-        billingInterval: interval,
+    const session = await dodo.checkoutSessions.create(
+      {
+        product_cart: [{ product_id: productId, quantity: 1 }],
+        customer: { email: actor.email, name: actor.name || actor.email },
+        return_url: callbackWithState(callback, gateway, "complete"),
+        cancel_url: callbackWithState(callback, gateway, "cancelled"),
+        metadata: {
+          userId: actor.userId,
+          businessProfileId: actor.businessProfileId,
+          plan,
+          billingMode: context.mode,
+          billingInterval: interval,
+          ...(actor.operationId ? { checkoutOperationId: actor.operationId } : {}),
+        },
+        short_link: true,
       },
-      short_link: true,
-    });
+      { maxRetries: 0 },
+    );
     if (!session.checkout_url) throw new Error("Dodo Payments did not return a checkout URL.");
     return {
       gateway,
@@ -313,6 +323,7 @@ export async function createProviderCheckout(
       billingMode: context.mode,
       callbackUrl: callback,
       billingInterval: interval,
+      ...(actor.operationId ? { checkoutOperationId: actor.operationId } : {}),
     },
   });
   if (!subscription.short_url) throw new Error("Razorpay did not return a checkout URL.");
@@ -625,4 +636,76 @@ export async function testGatewayConnection(
   if (!razorpay) throw new Error("Razorpay API keys are not configured.");
   const payments = await razorpay.payments.all({ count: 1 });
   return `Razorpay authenticated (${payments.items.length} recent payment returned).`;
+}
+
+export interface ProviderSubscriptionState {
+  id: string;
+  status: string;
+  periodEnd: Date | null;
+  cancelAtPeriodEnd: boolean;
+  customerId?: string | null;
+  productId?: string | null;
+  metadata: Record<string, unknown>;
+}
+
+/** Read current provider state instead of assigning arrival order to signed events. */
+export async function retrieveProviderSubscription(
+  context: GatewayContext,
+  id: string,
+): Promise<ProviderSubscriptionState> {
+  let state: ProviderSubscriptionState;
+  if (context.gateway === "stripe") {
+    const stripe = await getStripeClient(context);
+    if (!stripe) throw new Error("Stripe is not configured");
+    const subscription = await stripe.subscriptions.retrieve(id);
+    const ends = subscription.items.data
+      .map((item) => item.current_period_end)
+      .filter(Number.isFinite);
+    state = {
+      id: subscription.id,
+      status: subscription.status,
+      periodEnd: ends.length ? new Date(Math.max(...ends) * 1000) : null,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      customerId:
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer.id,
+      productId: subscription.items.data[0]?.price.id,
+      metadata: subscription.metadata,
+    };
+  } else if (context.gateway === "dodo") {
+    const dodo = await getDodoClient({ mode: context });
+    if (!dodo) throw new Error("Dodo Payments is not configured");
+    const subscription = await dodo.subscriptions.retrieve(id);
+    state = {
+      id: subscription.subscription_id,
+      status: subscription.status,
+      periodEnd: subscription.next_billing_date ? new Date(subscription.next_billing_date) : null,
+      cancelAtPeriodEnd: subscription.cancel_at_next_billing_date,
+      customerId: subscription.customer.customer_id,
+      productId: subscription.product_id,
+      metadata: subscription.metadata,
+    };
+  } else {
+    const razorpay = await getRazorpayClient(context);
+    if (!razorpay) throw new Error("Razorpay is not configured");
+    const subscription = await razorpay.subscriptions.fetch(id);
+    state = {
+      id: subscription.id,
+      status: subscription.status,
+      periodEnd: subscription.current_end ? new Date(subscription.current_end * 1000) : null,
+      cancelAtPeriodEnd: ["cancelled", "completed", "halted"].includes(subscription.status),
+      customerId: subscription.customer_id,
+      productId: subscription.plan_id,
+      metadata: subscription.notes ?? {},
+    };
+  }
+  if (
+    state.id !== id ||
+    !state.status ||
+    (state.periodEnd && !Number.isFinite(state.periodEnd.getTime()))
+  ) {
+    throw new Error("Payment provider returned invalid subscription state");
+  }
+  return state;
 }
