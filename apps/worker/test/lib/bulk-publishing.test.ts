@@ -104,4 +104,38 @@ describe("ensureSuccessfulActorRun", () => {
       "Actor validation run run-1 finished with status FAILED",
     );
   });
+  it("does not start a replacement run when ownership is lost during an existing validation wait", async () => {
+    const loss = new Error("Publishing lease lost");
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([run("existing", "RUNNING")]),
+      startActorRun: vi.fn(),
+      waitForRun: vi.fn().mockResolvedValue(run("existing", "FAILED")),
+    };
+    const guard = vi
+      .fn()
+      .mockResolvedValue(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(loss);
+    await expect(ensureSuccessfulActorRun(apify, "actor-1", {}, 900, guard)).rejects.toBe(loss);
+    expect(apify.startActorRun).not.toHaveBeenCalled();
+  });
+
+  it("does not make another provider call after ownership is lost while starting a validation run", async () => {
+    const loss = new Error("Publishing lease lost");
+    const apify = {
+      listActorRuns: vi.fn().mockResolvedValue([]),
+      startActorRun: vi.fn().mockResolvedValue(run("started", "READY")),
+      waitForRun: vi.fn(),
+    };
+    const guard = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(loss);
+    await expect(ensureSuccessfulActorRun(apify, "actor-1", {}, 900, guard)).rejects.toBe(loss);
+    expect(apify.startActorRun).toHaveBeenCalledOnce();
+    expect(apify.waitForRun).not.toHaveBeenCalled();
+  });
 });

@@ -56,7 +56,7 @@ These ports identify only this owned disposable fixture, not a production target
 ## Remaining decisions and limits
 
 - **BQ-S1 remains decision-needed, not silently fixed:** whether unpaid completed checkout/created-authenticated subscription should grant provisional access. The optional clarification was asked; current commercial/access policy was preserved.
-- **BQ-S2 remains suspected/untested:** a publishing run outliving its one-hour distributed lock. This batch does not expand into long-running publishing-lock redesign or load tests.
+- **BQ-S2 was outside this batch; now confirmed and fixed in a separate follow-up:** see [the bounded publishing-lease reproduction, fix and coverage limits](2026-10-bq-s2-publishing-lease.md). The BQ-01–09 batch's historical counts above remain unchanged.
 - Unknown checkout/cancellation and stuck RUNNING dispatch outcomes intentionally require reconciliation; no age-based release, blind provider create, or operator UI is added. This trades automatic retry convenience for avoiding duplicate external operations.
 - No provider sandbox/browser purchase/cancel/refund acceptance flow was executed. Database tests use real isolated MariaDB/Redis and mocked providers; they do not prove external metadata propagation or merchant configuration. The integration coordinator still owns rollout and acceptance.
 - Existing daily expiry timing, provisional rules, historical cost provenance, frontend unknown-count display, retention and financial settlement policies are preserved. The two unrelated schema drift statements need coordination.

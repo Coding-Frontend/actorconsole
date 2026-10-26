@@ -1,0 +1,126 @@
+ac5649bf6cdec57c0d0754687f47edf0b86ad6ed:apps/worker/src/index.ts:866
+866: async function runBulkPublishSchedule(job: Job, scheduleId: string, force = false) {
+867:   const redis = getRedis();
+868:   const runLock = createLeaderLock(`actorconsole:worker:bulk-publish:${scheduleId}:lock`, 60 * 60);
+869:   if (!(await runLock.tryAcquire(redis))) {
+870:     const outcome = {
+871:       status: "SKIPPED_ALREADY_RUNNING",
+872:       scheduleId,
+873:       attemptedCount: 0,
+874:       publishedCount: 0,
+875:     };
+876:     await job.updateProgress({
+877:       kind: "BULK_PUBLISH_SCHEDULE",
+878:       total: 0,
+879:       completed: 0,
+880:       published: 0,
+881:       failed: 0,
+882:       items: [],
+883:       skippedReason: "A publishing run for this schedule is already in progress.",
+884:     });
+885:     return outcome;
+886:   }
+887:
+888:   try {
+889:     return await runBulkPublishScheduleUnlocked(job, scheduleId, force);
+890:   } finally {
+891:     await runLock
+892:       .release(redis)
+893:       .catch((error) =>
+894:         log.warn({ err: error, scheduleId }, "Could not release bulk publishing run lock"),
+895:       );
+896:   }
+897: }
+
+ac5649bf6cdec57c0d0754687f47edf0b86ad6ed:apps/worker/src/index.ts:2060
+2060:         if (!catalogQueue) throw new Error("Catalog queue is unavailable");
+2061:         await catalogQueue.add(
+2062:           `store-catalog-${catalog}`,
+2063:           { catalog },
+2064:           {
+2065:             jobId: `legacy-${String(job.id ?? catalog).replaceAll(":", "-")}`,
+2066:           },
+2067:         );
+2068:       } else if (job.data.workspaceInventory) {
+2069:         return refreshWorkspacePublishingInventory(job.data.workspaceInventory, job);
+2070:       } else if (job.data.workspaceBootstrap && snapshotsQueue) {
+2071:         try {
+2072:           await bootstrapWorkspaceInsights(job.data.workspaceBootstrap, snapshotsQueue);
+2073:         } catch (error) {
+2074:           await db.apifyToken.updateMany({
+2075:             where: {
+2076:               userId: job.data.workspaceBootstrap.userId,
+2077:               businessProfileId: job.data.workspaceBootstrap.businessProfileId,
+2078:             },
+2079:             data: {
+
+ac5649bf6cdec57c0d0754687f47edf0b86ad6ed:apps/worker/src/lib/bulk-publishing.ts:19
+19: export async function ensureSuccessfulActorRun(
+20:   apify: ActorRunClient,
+21:   actorId: string,
+22:   input: Record<string, unknown> = {},
+23:   waitSecs = 900,
+24: ): Promise<{ run: ApifyRun; started: boolean }> {
+25:   const [latestRun] = await apify.listActorRuns(actorId, { limit: 1, desc: true });
+26:   if (latestRun && isSuccessfulRun(latestRun)) {
+27:     return { run: latestRun, started: false };
+28:   }
+29:
+30:   if (latestRun && IN_PROGRESS_RUN_STATUSES.has(latestRun.status.trim().toUpperCase())) {
+31:     const finishedExistingRun = await apify.waitForRun(latestRun.id, waitSecs);
+32:     if (isSuccessfulRun(finishedExistingRun)) {
+33:       return { run: finishedExistingRun, started: false };
+34:     }
+35:   }
+36:
+37:   const startedRun = await apify.startActorRun(actorId, input);
+38:   const finishedRun = await apify.waitForRun(startedRun.id, waitSecs);
+39:   if (!isSuccessfulRun(finishedRun)) {
+40:     throw new Error(
+41:       `Actor validation run ${finishedRun.id} finished with status ${finishedRun.status || "UNKNOWN"}; the Actor must complete a successful run before publishing.`,
+42:     );
+43:   }
+44:   return { run: finishedRun, started: true };
+
+ac5649bf6cdec57c0d0754687f47edf0b86ad6ed:apps/api/src/routes/bulk-publishing.ts:46
+46: const scheduleInputSchema = z.object({
+47:   name: z.string().trim().min(1).max(100),
+48:   actorIds: z.array(z.string().min(1)).min(1).max(10_000),
+49:   cronExpr: z.string().trim().min(9).max(100).default("0 2 * * *"),
+50:   dailyLimit: z.number().int().min(1).max(100).default(5),
+51:   enabled: z.boolean().default(false),
+
+ac5649bf6cdec57c0d0754687f47edf0b86ad6ed:apps/api/src/routes/bulk-publishing.ts:933
+933:   .post("/schedules/:id/run", async (c) => {
+934:     const session = c.get("session");
+935:     await assertPlanFeature(session, "publishing");
+936:     await requireOwnedSchedule(session, c.req.param("id"));
+937:     await requireApifyPublishingApiKey(session);
+938:     const schedule = await db.bulkPublishSchedule.findFirst({
+939:       where: { id: c.req.param("id"), userId: session.userId, ...businessProfileScope(session) },
+940:     });
+941:     if (!schedule) throw new AppError("not_found", "Bulk publishing schedule not found", 404);
+942:     const activeRun = await db.bulkPublishScheduleRun.findFirst({
+943:       where: {
+944:         scheduleId: schedule.id,
+945:         status: "RUNNING",
+946:         startedAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1_000) },
+947:       },
+948:       select: { id: true },
+949:     });
+950:     if (activeRun) {
+951:       throw new AppError(
+952:         "schedule_already_running",
+953:         "This publishing schedule already has a run in progress.",
+954:         409,
+955:       );
+956:     }
+957:     const idempotencyKey = c.req.header("idempotency-key")?.trim().slice(0, 191);
+958:     const payload = { bulkPublishScheduleId: schedule.id, force: true };
+
+ac5649bf6cdec57c0d0754687f47edf0b86ad6ed:packages/apify/src/client.ts:1346
+1346:   async waitForRun(runId: string, waitSecs = 900): Promise<ApifyRun> {
+1347:     return this.wrap(async () => {
+1348:       const run = await this.raw.run(runId).waitForFinish({ waitSecs });
+1349:       return toRun(run);
+1350:     });

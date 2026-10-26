@@ -1,0 +1,142 @@
+[
+  {
+    "label": "apps/api",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/apps/api",
+    "exit": 0,
+    "seconds": 11.95,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-apps_api.log"
+  },
+  {
+    "label": "apps/chrome-extension",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/apps/chrome-extension",
+    "exit": 0,
+    "seconds": 2.73,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-apps_chrome-extension.log"
+  },
+  {
+    "label": "apps/mcp",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/apps/mcp",
+    "exit": 0,
+    "seconds": 2.14,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-apps_mcp.log"
+  },
+  {
+    "label": "apps/web",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/apps/web",
+    "exit": 0,
+    "seconds": 3.56,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-apps_web.log"
+  },
+  {
+    "label": "apps/worker",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/apps/worker",
+    "exit": 0,
+    "seconds": 3.94,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-apps_worker.log"
+  },
+  {
+    "label": "packages/ai",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/packages/ai",
+    "exit": 0,
+    "seconds": 2.53,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-packages_ai.log"
+  },
+  {
+    "label": "packages/apify",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/packages/apify",
+    "exit": 0,
+    "seconds": 2.58,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-packages_apify.log"
+  },
+  {
+    "label": "packages/config",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--module",
+      "preserve",
+      "--moduleResolution",
+      "bundler",
+      "--target",
+      "ES2022",
+      "--skipLibCheck",
+      "tailwind/tailwind.config.ts"
+    ],
+    "cwd": "/workspace/actorconsole/packages/config",
+    "exit": 0,
+    "seconds": 1.27,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-packages_config.log"
+  },
+  {
+    "label": "packages/db",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/packages/db",
+    "exit": 0,
+    "seconds": 5.39,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-packages_db.log"
+  },
+  {
+    "label": "packages/logo-catalog",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/packages/logo-catalog",
+    "exit": 0,
+    "seconds": 0.92,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-packages_logo-catalog.log"
+  },
+  {
+    "label": "packages/shared",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "cwd": "/workspace/actorconsole/packages/shared",
+    "exit": 0,
+    "seconds": 2.43,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/typecheck-packages_shared.log"
+  }
+]

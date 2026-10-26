@@ -1,0 +1,12 @@
+RUN  v2.1.9 /workspace/actorconsole
+
+ ✓ |@actorconsole/worker| test/lib/bulk-publishing.test.ts (9 tests) 13ms
+{"level":40,"time":1793016000000,"service":"worker:publishing-lease","env":"test","revision":"unknown","name":"worker:publishing-lease","scheduleId":"release-error","msg":"Could not release publishing lease; its Redis TTL remains the fallback"}
+ ✓ |@actorconsole/worker| test/lib/publishing-lease.test.ts (7 tests) 18ms
+ ✓ |@actorconsole/worker| test/lib/leader-election.test.ts (6 tests) 1211ms
+   ✓ leader-election > release after expiry does not delete someone else's lock 1202ms
+
+ Test Files  3 passed (3)
+      Tests  22 passed (22)
+   Start at  09:18:41
+   Duration  1.83s (transform 328ms, setup 0ms, collect 891ms, tests 1.24s, environment 1ms, prepare 281ms)

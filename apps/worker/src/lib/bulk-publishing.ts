@@ -21,21 +21,28 @@ export async function ensureSuccessfulActorRun(
   actorId: string,
   input: Record<string, unknown> = {},
   waitSecs = 900,
+  assertLease?: () => Promise<void>,
 ): Promise<{ run: ApifyRun; started: boolean }> {
+  await assertLease?.();
   const [latestRun] = await apify.listActorRuns(actorId, { limit: 1, desc: true });
+  await assertLease?.();
   if (latestRun && isSuccessfulRun(latestRun)) {
     return { run: latestRun, started: false };
   }
 
   if (latestRun && IN_PROGRESS_RUN_STATUSES.has(latestRun.status.trim().toUpperCase())) {
     const finishedExistingRun = await apify.waitForRun(latestRun.id, waitSecs);
+    await assertLease?.();
     if (isSuccessfulRun(finishedExistingRun)) {
       return { run: finishedExistingRun, started: false };
     }
   }
 
+  await assertLease?.();
   const startedRun = await apify.startActorRun(actorId, input);
+  await assertLease?.();
   const finishedRun = await apify.waitForRun(startedRun.id, waitSecs);
+  await assertLease?.();
   if (!isSuccessfulRun(finishedRun)) {
     throw new Error(
       `Actor validation run ${finishedRun.id} finished with status ${finishedRun.status || "UNKNOWN"}; the Actor must complete a successful run before publishing.`,
