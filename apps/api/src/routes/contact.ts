@@ -7,6 +7,7 @@ import { apiEnv } from "../config/env.js";
 import { escapeHtml, sendEmail, textToHtml } from "../lib/email.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import { AppError } from "../middleware/error.js";
+import { resolveClientIp } from "../lib/client-ip.js";
 
 const contactSchema = z
   .object({
@@ -24,22 +25,13 @@ const SUBJECT_LABELS: Record<z.infer<typeof contactSchema>["subject"], string> =
   other: "General inquiry",
 };
 
-function requestAddress(headers: Headers): string {
-  return (
-    headers.get("cf-connecting-ip") ??
-    headers.get("x-real-ip") ??
-    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown"
-  );
-}
-
 export const contactRoutes = new Hono<AppEnv>().post(
   "/",
   zValidator("json", contactSchema),
   async (c) => {
     const body = c.req.valid("json");
     const emailKey = createHash("sha256").update(body.email.toLowerCase()).digest("hex");
-    const address = requestAddress(c.req.raw.headers);
+    const address = resolveClientIp(c);
     const [addressRate, emailRate] = await Promise.all([
       checkRateLimit(`contact:address:${address}`, { windowMs: 60 * 60 * 1000, max: 10 }),
       checkRateLimit(`contact:email:${emailKey}`, { windowMs: 60 * 60 * 1000, max: 3 }),
