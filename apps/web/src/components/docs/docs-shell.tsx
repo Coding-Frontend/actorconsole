@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,12 @@ export function DocsShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
+  const searchTrigger = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (searchOpen) searchInput.current?.focus();
+  }, [searchOpen]);
 
   const routeSection = pathname.startsWith("/docs/")
     ? pathname.slice("/docs/".length).split("/")[0]
@@ -35,14 +41,15 @@ export function DocsShell({ children }: { children: ReactNode }) {
         event.preventDefault();
         setSearchOpen(true);
       }
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && searchOpen) {
         setSearchOpen(false);
         setSearchQuery("");
+        searchTrigger.current?.focus();
       }
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, []);
+  }, [searchOpen]);
 
   const activeDocItem = docItems.find((item) => item.id === activeSection) ?? docItems[0];
   const activeGroup =
@@ -158,6 +165,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
               </nav>
 
               <button
+                ref={searchTrigger}
                 type="button"
                 onClick={() => setSearchOpen((open) => !open)}
                 aria-label={searchOpen ? "Close docs search" : "Search docs"}
@@ -178,6 +186,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
                 <div className="border-border bg-card flex items-center gap-2 rounded-md border px-3">
                   <Search className="text-signal-orange h-4 w-4 shrink-0" aria-hidden="true" />
                   <input
+                    ref={searchInput}
                     type="search"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}

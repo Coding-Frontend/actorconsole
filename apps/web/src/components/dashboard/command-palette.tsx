@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useId } from "react";
 import { useRouter } from "next/navigation";
 import { Search, CalendarClock, LifeBuoy, ArrowRight } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   accountNavigation,
@@ -38,14 +38,15 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const resultsId = useId();
 
   // Reset state when opened
   useEffect(() => {
     if (open) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
 
@@ -123,7 +124,7 @@ export function CommandPalette({
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((prev) => Math.min(prev + 1, filtered.length - 1));
+        setSelectedIndex((prev) => Math.max(0, Math.min(prev + 1, filtered.length - 1)));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedIndex((prev) => Math.max(prev - 1, 0));
@@ -136,8 +137,6 @@ export function CommandPalette({
           router.push(item.href);
         }
         onClose();
-      } else if (e.key === "Escape") {
-        onClose();
       }
     },
     [filtered, selectedIndex, router, onClose],
@@ -146,10 +145,10 @@ export function CommandPalette({
   // Scroll selected item into view
   useEffect(() => {
     if (listRef.current) {
-      const el = listRef.current.children[selectedIndex] as HTMLElement;
+      const el = listRef.current.querySelector<HTMLElement>(`[data-command-index="${selectedIndex}"]`);
       el?.scrollIntoView({ block: "nearest" });
     }
-  }, [selectedIndex]);
+  }, [selectedIndex, query, open]);
 
   // Group filtered items by category
   const grouped = useMemo(() => {
@@ -165,13 +164,34 @@ export function CommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="border-border/60 top-[15vh] max-w-lg translate-y-0 rounded-xl p-0 shadow-2xl">
+      <DialogContent
+        className="border-border/60 top-[15vh] max-h-[calc(85dvh-1rem)] max-w-lg translate-y-0 gap-0 rounded-xl p-0 shadow-2xl sm:p-0"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          inputRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const opener = openerRef.current;
+          if (opener?.isConnected && opener.getClientRects().length) opener.focus();
+        }}
+      >
+        <DialogTitle className="sr-only">Search workspace</DialogTitle>
+        <DialogDescription className="sr-only">Search pages, actions and settings. Use arrow keys to navigate and Enter to open a result.</DialogDescription>
         {/* Search input */}
-        <div className="border-border/40 flex items-center gap-3 border-b px-4 py-3">
+        <div className="border-border/40 flex items-center gap-3 border-b py-3 pl-4 pr-14">
           <Search className="text-muted-foreground h-4 w-4 shrink-0" />
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
+            aria-label="Search pages, actions and settings"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            aria-controls={resultsId}
+            aria-activedescendant={filtered[selectedIndex] ? `${resultsId}-${selectedIndex}` : undefined}
+            autoComplete="off"
             placeholder="Search pages, actions, settings…"
             value={query}
             onChange={(e) => {
@@ -179,7 +199,7 @@ export function CommandPalette({
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            className="placeholder:text-muted-foreground/50 flex-1 bg-transparent text-sm outline-none"
+            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
           <kbd className="border-border/40 bg-muted/50 text-muted-foreground/60 hidden rounded border px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">
             ESC
@@ -187,7 +207,7 @@ export function CommandPalette({
         </div>
 
         {/* Results */}
-        <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
+        <div ref={listRef} id={resultsId} role="listbox" aria-label="Workspace pages and actions" className="max-h-80 overflow-y-auto p-2">
           {filtered.length === 0 ? (
             <div className="text-muted-foreground flex flex-col items-center py-8 text-sm">
               <Search className="text-muted-foreground/30 mb-2 h-6 w-6" />
@@ -196,7 +216,7 @@ export function CommandPalette({
             </div>
           ) : (
             Object.entries(grouped).map(([category, items]) => (
-              <div key={category}>
+              <div key={category} role="group" aria-label={category}>
                 <p className="text-muted-foreground/60 px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider first:pt-0">
                   {category}
                 </p>
@@ -207,6 +227,11 @@ export function CommandPalette({
                     <button
                       key={item.id}
                       type="button"
+                      id={`${resultsId}-${idx}`}
+                      data-command-index={idx}
+                      role="option"
+                      aria-selected={idx === selectedIndex}
+                      tabIndex={-1}
                       className={cn(
                         "flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-sm transition-colors",
                         idx === selectedIndex
