@@ -1,5 +1,7 @@
 # API validation and data-handling audit — 2026-10-26
 
+> Integration review: verified owner HEAD `1832d1e036fcc267713a907e74ef743ee786f8da` is imported. The coordinator additionally verifies the real shared signature helper through both API body guards: exact chunked UTF-8 bytes succeed and tampering fails before persistence. Owner-only counts below remain independent; see [the integration record](2026-10-integration.md) for exact accepted SHAs and combined checks. No actual ingress trust, DB contention or live-provider pass is implied.
+
 ## Implementation handoff — 2026-10-26
 
 The subsequent user authorization explicitly permits implementation, commits and a normal push of the scoped handoff branch. The planning-only restriction in the historical audit below has been superseded. Work is on `fixes/actorconsole-20261026-api`, based on `fc52f547286b14de2f483899b4aa5dcdfca8b5ea`; `main`, CI/CD, deployment and real installation settings are unchanged. The architecture chat is the sole integrator. The source changes below complete the eleven preserved prototype files and add the remaining confirmed fixes; the older prototype fingerprints identify the historical snapshot, not the final worktree.
