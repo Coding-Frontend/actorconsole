@@ -1,0 +1,34 @@
+{
+  "base": "fc52f547286b14de2f483899b4aa5dcdfca8b5ea",
+  "branch": "work",
+  "files": [
+    {
+      "path": "apps/web/src/components/admin/sidebar.tsx",
+      "sha256": "21abf2384e9945f02a816d2bb1063d719529bec91996175775e5cd0961b4ea12"
+    },
+    {
+      "path": "apps/web/src/components/dashboard/command-palette.tsx",
+      "sha256": "1c202d88843555ab38eef1db034e06df0466c3a50c68b7d4d284fbcd9b6c6760"
+    },
+    {
+      "path": "apps/web/src/components/dashboard/sidebar.test.tsx",
+      "sha256": "6e2c59a8844a70f93313d882b61c699752f8da9de54399bb5a54094889496f7c"
+    },
+    {
+      "path": "apps/web/src/components/dashboard/sidebar.tsx",
+      "sha256": "a4532e624fbaf852faa700cedc5fe5b5c2f30e2d73cc5c3c0af1407537825a16"
+    },
+    {
+      "path": "apps/web/src/components/docs/docs-shell.tsx",
+      "sha256": "ddc83d297fec222500fddbab00d62f24781fc3c5187e253d3b854c3cd179982b"
+    },
+    {
+      "path": "apps/web/src/components/marketing/header.tsx",
+      "sha256": "ecc0e3a79b19aaf9ed1f9e689ce633676506bd3db512efc2a63a554f85ec9341"
+    },
+    {
+      "path": "apps/web/src/components/ui/navigation-drawer.tsx",
+      "sha256": "40aacb93b36c4fe41027a335e24dc788baddf4414dfb1798c9b88402982de5e0"
+    }
+  ]
+}

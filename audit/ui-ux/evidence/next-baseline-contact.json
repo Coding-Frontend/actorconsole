@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "requestsWhilePending": 1,
+  "messageEditable": true,
+  "newDraftAfterSuccess": "",
+  "light": {
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(248, 102, 6)",
+    "fontSize": "14px"
+  },
+  "dark": {
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(255, 154, 103)",
+    "fontSize": "14px"
+  }
+}

@@ -1,0 +1,29 @@
+PASS UI-01 mobile marketing navigation contains keyboard focus
+{"initialFocusInside":true,"tabEscapes":false}
+PASS UI-02 resizing an open marketing menu releases the document
+{"bodyOverflow":"visible","visibleDialogs":0}
+PASS UI-01-admin admin mobile navigation dismisses with Escape
+{"visibleMobileSidebars":0,"dialogCount":0}
+PASS UI-03 Enter submits the entered authenticator code
+{"requestCount":2,"secondRequestKeys":["email","password","totpCode","challengeToken"],"hasCode":true,"hasChallenge":true}
+PASS UI-04 interrupted authenticator verification handles rejection
+{"unhandledErrors":[],"retryEnabled":true}
+PASS UI-05-contact contact completion preserves a newer unsent draft
+{"sentMessage":"Original message for local audit","draftAfterCompletion":"New unsent draft added while waiting"}
+PASS UI-06 contact button text meets normal-text contrast in both themes
+{"light":{"foreground":"rgb(255, 253, 250)","background":"rgba(25, 28, 36, 0.9)","ratio":16.78},"dark":{"foreground":"rgb(16, 18, 25)","background":"rgba(244, 241, 236, 0.9)","ratio":16.6}}
+PASS UI-07 pending newsletter subscribe button retains an accessible name
+{"pending":true,"buttonText":"Subscribing…","ariaLabel":null,"ariaSnapshot":"- button \"Subscribing…\" [disabled]"}
+PASS UI-05-ticket reply completion preserves a newer unsent draft
+{"sentBody":"Original reply","draftAfterCompletion":"New reply written while waiting"}
+PASS UI-08 failed ticket close keeps its confirmation open for retry
+{"remainingDialogs":1,"errorVisible":true}
+PASS UI-09-name command palette has a valid accessible dialog title
+{"title":"Search workspace"}
+PASS UI-09-scroll arrow-key selected command stays in the results viewport
+{"selection":{"text":"MCP access","top":439,"bottom":487,"resultsTop":167,"resultsBottom":487,"scrollTop":484,"visible":true}}
+PASS UI-11 documentation search receives focus when opened
+{"focused":true}
+PASS axe-public-fixture axe WCAG A/AA checks on actual public presentation components
+{"violations":[]}
+Evidence: /tmp/ui-implementation-browser.json; 14 passed, 0 failed

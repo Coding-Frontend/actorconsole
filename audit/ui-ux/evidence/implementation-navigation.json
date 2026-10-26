@@ -1,0 +1,125 @@
+{
+  "checks": [
+    {
+      "width": 320,
+      "forwardAndReverseFocusContained": true,
+      "escapeRestoresOpener": true,
+      "backdropRestoresOpener": true,
+      "resizeUnlocks": true
+    },
+    {
+      "width": 375,
+      "forwardAndReverseFocusContained": true,
+      "escapeRestoresOpener": true,
+      "backdropRestoresOpener": true,
+      "resizeUnlocks": true
+    },
+    {
+      "width": 767,
+      "forwardAndReverseFocusContained": true,
+      "escapeRestoresOpener": true,
+      "backdropRestoresOpener": true,
+      "resizeUnlocks": true
+    },
+    {
+      "width": 1023,
+      "forwardAndReverseFocusContained": true,
+      "escapeRestoresOpener": true,
+      "backdropRestoresOpener": true,
+      "resizeUnlocks": true
+    }
+  ],
+  "colors": [
+    {
+      "theme": "light",
+      "state": "normal",
+      "foreground": [
+        255,
+        253,
+        250
+      ],
+      "background": [
+        25,
+        28,
+        36
+      ],
+      "ratio": 16.77536725772233
+    },
+    {
+      "theme": "light",
+      "state": "hover",
+      "foreground": [
+        255,
+        253,
+        250
+      ],
+      "background": [
+        46.89999999999999,
+        49.3,
+        55.99999999999999
+      ],
+      "ratio": 12.752371117303536
+    },
+    {
+      "theme": "light",
+      "state": "focus",
+      "foreground": [
+        255,
+        253,
+        250
+      ],
+      "background": [
+        25,
+        28,
+        36
+      ],
+      "ratio": 16.77536725772233
+    },
+    {
+      "theme": "dark",
+      "state": "normal",
+      "foreground": [
+        16,
+        18,
+        25
+      ],
+      "background": [
+        244,
+        241,
+        236
+      ],
+      "ratio": 16.604401180298165
+    },
+    {
+      "theme": "dark",
+      "state": "hover",
+      "foreground": [
+        16,
+        18,
+        25
+      ],
+      "background": [
+        221.2,
+        218.70000000000002,
+        214.9
+      ],
+      "ratio": 13.506488116731717
+    },
+    {
+      "theme": "dark",
+      "state": "focus",
+      "foreground": [
+        16,
+        18,
+        25
+      ],
+      "background": [
+        244,
+        241,
+        236
+      ],
+      "ratio": 16.604401180298165
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,26 @@
+
+ RUN  v2.1.9 /workspace/actorconsole/apps/web
+
+ ❯ src/components/dashboard/command-palette.test.tsx (3 tests | 1 failed) 187ms
+   × command palette keyboard navigation > dismisses once when Escape is pressed in search 56ms
+     → expected "spy" to be called once, but got 2 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/dashboard/command-palette.test.tsx > command palette keyboard navigation > dismisses once when Escape is pressed in search
+AssertionError: expected "spy" to be called once, but got 2 times
+ ❯ src/components/dashboard/command-palette.test.tsx:17:19
+     15|     render(<CommandPalette open onClose={close} />);
+     16|     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+     17|     expect(close).toHaveBeenCalledOnce();
+       |                   ^
+     18|   });
+     19|   it("names the dialog, exposes the selected command and scrolls the a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  08:22:42
+   Duration  746ms (transform 68ms, setup 0ms, collect 193ms, tests 187ms, environment 108ms, prepare 36ms)
+

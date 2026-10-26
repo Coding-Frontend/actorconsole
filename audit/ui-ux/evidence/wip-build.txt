@@ -1,0 +1,191 @@
+   ▲ Next.js 15.5.28
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ✓ externalDir
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 18.1s
+   Linting and checking validity of types ...
+
+ ⚠ The Next.js plugin was not detected in your ESLint configuration. See https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config
+   Collecting page data ...
+   Generating static pages (0/58) ...
+   Generating static pages (14/58) 
+   Generating static pages (28/58) 
+   Generating static pages (43/58) 
+ ✓ Generating static pages (58/58)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                                              Size  First Load JS
+┌ ƒ /                                                                 5.41 kB         159 kB
+├ ○ /_not-found                                                         356 B         104 kB
+├ ƒ /about                                                              324 B         107 kB
+├ ƒ /actors/compare                                                     155 B         278 kB
+├ ƒ /actors/compare/[...selection]                                      155 B         278 kB
+├ ƒ /admin                                                              194 B         231 kB
+├ ƒ /admin/actors                                                     7.54 kB         132 kB
+├ ƒ /admin/actors/[id]                                                4.71 kB         129 kB
+├ ƒ /admin/ai-providers                                               13.3 kB         150 kB
+├ ƒ /admin/analytics                                                    194 B         231 kB
+├ ƒ /admin/announcements                                              5.64 kB         144 kB
+├ ƒ /admin/audit-log                                                    199 B         107 kB
+├ ƒ /admin/audit-log/[id]                                               199 B         107 kB
+├ ƒ /admin/blog                                                         199 B         107 kB
+├ ƒ /admin/blog/[id]                                                    193 B         144 kB
+├ ƒ /admin/blog/new                                                     176 B         141 kB
+├ ƒ /admin/changelog                                                  13.3 kB         258 kB
+├ ƒ /admin/email-log                                                  5.92 kB         132 kB
+├ ƒ /admin/errors                                                       199 B         107 kB
+├ ƒ /admin/errors/[id]                                                  199 B         107 kB
+├ ƒ /admin/faq-admin                                                  6.07 kB         144 kB
+├ ƒ /admin/feature-flags                                               8.3 kB         145 kB
+├ ƒ /admin/incidents                                                  4.55 kB         146 kB
+├ ƒ /admin/incidents/[id]                                              6.2 kB         143 kB
+├ ƒ /admin/integrations                                               4.83 kB         118 kB
+├ ƒ /admin/integrations/[key]                                         9.25 kB         146 kB
+├ ƒ /admin/newsletter                                                 10.8 kB         144 kB
+├ ƒ /admin/payment-gateways                                           16.1 kB         148 kB
+├ ƒ /admin/payments                                                   5.81 kB         143 kB
+├ ƒ /admin/plan-features                                              2.69 kB         127 kB
+├ ƒ /admin/policies                                                     199 B         107 kB
+├ ƒ /admin/policies/[slug]                                              197 B         180 kB
+├ ƒ /admin/policies/[slug]/new                                          195 B         180 kB
+├ ƒ /admin/subscriptions                                              5.96 kB         143 kB
+├ ƒ /admin/subscriptions/[id]                                           199 B         107 kB
+├ ƒ /admin/support                                                      199 B         107 kB
+├ ƒ /admin/support/[id]                                               4.24 kB         128 kB
+├ ƒ /admin/usage                                                        199 B         107 kB
+├ ƒ /admin/usage-costs                                                6.38 kB         131 kB
+├ ƒ /admin/users                                                      4.23 kB         118 kB
+├ ƒ /admin/users/[id]                                                 10.1 kB         147 kB
+├ ƒ /admin/users/[id]/workspaces/[workspaceId]                          977 B         305 kB
+├ ƒ /admin/webhooks                                                     199 B         107 kB
+├ ƒ /admin/webhooks/[id]                                                199 B         107 kB
+├ ƒ /admin/website-logos                                                 7 kB         136 kB
+├ ƒ /api/[...path]                                                      356 B         104 kB
+├ ƒ /api/actors/public/[username]/[actorName]                           356 B         104 kB
+├ ƒ /api/admin/[...path]                                                356 B         104 kB
+├ ƒ /api/admin/impersonate                                              356 B         104 kB
+├ ƒ /api/admin/impersonate/exit                                         356 B         104 kB
+├ ƒ /api/admin/impersonate/status                                       356 B         104 kB
+├ ƒ /api/auth/[...nextauth]                                             356 B         104 kB
+├ ƒ /api/auth/firebase-session                                          356 B         104 kB
+├ ƒ /api/auth/local/forgot-password                                     356 B         104 kB
+├ ƒ /api/auth/local/login                                               356 B         104 kB
+├ ƒ /api/auth/local/register                                            356 B         104 kB
+├ ƒ /api/auth/local/resend-verification                                 356 B         104 kB
+├ ƒ /api/auth/local/reset-password                                      356 B         104 kB
+├ ƒ /api/auth/local/verify-email                                        356 B         104 kB
+├ ƒ /api/auth/signout                                                   356 B         104 kB
+├ ƒ /api/backend/[...path]                                              356 B         104 kB
+├ ƒ /api/health                                                         356 B         104 kB
+├ ƒ /api/public/builders/[username]/actors/[actorName]/documentation    356 B         104 kB
+├ ƒ /api/public/builders/[username]/actors/[actorName]/reviews          356 B         104 kB
+├ ƒ /api/public/comparison                                              356 B         104 kB
+├ ƒ /api/public/comparison/search                                       356 B         104 kB
+├ ƒ /api/public/seo                                                     356 B         104 kB
+├ ƒ /blog                                                             6.68 kB         136 kB
+├ ƒ /blog/[slug]                                                      3.29 kB         128 kB
+├ ƒ /builders                                                         5.81 kB         167 kB
+├ ƒ /builders/[username]                                              1.99 kB         251 kB
+├ ƒ /builders/[username]/actors/[actorName]                            116 kB         464 kB
+├ ƒ /builders/compare                                                   155 B         278 kB
+├ ƒ /builders/compare/[...selection]                                    155 B         278 kB
+├ ƒ /changelog                                                        8.27 kB         238 kB
+├ ƒ /changelog/[slug]                                                 5.22 kB         218 kB
+├ ƒ /changelog/feed                                                     356 B         104 kB
+├ ƒ /chrome-extension/privacy                                           322 B         107 kB
+├ ƒ /contact                                                          4.09 kB         128 kB
+├ ƒ /customers                                                          324 B         107 kB
+├ ƒ /dashboard                                                        3.25 kB         157 kB
+├ ƒ /dashboard/account                                                2.86 kB         167 kB
+├ ƒ /dashboard/activity                                               1.91 kB         156 kB
+├ ƒ /dashboard/actors                                                 21.5 kB         192 kB
+├ ƒ /dashboard/actors/[id]                                            19.6 kB         401 kB
+├ ƒ /dashboard/actors/[id]/runs/[runId]                               2.89 kB         160 kB
+├ ƒ /dashboard/actors/improvements                                    5.22 kB         159 kB
+├ ƒ /dashboard/actors/optimization/[runId]                             6.5 kB         172 kB
+├ ƒ /dashboard/api-keys                                                 356 B         104 kB
+├ ƒ /dashboard/apify                                                   5.7 kB         185 kB
+├ ƒ /dashboard/billing                                                  151 B         173 kB
+├ ƒ /dashboard/billing/history                                         2.8 kB         157 kB
+├ ƒ /dashboard/costs                                                  2.41 kB         310 kB
+├ ƒ /dashboard/data-export                                            1.97 kB         167 kB
+├ ƒ /dashboard/default                                                8.72 kB         271 kB
+├ ƒ /dashboard/default/publishing                                     5.67 kB         160 kB
+├ ƒ /dashboard/forbidden                                                176 B         107 kB
+├ ƒ /dashboard/keywords                                               11.3 kB         182 kB
+├ ƒ /dashboard/keywords/compare                                         136 B         130 kB
+├ ƒ /dashboard/keywords/compare/[...selection]                          136 B         130 kB
+├ ƒ /dashboard/mcp                                                    15.6 kB         181 kB
+├ ƒ /dashboard/notification-preferences                                2.3 kB         167 kB
+├ ƒ /dashboard/notifications                                          4.83 kB         169 kB
+├ ƒ /dashboard/notifications/[id]                                     4.77 kB         169 kB
+├ ƒ /dashboard/onboarding                                             6.16 kB         185 kB
+├ ƒ /dashboard/profile                                                  193 B         169 kB
+├ ƒ /dashboard/profitability                                          7.56 kB         180 kB
+├ ƒ /dashboard/publishing                                             10.8 kB         190 kB
+├ ƒ /dashboard/publishing/schedules                                   7.97 kB         180 kB
+├ ƒ /dashboard/publishing/schedules/new                               6.73 kB         186 kB
+├ ƒ /dashboard/research                                                1.4 kB         169 kB
+├ ƒ /dashboard/revenue                                                2.41 kB         310 kB
+├ ƒ /dashboard/settings                                                 356 B         104 kB
+├ ƒ /dashboard/settings/account                                       2.86 kB         167 kB
+├ ƒ /dashboard/settings/api-keys                                        356 B         104 kB
+├ ƒ /dashboard/settings/billing                                         151 B         173 kB
+├ ƒ /dashboard/settings/billing/history                                2.8 kB         157 kB
+├ ƒ /dashboard/settings/export                                        1.97 kB         167 kB
+├ ƒ /dashboard/settings/notifications                                  2.3 kB         167 kB
+├ ƒ /dashboard/settings/profile                                         194 B         169 kB
+├ ƒ /dashboard/support                                                2.79 kB         157 kB
+├ ƒ /dashboard/support/[id]                                           4.12 kB         158 kB
+├ ƒ /dashboard/support/new                                            4.43 kB         158 kB
+├ ƒ /dashboard/tools/pricing                                          3.49 kB         168 kB
+├ ƒ /dashboard/tools/seo                                                363 B         170 kB
+├ ƒ /dashboard/upgrade                                                 3.5 kB         157 kB
+├ ƒ /dashboard/usage                                                   2.2 kB         309 kB
+├ ƒ /dashboard/usage-costs                                              356 B         104 kB
+├ ƒ /dashboard/watchlist                                              7.96 kB         180 kB
+├ ƒ /docs                                                               134 B         124 kB
+├ ● /docs/[slug]                                                        134 B         124 kB
+├   ├ /docs/getting-started
+├   ├ /docs/first-workspace
+├   ├ /docs/dashboard-tour
+├   └ [+24 more paths]
+├ ƒ /extension/pair                                                   8.24 kB         127 kB
+├ ƒ /faq                                                               2.6 kB         116 kB
+├ ƒ /features                                                           324 B         107 kB
+├ ○ /forbidden                                                          176 B         107 kB
+├ ƒ /forgot-password                                                  2.09 kB         130 kB
+├ ○ /icon.png                                                             0 B            0 B
+├ ● /legal/[slug]                                                       768 B         107 kB
+├   ├ /legal/terms
+├   ├ /legal/privacy
+├   ├ /legal/cookies
+├   └ [+3 more paths]
+├ ƒ /login                                                            2.85 kB         166 kB
+├ ƒ /mimic-ended                                                      3.41 kB         117 kB
+├ ƒ /newsletter/unsubscribe                                           6.57 kB         120 kB
+├ ƒ /pricing                                                          3.53 kB         121 kB
+├ ƒ /research                                                         3.16 kB         130 kB
+├ ○ /robots.txt                                                         356 B         104 kB
+├ ƒ /signup                                                           1.86 kB         169 kB
+├ ƒ /signup/verify                                                      176 B         107 kB
+├ ƒ /signup/verify-email                                              2.21 kB         130 kB
+├ ○ /sitemap.xml                                                        356 B         104 kB
+├ ƒ /status                                                             322 B         107 kB
+├ ƒ /tools/pricing                                                    4.49 kB         133 kB
+└ ƒ /tools/seo                                                        4.49 kB         133 kB
++ First Load JS shared by all                                          103 kB
+  ├ chunks/18-d2d731f129776809.js                                     46.9 kB
+  ├ chunks/87c73c54-09e1ba5c70e60a51.js                               54.2 kB
+  └ other shared chunks (total)                                       2.07 kB
+
+
+ƒ Middleware                                                          35.7 kB
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

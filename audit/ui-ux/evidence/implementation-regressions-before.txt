@@ -1,0 +1,2799 @@
+
+ RUN  v2.1.9 /workspace/actorconsole/apps/web
+
+ ❯ src/components/dashboard/notification-center.test.tsx (4 tests | 3 failed) 109ms
+   × NotificationCenter > ignores an old workspace's late success after switching twice 13ms
+     → Cannot read properties of undefined (reading 'aborted')
+   × NotificationCenter > ignores an old workspace's late failure after switching twice 13ms
+     → Cannot read properties of undefined (reading 'aborted')
+   × NotificationCenter > clears previous workspace content while the next inbox is pending and aborts on unmount 12ms
+     → Unable to find an accessible element with the role "button" and name "Workspace notifications"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "1 unread workspace notifications":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"dialog"[39m
+    [33maria-label[39m=[32m"1 unread workspace notifications"[39m
+    [33mclass[39m=[32m"workbench-control border-border bg-card text-muted-foreground hover:border-signal-blue/50 hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-9 w-9 items-center justify-center rounded-sm border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33maria-expanded[39m=[32m"false"[39m
+      [33maria-haspopup[39m=[32m"dialog"[39m
+      [33maria-label[39m=[32m"1 unread workspace notifications"[39m
+      [33mclass[39m=[32m"workbench-control border-border bg-card text-muted-foreground hover:border-signal-blue/50 hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-9 w-9 items-center justify-center rounded-sm border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-bell h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10.268 21a2 2 0 0 0 3.464 0"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"bg-signal-orange text-ink border-background absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 px-1 font-mono text-[9px] font-bold leading-none shadow-sm"[39m
+      [36m>[39m
+        [0m1[0m
+      [36m</span>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ src/components/marketing/contact-form.test.tsx (2 tests | 2 failed) 1062ms
+   × contact send lifecycle > preserves new unsent edits when the earlier message succeeds 48ms
+     → expected "spy" to be called 1 times, but got 2 times
+   × contact send lifecycle > retains failed drafts for retry and clears an unchanged successful draft 1013ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"name"[39m
+        [36m>[39m
+          [0mFull Name *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"name"[39m
+          [33mmaxlength[39m=[32m"100"[39m
+          [33mplaceholder[39m=[32m"John Doe"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"text"[39m
+          [33mvalue[39m=[32m"Local Audit"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"email"[39m
+        [36m>[39m
+          [0mEmail Address *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"email"[39m
+          [33mmaxlength[39m=[32m"320"[39m
+          [33mplaceholder[39m=[32m"john@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"subject"[39m
+        [36m>[39m
+          [0mSubject[0m
+        [36m</label>[39m
+        [36m<select[39m
+          [33mclass[39m=[32m"border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring border-border bg-card focus:border-signal-orange focus:ring-signal-orange flex h-10 w-full rounded-md border px-3 py-2 text-sm shadow-sm transition-colors focus:ring-1 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"[39m
+          [33mid[39m=[32m"subject"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"support"[39m
+          [36m>[39m
+            [0mTechnical Support[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"billing"[39m
+          [36m>[39m
+            [0mBilling & Pricing[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"partnerships"[39m
+          [36m>[39m
+            [0mPartnerships[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"other"[39m
+          [36m>[39m
+            [0mGeneral Inquiry[0m
+          [36m</option>[39m
+        [36m</select>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"message"[39m
+        [36m>[39m
+          [0mMessage *[0m
+        [36m</label>[39m
+        [36m<textarea[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full resize-y rounded-sm border px-3 py-2.5 text-sm leading-relaxed shadow-sm transition-[border-color,box-shadow,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange min-h-[120px]"[39m
+          [33mid[39m=[32m"message"[39m
+          [33mmaxlength[39m=[32m"10000"[39m
+          [33mminlength[39m=[32m"10"[39m
+          [33mplaceholder[39m=[32m"How can we help you?"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mrows[39m=[32m"5"[39m
+        [36m>[39m
+          [0mOriginal message[0m
+        [36m</textarea>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary shadow-none h-10 rounded-sm px-5 text-[14px] bg-signal-orange hover:bg-signal-orange/90 mt-2 w-full text-white"[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-send mr-2 h-4 w-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m21.854 2.147-10.94 10.939"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0mSend Message[0m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"name"[39m
+        [36m>[39m
+          [0mFull Name *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"name"[39m
+          [33mmaxlength[39m=[32m"100"[39m
+          [33mplaceholder[39m=[32m"John Doe"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"text"[39m
+          [33mvalue[39m=[32m"Local Audit"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"email"[39m
+        [36m>[39m
+          [0mEmail Address *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"email"[39m
+          [33mmaxlength[39m=[32m"320"[39m
+          [33mplaceholder[39m=[32m"john@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"subject"[39m
+        [36m>[39m
+          [0mSubject[0m
+        [36m</label>[39m
+        [36m<select[39m
+          [33mclass[39m=[32m"border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring border-border bg-card focus:border-signal-orange focus:ring-signal-orange flex h-10 w-full rounded-md border px-3 py-2 text-sm shadow-sm transition-colors focus:ring-1 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"[39m
+          [33mid[39m=[32m"subject"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"support"[39m
+          [36m>[39m
+            [0mTechnical Support[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"billing"[39m
+          [36m>[39m
+            [0mBilling & Pricing[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"partnerships"[39m
+          [36m>[39m
+            [0mPartnerships[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"other"[39m
+          [36m>[39m
+            [0mGeneral Inquiry[0m
+          [36m</option>[39m
+        [36m</select>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"message"[39m
+        [36m>[39m
+          [0mMessage *[0m
+        [36m</label>[39m
+        [36m<textarea[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full resize-y rounded-sm border px-3 py-2.5 text-sm leading-relaxed shadow-sm transition-[border-color,box-shadow,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange min-h-[120px]"[39m
+          [33mid[39m=[32m"message"[39m
+          [33mmaxlength[39m=[32m"10000"[39m
+          [33mminlength[39m=[32m"10"[39m
+          [33mplaceholder[39m=[32m"How can we help you?"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mrows[39m=[32m"5"[39m
+        [36m>[39m
+          [0mOriginal message[0m
+        [36m</textarea>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary shadow-none h-10 rounded-sm px-5 text-[14px] bg-signal-orange hover:bg-signal-orange/90 mt-2 w-full text-white"[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-send mr-2 h-4 w-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m21.854 2.147-10.94 10.939"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0mSend Message[0m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ src/components/dashboard/ticket-reply-box.test.tsx (2 tests | 2 failed) 1060ms
+   × support replies > preserves a newer unsent reply after the previous reply succeeds 37ms
+     → expected '' to be 'Newer reply' // Object.is equality
+   × support replies > keeps a failed close confirmation open and retries successfully 1023ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"radix-_r_5_"[39m
+  [33maria-labelledby[39m=[32m"radix-_r_4_"[39m
+  [33mclass[39m=[32m"border-border bg-card text-card-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-md border p-5 shadow-2xl duration-200 sm:p-6"[39m
+  [33mdata-state[39m=[32m"closed"[39m
+  [33mid[39m=[32m"radix-_r_3_"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col space-y-2 pr-10 text-left"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"font-display-tight text-xl font-medium leading-tight tracking-tight"[39m
+      [33mid[39m=[32m"radix-_r_4_"[39m
+    [36m>[39m
+      [0mClose this ticket?[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-muted-foreground text-sm leading-relaxed"[39m
+      [33mid[39m=[32m"radix-_r_5_"[39m
+    [36m>[39m
+      [0mYou will no longer be able to reply unless support reopens the ticket.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end"[39m
+  [36m>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-card text-card-foreground shadow-none hover:border-ring/60 hover:bg-accent hover:text-accent-foreground h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mCancel[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mClose ticket[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<button[39m
+    [33mclass[39m=[32m"text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring focus-visible:ring-offset-card absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-4 sm:top-4"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m>[39m
+    [36m<svg[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+      [33mfill[39m=[32m"none"[39m
+      [33mheight[39m=[32m"24"[39m
+      [33mstroke[39m=[32m"currentColor"[39m
+      [33mstroke-linecap[39m=[32m"round"[39m
+      [33mstroke-linejoin[39m=[32m"round"[39m
+      [33mstroke-width[39m=[32m"2"[39m
+      [33mviewBox[39m=[32m"0 0 24 24"[39m
+      [33mwidth[39m=[32m"24"[39m
+      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+    [36m>[39m
+      [36m<path[39m
+        [33md[39m=[32m"M18 6 6 18"[39m
+      [36m/>[39m
+      [36m<path[39m
+        [33md[39m=[32m"m6 6 12 12"[39m
+      [36m/>[39m
+    [36m</svg>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"sr-only"[39m
+    [36m>[39m
+      [0mClose[0m
+    [36m</span>[39m
+  [36m</button>[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"radix-_r_5_"[39m
+  [33maria-labelledby[39m=[32m"radix-_r_4_"[39m
+  [33mclass[39m=[32m"border-border bg-card text-card-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-md border p-5 shadow-2xl duration-200 sm:p-6"[39m
+  [33mdata-state[39m=[32m"closed"[39m
+  [33mid[39m=[32m"radix-_r_3_"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col space-y-2 pr-10 text-left"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"font-display-tight text-xl font-medium leading-tight tracking-tight"[39m
+      [33mid[39m=[32m"radix-_r_4_"[39m
+    [36m>[39m
+      [0mClose this ticket?[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-muted-foreground text-sm leading-relaxed"[39m
+      [33mid[39m=[32m"radix-_r_5_"[39m
+    [36m>[39m
+      [0mYou will no longer be able to reply unless support reopens the ticket.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end"[39m
+  [36m>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-card text-card-foreground shadow-none hover:border-ring/60 hover:bg-accent hover:text-accent-foreground h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mCancel[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mClose ticket[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<button[39m
+    [33mclass[39m=[32m"text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring focus-visible:ring-offset-card absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-4 sm:top-4"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m>[39m
+    [36m<svg[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+      [33mfill[39m=[32m"none"[39m
+      [33mheight[39m=[32m"24"[39m
+      [33mstroke[39m=[32m"currentColor"[39m
+      [33mstroke-linecap[39m=[32m"round"[39m
+      [33mstroke-linejoin[39m=[32m"round"[39m
+      [33mstroke-width[39m=[32m"2"[39m
+      [33mviewBox[39m=[32m"0 0 24 24"[39m
+      [33mwidth[39m=[32m"24"[39m
+      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+    [36m>[39m
+      [36m<path[39m
+        [33md[39m=[32m"M18 6 6 18"[39m
+      [36m/>[39m
+      [36m<path[39m
+        [33md[39m=[32m"m6 6 12 12"[39m
+      [36m/>[39m
+    [36m</svg>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"sr-only"[39m
+    [36m>[39m
+      [0mClose[0m
+    [36m</span>[39m
+  [36m</button>[39m
+[36m</div>[39m
+ ❯ src/components/auth/email-password-form.test.tsx (5 tests | 5 failed) 2119ms
+   × email/password verification UI > submits 123456 from the displayed verification step 66ms
+     → expected <body><div>…(1)</div></body> to be <input …(6)></input> // Object.is equality
+   × email/password verification UI > submits recovery-code-text from the displayed verification step 14ms
+     → expected <body><div>…(1)</div></body> to be <input …(6)></input> // Object.is equality
+   × email/password verification UI > handles interrupted verification and preserves retry input 1013ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"[39m
+            [33mfor[39m=[32m"totp-code"[39m
+          [36m>[39m
+            [0mAuthenticator code[0m
+          [36m</label>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+          [36m>[39m
+            [0mEnter the six-digit code from your authenticator app, or one unused recovery code.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<input[39m
+          [33mautocomplete[39m=[32m"one-time-code"[39m
+          [33mclass[39m=[32m"workbench-control border-input bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"[39m
+          [33mid[39m=[32m"totp-code"[39m
+          [33minputmode[39m=[32m"text"[39m
+          [33mplaceholder[39m=[32m"123456"[39m
+          [33mvalue[39m=[32m"123456"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm px-6 text-[15px] w-full"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-mail h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mVerify and continue[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"[39m
+            [33mfor[39m=[32m"totp-code"[39m
+          [36m>[39m
+            [0mAuthenticator code[0m
+          [36m</label>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+          [36m>[39m
+            [0mEnter the six-digit code from your authenticator app, or one unused recovery code.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<input[39m
+          [33mautocomplete[39m=[32m"one-time-code"[39m
+          [33mclass[39m=[32m"workbench-control border-input bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"[39m
+          [33mid[39m=[32m"totp-code"[39m
+          [33minputmode[39m=[32m"text"[39m
+          [33mplaceholder[39m=[32m"123456"[39m
+          [33mvalue[39m=[32m"123456"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm px-6 text-[15px] w-full"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-mail h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mVerify and continue[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × email/password verification UI > handles interrupted verification and preserves retry input 1012ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"[39m
+            [33mfor[39m=[32m"totp-code"[39m
+          [36m>[39m
+            [0mAuthenticator code[0m
+          [36m</label>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+          [36m>[39m
+            [0mEnter the six-digit code from your authenticator app, or one unused recovery code.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<input[39m
+          [33mautocomplete[39m=[32m"one-time-code"[39m
+          [33mclass[39m=[32m"workbench-control border-input bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"[39m
+          [33mid[39m=[32m"totp-code"[39m
+          [33minputmode[39m=[32m"text"[39m
+          [33mplaceholder[39m=[32m"123456"[39m
+          [33mvalue[39m=[32m"123456"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm px-6 text-[15px] w-full"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-mail h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mVerify and continue[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"[39m
+            [33mfor[39m=[32m"totp-code"[39m
+          [36m>[39m
+            [0mAuthenticator code[0m
+          [36m</label>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+          [36m>[39m
+            [0mEnter the six-digit code from your authenticator app, or one unused recovery code.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<input[39m
+          [33mautocomplete[39m=[32m"one-time-code"[39m
+          [33mclass[39m=[32m"workbench-control border-input bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"[39m
+          [33mid[39m=[32m"totp-code"[39m
+          [33minputmode[39m=[32m"text"[39m
+          [33mplaceholder[39m=[32m"123456"[39m
+          [33mvalue[39m=[32m"123456"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm px-6 text-[15px] w-full"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-mail h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mVerify and continue[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × email/password verification UI > ignores empty codes and repeated pending submits 13ms
+     → expected "spy" to be called 1 times, but got 2 times
+ ❯ src/components/marketing/newsletter-subscribe.test.tsx (3 tests | 3 failed) 1056ms
+   × newsletter states > retains its pending action name and announces success 34ms
+     → Unable to find an accessible element with the role "button" and name `/Subscribing/`
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mplaceholder[39m=[32m"you@example.com"[39m
+    [33mrequired[39m=[32m""[39m
+    [33mtype[39m=[32m"email"[39m
+    [33mvalue[39m=[32m"audit@example.com"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "":
+  [36m<button[39m
+    [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative flex-1"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"16"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"20"[39m
+            [33mx[39m=[32m"2"[39m
+            [33my[39m=[32m"4"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mplaceholder[39m=[32m"you@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+        [33mdisabled[39m=[32m""[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × newsletter states > keeps the email for retry after a connection failure 1006ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative flex-1"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"16"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"20"[39m
+            [33mx[39m=[32m"2"[39m
+            [33my[39m=[32m"4"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mplaceholder[39m=[32m"you@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+        [33mdisabled[39m=[32m""[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative flex-1"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"16"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"20"[39m
+            [33mx[39m=[32m"2"[39m
+            [33my[39m=[32m"4"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mplaceholder[39m=[32m"you@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+        [33mdisabled[39m=[32m""[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × newsletter states > provides a real privacy policy link beside the subscription form 15ms
+     → Unable to find an accessible element with the role "link" and name "privacy policy"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"home-grid-kicker"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-muted-foreground mt-5 max-w-md text-base leading-7"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"home-grid-kicker"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-muted-foreground mt-3 max-w-sm text-sm leading-6"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-muted-foreground mt-4 text-xs"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Stay close to the signal.":
+  [36m<h2[39m
+    [33mclass[39m=[32m"font-display-tight text-foreground mt-5 max-w-lg text-[40px] sm:text-[54px]"[39m
+  [36m/>[39m
+
+  Name "Free, every two weeks.":
+  [36m<h3[39m
+    [33mclass[39m=[32m"font-display-tight text-foreground mt-5 text-[30px] sm:text-[38px]"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"border-border mt-9 space-y-3 border-t pt-5"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+    [33mplaceholder[39m=[32m"you@example.com"[39m
+    [33mrequired[39m=[32m""[39m
+    [33mtype[39m=[32m"email"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Subscribe":
+  [36m<button[39m
+    [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"home-grid-section bg-fog/35"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"home-grid-frame"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"home-grid-row"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"home-grid-cell col-span-6 px-6 py-14 sm:px-8 sm:py-16 lg:p-12"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"home-grid-kicker"[39m
+            [36m>[39m
+              [0mThe builder's digest[0m
+            [36m</p>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"font-display-tight text-foreground mt-5 max-w-lg text-[40px] sm:text-[54px]"[39m
+            [36m>[39m
+              [0mStay close to the signal.[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-muted-foreground mt-5 max-w-md text-base leading-7"[39m
+            [36m>[39m
+              [0mA short, focused digest for Apify builders. Product updates, Store strategy, and dev tips — nothing you didn't sign up for.[0m
+            [36m</p>[39m
+            [36m<ul[39m
+              [33mclass[39m=[32m"border-border mt-9 space-y-3 border-t pt-5"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-file-text text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 2v5a1 1 0 0 0 1 1h5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 9H8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 13H8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 17H8"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mBuild breakdowns & Store teardowns[0m
+                [36m</span>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trending-up text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 7h6v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m22 7-8.5 8.5-5-5L2 17"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mKeyword & ranking insights you can act on[0m
+                [36m</span>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-calendar-clock text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 14v2.2l1.6 1"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 2v4"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10h5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 2v4"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"16"[39m
+                    [33mcy[39m=[32m"16"[39m
+                    [33mr[39m=[32m"6"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mChangelog snapshots — what shipped, what's next[0m
+                [36m</span>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-sparkles text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M20 2v4"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M22 4h-4"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"4"[39m
+                    [33mcy[39m=[32m"20"[39m
+                    [33mr[39m=[32m"2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mAI-assisted Actor copy, schemas & README files[0m
+                [36m</span>[39m
+              [36m</li>[39m
+            [36m</ul>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"home-grid-cell bg-card/45 col-span-6 flex flex-col justify-center px-6 py-14 sm:px-8 sm:py-16 lg:p-12"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"home-grid-kicker"[39m
+            [36m>[39m
+              [0mJoin the digest[0m
+            [36m</p>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"font-display-tight text-foreground mt-5 text-[30px] sm:text-[38px]"[39m
+            [36m>[39m
+              [0mFree, every two weeks.[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-muted-foreground mt-3 max-w-sm text-sm leading-6"[39m
+            [36m>[39m
+              [0mNo spam. Unsubscribe anytime.[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-8 w-full max-w-lg"[39m
+            [36m>[39m
+              [36m<form[39m
+                [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"16"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"20"[39m
+                      [33mx[39m=[32m"2"[39m
+                      [33my[39m=[32m"4"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [36m<input[39m
+                    [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+                    [33mplaceholder[39m=[32m"you@example.com"[39m
+                    [33mrequired[39m=[32m""[39m
+                    [33mtype[39m=[32m"email"[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m/>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+                  [33mtype[39m=[32m"submit"[39m
+                [36m>[39m
+                  [0mSubscribe[0m
+                [36m</button>[39m
+              [36m</form>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-muted-foreground mt-4 text-xs"[39m
+            [36m>[39m
+              [0mBy subscribing you agree to our[0m
+              [0m [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"underline underline-offset-2"[39m
+              [36m>[39m
+                [0mprivacy policy[0m
+              [36m</span>[39m
+              [0m.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/auth/email-password-form.test.tsx > email/password verification UI > submits 123456 from the displayed verification step
+ FAIL  src/components/auth/email-password-form.test.tsx > email/password verification UI > submits recovery-code-text from the displayed verification step
+AssertionError: expected <body><div>…(1)</div></body> to be <input …(6)></input> // Object.is equality
+
+- Expected
++ Received
+
++ <body>
++   <div>
++     <form
++       class="space-y-3"
++     >
++       <div
++         class="space-y-4"
++       >
++         <div>
++           <label
++             class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
++             for="totp-code"
++           >
++             Authenticator code
++           </label>
++           <p
++             class="text-muted-foreground mt-1 text-xs"
++           >
++             Enter the six-digit code from your authenticator app, or one unused recovery code.
++           </p>
++         </div>
+          <input
+            autocomplete="one-time-code"
+            class="workbench-control border-input bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            id="totp-code"
+            inputmode="text"
+            placeholder="123456"
+            value=""
++         />
++         <button
++           class="workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm px-6 text-[15px] w-full"
++           disabled=""
++           type="button"
++         >
++           <svg
++             aria-hidden="true"
++             class="lucide lucide-mail h-4 w-4"
++             fill="none"
++             height="24"
++             stroke="currentColor"
++             stroke-linecap="round"
++             stroke-linejoin="round"
++             stroke-width="2"
++             viewBox="0 0 24 24"
++             width="24"
++             xmlns="http://www.w3.org/2000/svg"
++           >
++             <path
++               d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"
+              />
++             <rect
++               height="16"
++               rx="2"
++               width="20"
++               x="2"
++               y="4"
++             />
++           </svg>
++           Verify and continue
++         </button>
++       </div>
++     </form>
++   </div>
++ </body>
+
+ ❯ src/components/auth/email-password-form.test.tsx:25:36
+     23|     vi.stubGlobal("fetch", fetcher);
+     24|     await challenge();
+     25|     expect(document.activeElement).toBe(screen.getByLabelText("Authent…
+       |                                    ^
+     26|     fireEvent.change(screen.getByLabelText("Authenticator code"), { ta…
+     27|     const button = screen.getByRole("button", { name: "Verify and cont…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/15]⎯
+
+ FAIL  src/components/auth/email-password-form.test.tsx > email/password verification UI > handles interrupted verification and preserves retry input
+ FAIL  src/components/auth/email-password-form.test.tsx > email/password verification UI > handles interrupted verification and preserves retry input
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"[39m
+            [33mfor[39m=[32m"totp-code"[39m
+          [36m>[39m
+            [0mAuthenticator code[0m
+          [36m</label>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+          [36m>[39m
+            [0mEnter the six-digit code from your authenticator app, or one unused recovery code.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<input[39m
+          [33mautocomplete[39m=[32m"one-time-code"[39m
+          [33mclass[39m=[32m"workbench-control border-input bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"[39m
+          [33mid[39m=[32m"totp-code"[39m
+          [33minputmode[39m=[32m"text"[39m
+          [33mplaceholder[39m=[32m"123456"[39m
+          [33mvalue[39m=[32m"123456"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm px-6 text-[15px] w-full"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-mail h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mVerify and continue[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"[39m
+            [33mfor[39m=[32m"totp-code"[39m
+          [36m>[39m
+            [0mAuthenticator code[0m
+          [36m</label>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+          [36m>[39m
+            [0mEnter the six-digit code from your authenticator app, or one unused recovery code.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<input[39m
+          [33mautocomplete[39m=[32m"one-time-code"[39m
+          [33mclass[39m=[32m"workbench-control border-input bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"[39m
+          [33mid[39m=[32m"totp-code"[39m
+          [33minputmode[39m=[32m"text"[39m
+          [33mplaceholder[39m=[32m"123456"[39m
+          [33mvalue[39m=[32m"123456"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm px-6 text-[15px] w-full"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-mail h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mVerify and continue[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/auth/email-password-form.test.tsx:41:26
+     39|     fireEvent.change(screen.getByLabelText("Authenticator code"), { ta…
+     40|     fireEvent.submit(screen.getByLabelText("Authenticator code").close…
+     41|     expect((await screen.findByRole("alert")).textContent).toContain(f…
+       |                          ^
+     42|     expect((screen.getByLabelText("Authenticator code") as HTMLInputEl…
+     43|     expect(navigation.push).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/15]⎯
+
+ FAIL  src/components/auth/email-password-form.test.tsx > email/password verification UI > ignores empty codes and repeated pending submits
+AssertionError: expected "spy" to be called 1 times, but got 2 times
+ ❯ src/components/auth/email-password-form.test.tsx:57:21
+     55|     const form = screen.getByLabelText("Authenticator code").closest("…
+     56|     fireEvent.submit(form);
+     57|     expect(fetcher).toHaveBeenCalledTimes(1);
+       |                     ^
+     58|     fireEvent.change(screen.getByLabelText("Authenticator code"), { ta…
+     59|     act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/15]⎯
+
+ FAIL  src/components/dashboard/notification-center.test.tsx > NotificationCenter > ignores an old workspace's late success after switching twice
+ FAIL  src/components/dashboard/notification-center.test.tsx > NotificationCenter > ignores an old workspace's late failure after switching twice
+TypeError: Cannot read properties of undefined (reading 'aborted')
+ ❯ src/components/dashboard/notification-center.test.tsx:76:31
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/15]⎯
+
+ FAIL  src/components/dashboard/notification-center.test.tsx > NotificationCenter > clears previous workspace content while the next inbox is pending and aborts on unmount
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Workspace notifications"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "1 unread workspace notifications":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"dialog"[39m
+    [33maria-label[39m=[32m"1 unread workspace notifications"[39m
+    [33mclass[39m=[32m"workbench-control border-border bg-card text-muted-foreground hover:border-signal-blue/50 hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-9 w-9 items-center justify-center rounded-sm border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33maria-expanded[39m=[32m"false"[39m
+      [33maria-haspopup[39m=[32m"dialog"[39m
+      [33maria-label[39m=[32m"1 unread workspace notifications"[39m
+      [33mclass[39m=[32m"workbench-control border-border bg-card text-muted-foreground hover:border-signal-blue/50 hover:bg-accent hover:text-foreground focus-visible:ring-ring relative inline-flex h-9 w-9 items-center justify-center rounded-sm border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-bell h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10.268 21a2 2 0 0 0 3.464 0"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"bg-signal-orange text-ink border-background absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 px-1 font-mono text-[9px] font-bold leading-none shadow-sm"[39m
+      [36m>[39m
+        [0m1[0m
+      [36m</span>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/dashboard/notification-center.test.tsx:100:19
+     98|     await screen.findByRole("button", { name: "1 unread workspace noti…
+     99|     act(() => window.dispatchEvent(new Event(WORKSPACE_CHANGED_EVENT))…
+    100|     expect(screen.getByRole("button", { name: "Workspace notifications…
+       |                   ^
+    101|     view.unmount();
+    102|     expect(fetcher.mock.calls[1][1].signal.aborted).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/15]⎯
+
+ FAIL  src/components/dashboard/ticket-reply-box.test.tsx > support replies > preserves a newer unsent reply after the previous reply succeeds
+AssertionError: expected '' to be 'Newer reply' // Object.is equality
+
+- Expected
++ Received
+
+- Newer reply
+
+ ❯ src/components/dashboard/ticket-reply-box.test.tsx:18:72
+     16|     fireEvent.change(screen.getByRole("textbox"), { target: { value: "…
+     17|     await act(async () => finish({ ok: true }));
+     18|     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value)…
+       |                                                                        ^
+     19|     expect(refresh).toHaveBeenCalledOnce();
+     20|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/15]⎯
+
+ FAIL  src/components/dashboard/ticket-reply-box.test.tsx > support replies > keeps a failed close confirmation open and retries successfully
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"radix-_r_5_"[39m
+  [33maria-labelledby[39m=[32m"radix-_r_4_"[39m
+  [33mclass[39m=[32m"border-border bg-card text-card-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-md border p-5 shadow-2xl duration-200 sm:p-6"[39m
+  [33mdata-state[39m=[32m"closed"[39m
+  [33mid[39m=[32m"radix-_r_3_"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col space-y-2 pr-10 text-left"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"font-display-tight text-xl font-medium leading-tight tracking-tight"[39m
+      [33mid[39m=[32m"radix-_r_4_"[39m
+    [36m>[39m
+      [0mClose this ticket?[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-muted-foreground text-sm leading-relaxed"[39m
+      [33mid[39m=[32m"radix-_r_5_"[39m
+    [36m>[39m
+      [0mYou will no longer be able to reply unless support reopens the ticket.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end"[39m
+  [36m>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-card text-card-foreground shadow-none hover:border-ring/60 hover:bg-accent hover:text-accent-foreground h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mCancel[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mClose ticket[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<button[39m
+    [33mclass[39m=[32m"text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring focus-visible:ring-offset-card absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-4 sm:top-4"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m>[39m
+    [36m<svg[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+      [33mfill[39m=[32m"none"[39m
+      [33mheight[39m=[32m"24"[39m
+      [33mstroke[39m=[32m"currentColor"[39m
+      [33mstroke-linecap[39m=[32m"round"[39m
+      [33mstroke-linejoin[39m=[32m"round"[39m
+      [33mstroke-width[39m=[32m"2"[39m
+      [33mviewBox[39m=[32m"0 0 24 24"[39m
+      [33mwidth[39m=[32m"24"[39m
+      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+    [36m>[39m
+      [36m<path[39m
+        [33md[39m=[32m"M18 6 6 18"[39m
+      [36m/>[39m
+      [36m<path[39m
+        [33md[39m=[32m"m6 6 12 12"[39m
+      [36m/>[39m
+    [36m</svg>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"sr-only"[39m
+    [36m>[39m
+      [0mClose[0m
+    [36m</span>[39m
+  [36m</button>[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"radix-_r_5_"[39m
+  [33maria-labelledby[39m=[32m"radix-_r_4_"[39m
+  [33mclass[39m=[32m"border-border bg-card text-card-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-md border p-5 shadow-2xl duration-200 sm:p-6"[39m
+  [33mdata-state[39m=[32m"closed"[39m
+  [33mid[39m=[32m"radix-_r_3_"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col space-y-2 pr-10 text-left"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"font-display-tight text-xl font-medium leading-tight tracking-tight"[39m
+      [33mid[39m=[32m"radix-_r_4_"[39m
+    [36m>[39m
+      [0mClose this ticket?[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-muted-foreground text-sm leading-relaxed"[39m
+      [33mid[39m=[32m"radix-_r_5_"[39m
+    [36m>[39m
+      [0mYou will no longer be able to reply unless support reopens the ticket.[0m
+    [36m</p>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end"[39m
+  [36m>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-card text-card-foreground shadow-none hover:border-ring/60 hover:bg-accent hover:text-accent-foreground h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mCancel[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-10 rounded-sm px-5 text-[14px]"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0mClose ticket[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<button[39m
+    [33mclass[39m=[32m"text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring focus-visible:ring-offset-card absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-4 sm:top-4"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m>[39m
+    [36m<svg[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+      [33mfill[39m=[32m"none"[39m
+      [33mheight[39m=[32m"24"[39m
+      [33mstroke[39m=[32m"currentColor"[39m
+      [33mstroke-linecap[39m=[32m"round"[39m
+      [33mstroke-linejoin[39m=[32m"round"[39m
+      [33mstroke-width[39m=[32m"2"[39m
+      [33mviewBox[39m=[32m"0 0 24 24"[39m
+      [33mwidth[39m=[32m"24"[39m
+      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+    [36m>[39m
+      [36m<path[39m
+        [33md[39m=[32m"M18 6 6 18"[39m
+      [36m/>[39m
+      [36m<path[39m
+        [33md[39m=[32m"m6 6 12 12"[39m
+      [36m/>[39m
+    [36m</svg>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"sr-only"[39m
+    [36m>[39m
+      [0mClose[0m
+    [36m</span>[39m
+  [36m</button>[39m
+[36m</div>[39m
+ ❯ waitForWrapper ../../node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/dashboard/ticket-reply-box.test.tsx:27:54
+     25|     fireEvent.click(screen.getByRole("button", { name: "Close ticket" …
+     26|     fireEvent.click(within(screen.getByRole("dialog")).getByRole("butt…
+     27|     expect((await within(screen.getByRole("dialog")).findByRole("alert…
+       |                                                      ^
+     28|     expect(refresh).not.toHaveBeenCalled();
+     29|     fireEvent.click(within(screen.getByRole("dialog")).getByRole("butt…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/15]⎯
+
+ FAIL  src/components/marketing/contact-form.test.tsx > contact send lifecycle > preserves new unsent edits when the earlier message succeeds
+AssertionError: expected "spy" to be called 1 times, but got 2 times
+ ❯ src/components/marketing/contact-form.test.tsx:20:21
+     18|     const form = screen.getByLabelText("Message *").closest("form")!;
+     19|     act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+     20|     expect(fetcher).toHaveBeenCalledTimes(1);
+       |                     ^
+     21|     fireEvent.change(screen.getByLabelText("Message *"), { target: { v…
+     22|     await act(async () => finish({ ok: true, json: async () => ({ ok: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/15]⎯
+
+ FAIL  src/components/marketing/contact-form.test.tsx > contact send lifecycle > retains failed drafts for retry and clears an unchanged successful draft
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"name"[39m
+        [36m>[39m
+          [0mFull Name *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"name"[39m
+          [33mmaxlength[39m=[32m"100"[39m
+          [33mplaceholder[39m=[32m"John Doe"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"text"[39m
+          [33mvalue[39m=[32m"Local Audit"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"email"[39m
+        [36m>[39m
+          [0mEmail Address *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"email"[39m
+          [33mmaxlength[39m=[32m"320"[39m
+          [33mplaceholder[39m=[32m"john@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"subject"[39m
+        [36m>[39m
+          [0mSubject[0m
+        [36m</label>[39m
+        [36m<select[39m
+          [33mclass[39m=[32m"border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring border-border bg-card focus:border-signal-orange focus:ring-signal-orange flex h-10 w-full rounded-md border px-3 py-2 text-sm shadow-sm transition-colors focus:ring-1 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"[39m
+          [33mid[39m=[32m"subject"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"support"[39m
+          [36m>[39m
+            [0mTechnical Support[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"billing"[39m
+          [36m>[39m
+            [0mBilling & Pricing[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"partnerships"[39m
+          [36m>[39m
+            [0mPartnerships[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"other"[39m
+          [36m>[39m
+            [0mGeneral Inquiry[0m
+          [36m</option>[39m
+        [36m</select>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"message"[39m
+        [36m>[39m
+          [0mMessage *[0m
+        [36m</label>[39m
+        [36m<textarea[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full resize-y rounded-sm border px-3 py-2.5 text-sm leading-relaxed shadow-sm transition-[border-color,box-shadow,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange min-h-[120px]"[39m
+          [33mid[39m=[32m"message"[39m
+          [33mmaxlength[39m=[32m"10000"[39m
+          [33mminlength[39m=[32m"10"[39m
+          [33mplaceholder[39m=[32m"How can we help you?"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mrows[39m=[32m"5"[39m
+        [36m>[39m
+          [0mOriginal message[0m
+        [36m</textarea>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary shadow-none h-10 rounded-sm px-5 text-[14px] bg-signal-orange hover:bg-signal-orange/90 mt-2 w-full text-white"[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-send mr-2 h-4 w-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m21.854 2.147-10.94 10.939"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0mSend Message[0m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"name"[39m
+        [36m>[39m
+          [0mFull Name *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"name"[39m
+          [33mmaxlength[39m=[32m"100"[39m
+          [33mplaceholder[39m=[32m"John Doe"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"text"[39m
+          [33mvalue[39m=[32m"Local Audit"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"email"[39m
+        [36m>[39m
+          [0mEmail Address *[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex h-10 w-full rounded-sm border px-3 py-2 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange"[39m
+          [33mid[39m=[32m"email"[39m
+          [33mmaxlength[39m=[32m"320"[39m
+          [33mplaceholder[39m=[32m"john@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"subject"[39m
+        [36m>[39m
+          [0mSubject[0m
+        [36m</label>[39m
+        [36m<select[39m
+          [33mclass[39m=[32m"border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring border-border bg-card focus:border-signal-orange focus:ring-signal-orange flex h-10 w-full rounded-md border px-3 py-2 text-sm shadow-sm transition-colors focus:ring-1 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"[39m
+          [33mid[39m=[32m"subject"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"support"[39m
+          [36m>[39m
+            [0mTechnical Support[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"billing"[39m
+          [36m>[39m
+            [0mBilling & Pricing[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"partnerships"[39m
+          [36m>[39m
+            [0mPartnerships[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"other"[39m
+          [36m>[39m
+            [0mGeneral Inquiry[0m
+          [36m</option>[39m
+        [36m</select>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-1.5"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground text-xs font-semibold"[39m
+          [33mfor[39m=[32m"message"[39m
+        [36m>[39m
+          [0mMessage *[0m
+        [36m</label>[39m
+        [36m<textarea[39m
+          [33mclass[39m=[32m"workbench-control text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full resize-y rounded-sm border px-3 py-2.5 text-sm leading-relaxed shadow-sm transition-[border-color,box-shadow,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border bg-card focus-visible:ring-signal-orange min-h-[120px]"[39m
+          [33mid[39m=[32m"message"[39m
+          [33mmaxlength[39m=[32m"10000"[39m
+          [33mminlength[39m=[32m"10"[39m
+          [33mplaceholder[39m=[32m"How can we help you?"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mrows[39m=[32m"5"[39m
+        [36m>[39m
+          [0mOriginal message[0m
+        [36m</textarea>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary shadow-none h-10 rounded-sm px-5 text-[14px] bg-signal-orange hover:bg-signal-orange/90 mt-2 w-full text-white"[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-send mr-2 h-4 w-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m21.854 2.147-10.94 10.939"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0mSend Message[0m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/marketing/contact-form.test.tsx:32:26
+     30|     render(<ContactForm />); fill();
+     31|     fireEvent.submit(screen.getByLabelText("Message *").closest("form"…
+     32|     expect((await screen.findByRole("alert")).textContent).toContain("…
+       |                          ^
+     33|     expect((screen.getByLabelText("Message *") as HTMLTextAreaElement)…
+     34|     fireEvent.submit(screen.getByLabelText("Message *").closest("form"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/15]⎯
+
+ FAIL  src/components/marketing/newsletter-subscribe.test.tsx > newsletter states > retains its pending action name and announces success
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name `/Subscribing/`
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mplaceholder[39m=[32m"you@example.com"[39m
+    [33mrequired[39m=[32m""[39m
+    [33mtype[39m=[32m"email"[39m
+    [33mvalue[39m=[32m"audit@example.com"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "":
+  [36m<button[39m
+    [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative flex-1"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"16"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"20"[39m
+            [33mx[39m=[32m"2"[39m
+            [33my[39m=[32m"4"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mplaceholder[39m=[32m"you@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+        [33mdisabled[39m=[32m""[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/marketing/newsletter-subscribe.test.tsx:15:20
+     13|     fireEvent.change(screen.getByPlaceholderText("you@example.com"), {…
+     14|     fireEvent.submit(screen.getByRole("button", { name: "Subscribe" })…
+     15|     expect((screen.getByRole("button", { name: /Subscribing/ }) as HTM…
+       |                    ^
+     16|     await act(async () => finish({ ok: true, json: async () => ({ ok: …
+     17|     expect(screen.getByRole("status").textContent).toContain("Check yo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/15]⎯
+
+ FAIL  src/components/marketing/newsletter-subscribe.test.tsx > newsletter states > keeps the email for retry after a connection failure
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative flex-1"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"16"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"20"[39m
+            [33mx[39m=[32m"2"[39m
+            [33my[39m=[32m"4"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mplaceholder[39m=[32m"you@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+        [33mdisabled[39m=[32m""[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<form[39m
+      [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative flex-1"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"16"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"20"[39m
+            [33mx[39m=[32m"2"[39m
+            [33my[39m=[32m"4"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mplaceholder[39m=[32m"you@example.com"[39m
+          [33mrequired[39m=[32m""[39m
+          [33mtype[39m=[32m"email"[39m
+          [33mvalue[39m=[32m"audit@example.com"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+        [33mdisabled[39m=[32m""[39m
+        [33mtype[39m=[32m"submit"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</form>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/marketing/newsletter-subscribe.test.tsx:24:26
+     22|     fireEvent.change(screen.getByPlaceholderText("you@example.com"), {…
+     23|     fireEvent.submit(screen.getByRole("button", { name: "Subscribe" })…
+     24|     expect((await screen.findByRole("alert")).textContent).toContain("…
+       |                          ^
+     25|     expect((screen.getByPlaceholderText("you@example.com") as HTMLInpu…
+     26|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/15]⎯
+
+ FAIL  src/components/marketing/newsletter-subscribe.test.tsx > newsletter states > provides a real privacy policy link beside the subscription form
+TestingLibraryElementError: Unable to find an accessible element with the role "link" and name "privacy policy"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"home-grid-kicker"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-muted-foreground mt-5 max-w-md text-base leading-7"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"home-grid-kicker"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-muted-foreground mt-3 max-w-sm text-sm leading-6"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-muted-foreground mt-4 text-xs"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Stay close to the signal.":
+  [36m<h2[39m
+    [33mclass[39m=[32m"font-display-tight text-foreground mt-5 max-w-lg text-[40px] sm:text-[54px]"[39m
+  [36m/>[39m
+
+  Name "Free, every two weeks.":
+  [36m<h3[39m
+    [33mclass[39m=[32m"font-display-tight text-foreground mt-5 text-[30px] sm:text-[38px]"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"border-border mt-9 space-y-3 border-t pt-5"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+    [33mplaceholder[39m=[32m"you@example.com"[39m
+    [33mrequired[39m=[32m""[39m
+    [33mtype[39m=[32m"email"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Subscribe":
+  [36m<button[39m
+    [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"home-grid-section bg-fog/35"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"home-grid-frame"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"home-grid-row"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"home-grid-cell col-span-6 px-6 py-14 sm:px-8 sm:py-16 lg:p-12"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"home-grid-kicker"[39m
+            [36m>[39m
+              [0mThe builder's digest[0m
+            [36m</p>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"font-display-tight text-foreground mt-5 max-w-lg text-[40px] sm:text-[54px]"[39m
+            [36m>[39m
+              [0mStay close to the signal.[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-muted-foreground mt-5 max-w-md text-base leading-7"[39m
+            [36m>[39m
+              [0mA short, focused digest for Apify builders. Product updates, Store strategy, and dev tips — nothing you didn't sign up for.[0m
+            [36m</p>[39m
+            [36m<ul[39m
+              [33mclass[39m=[32m"border-border mt-9 space-y-3 border-t pt-5"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-file-text text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 2v5a1 1 0 0 0 1 1h5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 9H8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 13H8"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 17H8"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mBuild breakdowns & Store teardowns[0m
+                [36m</span>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trending-up text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 7h6v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m22 7-8.5 8.5-5-5L2 17"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mKeyword & ranking insights you can act on[0m
+                [36m</span>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-calendar-clock text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 14v2.2l1.6 1"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 2v4"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 10h5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 2v4"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"16"[39m
+                    [33mcy[39m=[32m"16"[39m
+                    [33mr[39m=[32m"6"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mChangelog snapshots — what shipped, what's next[0m
+                [36m</span>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex items-center gap-3 text-sm"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-sparkles text-signal-orange h-4 w-4 shrink-0"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M20 2v4"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M22 4h-4"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"4"[39m
+                    [33mcy[39m=[32m"20"[39m
+                    [33mr[39m=[32m"2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0mAI-assisted Actor copy, schemas & README files[0m
+                [36m</span>[39m
+              [36m</li>[39m
+            [36m</ul>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"home-grid-cell bg-card/45 col-span-6 flex flex-col justify-center px-6 py-14 sm:px-8 sm:py-16 lg:p-12"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"home-grid-kicker"[39m
+            [36m>[39m
+              [0mJoin the digest[0m
+            [36m</p>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"font-display-tight text-foreground mt-5 text-[30px] sm:text-[38px]"[39m
+            [36m>[39m
+              [0mFree, every two weeks.[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-muted-foreground mt-3 max-w-sm text-sm leading-6"[39m
+            [36m>[39m
+              [0mNo spam. Unsubscribe anytime.[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-8 w-full max-w-lg"[39m
+            [36m>[39m
+              [36m<form[39m
+                [33mclass[39m=[32m"flex w-full items-stretch gap-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-mail text-slate absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"16"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"20"[39m
+                      [33mx[39m=[32m"2"[39m
+                      [33my[39m=[32m"4"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [36m<input[39m
+                    [33mclass[39m=[32m"workbench-control bg-card text-card-foreground placeholder:text-muted-foreground hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-offset-background disabled:bg-muted aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/25 flex w-full border px-3 py-2 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 border-border h-12 rounded-md pl-10 text-[15px]"[39m
+                    [33mplaceholder[39m=[32m"you@example.com"[39m
+                    [33mrequired[39m=[32m""[39m
+                    [33mtype[39m=[32m"email"[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m/>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"workbench-control inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-sans font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-primary bg-primary text-primary-foreground shadow-none hover:bg-primary/90 h-12 rounded-sm text-[15px] shrink-0 px-6"[39m
+                  [33mtype[39m=[32m"submit"[39m
+                [36m>[39m
+                  [0mSubscribe[0m
+                [36m</button>[39m
+              [36m</form>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-muted-foreground mt-4 text-xs"[39m
+            [36m>[39m
+              [0mBy subscribing you agree to our[0m
+              [0m [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"underline underline-offset-2"[39m
+              [36m>[39m
+                [0mprivacy policy[0m
+              [36m</span>[39m
+              [0m.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/marketing/newsletter-subscribe.test.tsx:29:19
+     27|   it("provides a real privacy policy link beside the subscription form…
+     28|     render(<NewsletterCta />);
+     29|     expect(screen.getByRole("link", { name: "privacy policy" }).getAtt…
+       |                   ^
+     30|   });
+     31| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/15]⎯
+
+ Test Files  5 failed (5)
+      Tests  15 failed | 1 passed (16)
+   Start at  08:11:10
+   Duration  3.20s (transform 283ms, setup 0ms, collect 1.14s, tests 5.41s, environment 709ms, prepare 180ms)
+

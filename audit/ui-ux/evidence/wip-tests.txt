@@ -1,0 +1,204 @@
+
+ RUN  v2.1.9 /workspace/actorconsole/apps/web
+
+ ✓ src/components/dashboard/apify-connect.test.tsx (8 tests) 501ms
+stderr | src/components/dashboard/financial-analytics-page.test.tsx > financial Actor-day presentation > renders cost comparisons, service categories, and unavailable coverage honestly
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+stderr | src/components/dashboard/financial-analytics-page.test.tsx > financial Actor-day presentation > renders the complete revenue table and stores a selected UTC day separately
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+stderr | src/components/dashboard/financial-analytics-page.test.tsx > financial Actor-day presentation > keeps the contextual daily table for cost drill-downs
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+stderr | src/components/dashboard/financial-analytics-page.test.tsx > financial Actor-day presentation > offers daily and weekly Actor usage tables and a specific-day drill-down
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+stderr | src/components/dashboard/financial-analytics-page.test.tsx > financial Actor-day presentation > renders a selected revenue day as a contextual Actor breakdown without a daily ledger
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+stderr | src/components/dashboard/financial-analytics-page.test.tsx > financial Actor-day presentation > keeps the actor picker open and combines rapid selections before the payload arrives
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+ ✓ src/components/dashboard/financial-analytics-page.test.tsx (11 tests) 735ms
+ ✓ src/components/dashboard/actors-workspace.test.tsx (11 tests) 1469ms
+ ✓ src/components/dashboard/billing-card.test.tsx (16 tests) 988ms
+ ✓ src/components/admin/ai-providers-manager.test.tsx (10 tests) 744ms
+ ✓ src/components/dashboard/bulk-publishing-workspace.test.tsx (8 tests) 1253ms
+   ✓ BulkPublishingWorkspace > renders default-build readiness true without false missing badges 368ms
+ ✓ src/components/intelligence/research-tools.test.tsx (13 tests) 600ms
+ ✓ src/components/dashboard/dashboard-shell.test.tsx (11 tests) 132ms
+stderr | src/app/(dashboard)/dashboard/mcp/page.test.tsx > MCP access page > creates, edits, rotates, and revokes fixed-purpose MCP credentials
+A component suspended inside an `act` scope, but the `act` call was not awaited. When testing React components that depend on asynchronous data, you must await the result:
+
+await act(() => ...)
+
+ ✓ src/app/(dashboard)/dashboard/mcp/page.test.tsx (4 tests) 770ms
+   ✓ MCP access page > creates, edits, rotates, and revokes fixed-purpose MCP credentials 434ms
+ ✓ src/components/dashboard/financial-trend-chart.test.tsx (12 tests) 946ms
+ ✓ src/components/dashboard/usage-costs-analytics.test.ts (5 tests) 9ms
+ ✓ src/components/dashboard/actor-optimization-review.test.tsx (3 tests) 504ms
+ ✓ src/components/dashboard/workspace-plan-banner.test.tsx (12 tests) 174ms
+ ✓ src/components/dashboard/dashboard-workbench.test.tsx (11 tests) 123ms
+ ✓ src/components/dashboard/sidebar.test.tsx (7 tests) 549ms
+ ✓ src/components/intelligence/profitability.test.tsx (6 tests) 189ms
+ ✓ src/components/admin/payment-gateway-row.test.tsx (6 tests) 333ms
+ ✓ src/components/dashboard/business-profile-switcher.test.tsx (7 tests) 181ms
+ ✓ src/lib/builders.test.ts (6 tests) 4ms
+ ✓ src/components/dashboard/actor-actions.test.tsx (5 tests) 322ms
+ ✓ src/components/dashboard/workspace-apify-required-page.test.tsx (8 tests) 96ms
+ ✓ test/app/billing-pages.test.tsx (13 tests) 129ms
+ ✓ src/components/dashboard/workspace-apify-connection-banner.test.tsx (17 tests) 121ms
+ ✓ src/components/admin/payment-gateways-manager.test.tsx (5 tests) 331ms
+ ✓ src/components/comparison/public-comparison-explorer.test.tsx (5 tests) 1008ms
+   ✓ public comparison explorer > searches for another builder without leaving the comparison and preserves the period 431ms
+   ✓ public comparison explorer > replaces a selected builder at the limit without changing the reporting period 421ms
+ ✓ src/components/dashboard/keyword-research.test.tsx (3 tests) 329ms
+ ❯ src/app/(dashboard)/dashboard/tools/tools.test.tsx (2 tests | 2 failed) 252ms
+   × dashboard research tool routes > renders pricing inside the real dashboard shell with internal navigation 182ms
+     → Expected container to be an Element, a Document or a DocumentFragment but got undefined.
+   × dashboard research tool routes > renders seo inside the real dashboard shell with internal navigation 69ms
+     → Expected container to be an Element, a Document or a DocumentFragment but got undefined.
+ ✓ src/app/extension/pair/pair-client.test.tsx (8 tests) 270ms
+ ✓ src/components/dashboard/apify-operations-summary.test.tsx (5 tests) 70ms
+ ✓ test/app/pricing-auth-flow.test.tsx (7 tests) 132ms
+ ✓ src/components/marketing/changelog-list.test.tsx (8 tests) 332ms
+ ✓ src/components/dashboard/apify-extension-connect.test.tsx (5 tests) 87ms
+ ✓ src/app/admin/usage-costs/page.test.tsx (2 tests) 172ms
+ ✓ src/components/marketing/pricing-cards.test.tsx (8 tests) 181ms
+ ✓ src/components/admin/user-actions.test.tsx (4 tests) 193ms
+ ✓ test/components/skeleton.test.tsx (9 tests) 51ms
+ ✓ src/app/admin/users/[id]/workspaces/[workspaceId]/page.test.tsx (5 tests) 101ms
+ ✓ src/components/dashboard/default-dashboard.test.tsx (5 tests) 94ms
+ ✓ src/components/dashboard/actor-metric-charts.test.ts (5 tests) 19ms
+ ✓ src/components/cookie-consent.test.tsx (12 tests) 50ms
+ ✓ src/components/dashboard/workspace-data-refresher.test.tsx (7 tests) 18ms
+ ✓ src/components/admin/integrations-collection.test.tsx (4 tests) 79ms
+ ✓ src/components/dashboard/actor-owner-analytics.test.tsx (3 tests) 38ms
+ ✓ src/components/admin/admin-row-actions.test.tsx (4 tests) 117ms
+ ✓ src/lib/session-client.test.tsx (4 tests) 24ms
+ ✓ src/components/dashboard/dashboard-navigation.test.ts (8 tests) 5ms
+ ✓ src/components/dashboard/actor-insights-history.test.tsx (3 tests) 89ms
+ ✓ src/components/dashboard/onboarding-gate.test.tsx (6 tests) 75ms
+ ✓ src/components/comparison/public-comparison-provider.test.tsx (4 tests) 59ms
+ ✓ src/components/auth/social-buttons.test.tsx (4 tests) 56ms
+ ✓ src/components/admin/changelog-editor.test.tsx (3 tests) 177ms
+ ✓ test/app/pricing-onboarding-flow.test.tsx (5 tests) 98ms
+ ✓ src/components/dashboard/publishing-overview.test.tsx (3 tests) 156ms
+ ✓ src/lib/backend-data.test.ts (3 tests) 6ms
+ ✓ src/components/admin/actors-table.test.tsx (2 tests) 124ms
+ ✓ src/components/admin/public-content-actions.test.tsx (3 tests) 166ms
+ ✓ src/lib/public-comparison.test.ts (3 tests) 4ms
+ ✓ src/components/charts/chart-system.test.tsx (3 tests) 70ms
+ ✓ src/components/marketing/observed-metric-bar-chart.test.tsx (4 tests) 52ms
+ ✓ src/components/docs/docs-shell.test.tsx (2 tests) 144ms
+ ✓ src/lib/documentation.test.ts (3 tests) 5ms
+ ✓ src/components/dashboard/copy-rewrite-dialog.test.tsx (1 test) 72ms
+ ✓ src/components/dashboard/pricing-dialog.test.tsx (2 tests) 96ms
+ ✓ src/components/dashboard/bulk-publishing-new-schedule.test.tsx (2 tests) 146ms
+ ✓ test/components/input.test.tsx (10 tests) 27ms
+ ✓ src/components/marketing/public-actor-documentation.test.tsx (2 tests) 65ms
+ ✓ src/components/dashboard/apify-background-refresh.test.tsx (3 tests) 16ms
+ ✓ src/components/dashboard/notification-detail-actions.test.tsx (1 test) 32ms
+ ✓ src/components/dashboard/logo-recommendations.test.tsx (1 test) 61ms
+ ✓ src/components/dashboard/bulk-status-operations.test.tsx (1 test) 61ms
+ ✓ test/components/card.test.tsx (6 tests) 18ms
+ ✓ src/components/admin/client-collection-controls.test.tsx (1 test) 34ms
+ ✓ src/components/dashboard/impersonation-banner.test.tsx (4 tests) 44ms
+ ✓ test/components/empty-state.test.tsx (7 tests) 33ms
+ ✓ src/lib/actor-refresh.test.ts (3 tests) 6ms
+ ✓ src/lib/server-api.test.ts (3 tests) 5ms
+ ✓ src/components/admin/feature-flag-row.test.tsx (2 tests) 48ms
+ ✓ src/components/comparison/comparison-chart-data.test.ts (3 tests) 3ms
+ ✓ src/components/admin/integration-editor.test.tsx (2 tests) 86ms
+ ✓ src/lib/public-pro-offers.test.ts (5 tests) 4ms
+ ✓ src/components/marketing/apify-markdown.test.tsx (2 tests) 48ms
+ ✓ test/components/button.test.tsx (7 tests) 31ms
+ ✓ src/lib/read-request.test.ts (6 tests) 5ms
+ ✓ src/components/dashboard/notification-center.test.tsx (1 test) 79ms
+ ✓ src/app/(dashboard)/dashboard/actors/[id]/runs/[runId]/page.test.tsx (2 tests) 64ms
+ ✓ test/components/marketing-header.test.tsx (3 tests) 73ms
+ ✓ test/components/badge.test.tsx (8 tests) 20ms
+ ✓ src/components/comparison/comparison-panel.test.tsx (1 test) 63ms
+ ✓ src/components/comparison/comparison-paths.test.ts (3 tests) 2ms
+ ✓ src/app/admin/integrations/[key]/page.test.tsx (2 tests) 28ms
+ ✓ test/lib/sentry-config.test.ts (3 tests) 23ms
+ ✓ test/app/default-dashboard-page.test.tsx (3 tests) 4ms
+ ✓ src/components/ui/action-dialog.test.tsx (2 tests) 80ms
+ ✓ src/components/admin/admin-registry-filters.test.tsx (1 test) 38ms
+ ✓ src/components/dashboard/keyword-comparison-page.test.tsx (2 tests) 78ms
+ ✓ src/lib/firebase.test.ts (2 tests) 11ms
+ ✓ src/lib/public-actor-content.test.ts (2 tests) 3ms
+ ✓ src/components/dashboard/copy-variant-history.test.tsx (2 tests) 54ms
+ ✓ src/lib/pro-billing-offers.test.ts (7 tests) 14ms
+ ✓ src/components/dashboard/topbar.test.tsx (1 test) 23ms
+ ✓ src/lib/admin/api.test.ts (2 tests) 3ms
+ ✓ src/lib/workspace-apify-connection.test.ts (7 tests) 2ms
+ ✓ src/components/dashboard/bulk-publishing-types.test.ts (10 tests) 2ms
+ ✓ src/components/intelligence/tool-actions.test.tsx (1 test) 5ms
+ ✓ src/components/docs/doc-article.test.tsx (2 tests) 50ms
+ ✓ src/components/comparison/public-comparison-items.test.ts (2 tests) 10ms
+ ✓ test/app/pricing-page.test.tsx (2 tests) 90ms
+ ✓ src/lib/public-asset-url.test.ts (2 tests) 2ms
+ ✓ src/components/marketing/interactive-bar-chart.test.tsx (1 test) 32ms
+ ✓ src/lib/safe-callback-url.test.ts (5 tests) 2ms
+ ✓ test/app/auth-layout.test.tsx (2 tests) 4ms
+ ✓ src/lib/plan-marketing-features.test.ts (2 tests) 3ms
+ ✓ src/lib/api-proxy.test.ts (11 tests) 11ms
+ ✓ src/middleware.test.ts (15 tests) 13ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/(dashboard)/dashboard/tools/tools.test.tsx > dashboard research tool routes > renders pricing inside the real dashboard shell with internal navigation
+ FAIL  src/app/(dashboard)/dashboard/tools/tools.test.tsx > dashboard research tool routes > renders seo inside the real dashboard shell with internal navigation
+TypeError: Expected container to be an Element, a Document or a DocumentFragment but got undefined.
+ ❯ checkContainerType ../../node_modules/@testing-library/dom/dist/helpers.js:61:11
+ ❯ queryAllByRole ../../node_modules/@testing-library/dom/dist/queries/role.js:34:35
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:74:17
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/app/(dashboard)/dashboard/tools/tools.test.tsx:126:48
+    124|       fireEvent.click(screen.getByRole("button", { name: "Toggle sideb…
+    125|       const mobileSidebar = screen.getAllByRole("complementary")[1];
+    126|       const mobileLink = within(mobileSidebar).getByRole("link", { nam…
+       |                                                ^
+    127|       expect(mobileLink.getAttribute("href")).toBe(mocks.path);
+    128|       expect(mobileLink.getAttribute("aria-current")).toBe("page");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed | 113 passed (114)
+      Tests  2 failed | 570 passed (572)
+   Start at  06:01:25
+   Duration  25.11s (transform 4.05s, setup 0ms, collect 21.42s, tests 17.94s, environment 17.27s, prepare 4.87s)
+
