@@ -1,0 +1,155 @@
+--- a/apps/api/src/middleware/auth.ts
++++ b/apps/api/src/middleware/auth.ts
+@@ -4,4 +4,5 @@
+ import { createHash } from "node:crypto";
+ import { checkRateLimit } from "../lib/rate-limit.js";
++import { hasImpersonationAuthority } from "../lib/impersonation-authority.js";
+ import { getLogger, isApiKeyScope, type ApiKeyScope, type UserSession } from "@actorconsole/shared";
+
+@@ -216,4 +217,11 @@
+           error: { code: "impersonation_expired", message: "Impersonation session expired" },
+         },
++        401,
++      );
++    }
++
++    if (session.impersonatedById && !(await hasImpersonationAuthority(session.impersonatedById))) {
++      return c.json(
++        { ok: false, error: { code: "impersonation_revoked", message: "Impersonation authority was revoked" } },
+         401,
+       );
+--- a/apps/api/src/lib/web-session.ts
++++ b/apps/api/src/lib/web-session.ts
+@@ -3,4 +3,5 @@
+ import type { WebSession } from "@actorconsole/shared/web-session";
+ import { currentRequest } from "./http-context.js";
++import { hasImpersonationAuthority } from "./impersonation-authority.js";
+
+ export async function readWebSession(request: Request): Promise<WebSession | null> {
+@@ -20,4 +21,5 @@
+   if (!session || session.expires <= new Date() ||
+       (session.impersonationExpiresAt && session.impersonationExpiresAt <= new Date())) return null;
++  if (session.impersonatedById && !(await hasImpersonationAuthority(session.impersonatedById))) return null;
+   const { user } = session;
+   return {
+--- /dev/null
++++ b/apps/api/src/lib/impersonation-authority.ts
+@@ -0,0 +1,11 @@
++import { db } from "@actorconsole/db";
++
++/** A derived session cannot retain powers its originating administrator lost. */
++export async function hasImpersonationAuthority(adminId: string): Promise<boolean> {
++  const admin = await db.user.findUnique({
++    where: { id: adminId },
++    select: { role: true, suspendedAt: true, deletionScheduledFor: true },
++  });
++  return Boolean(admin && !admin.suspendedAt && !admin.deletionScheduledFor &&
++    (admin.role === "ADMIN" || admin.role === "SUPER_ADMIN"));
++}
+--- /dev/null
++++ b/apps/api/test/lib/impersonation-authority.test.ts
+@@ -0,0 +1,47 @@
++import { Hono } from "hono";
++import { beforeEach, describe, expect, it, vi } from "vitest";
++
++const mocks = vi.hoisted(() => ({ session: vi.fn(), admin: vi.fn() }));
++vi.mock("@actorconsole/db", () => ({ db: {
++  session: { findUnique: mocks.session }, user: { findUnique: mocks.admin },
++} }));
++import { requireAuth } from "../../src/middleware/auth.js";
++import { readWebSession } from "../../src/lib/web-session.js";
++
++const target = { id: "target", email: "target@example.test", name: null, image: null, role: "USER", plan: "FREE", suspendedAt: null };
++const session = {
++  expires: new Date(Date.now() + 60_000), user: target,
++  impersonatedById: "admin-a", impersonationExpiresAt: new Date(Date.now() + 60_000),
++};
++const boundary = new Hono().use("*", requireAuth()).get("/protected", (c) => c.json(c.get("session")));
++const headers = { cookie: "authjs.session-token=mimic-fixture" };
++
++describe("derived impersonation authority", () => {
++  beforeEach(() => { vi.resetAllMocks(); mocks.session.mockResolvedValue(session); });
++
++  it.each([
++    null,
++    { role: "USER", suspendedAt: null, deletionScheduledFor: null },
++    { role: "ADMIN", suspendedAt: new Date(), deletionScheduledFor: null },
++    { role: "SUPER_ADMIN", suspendedAt: null, deletionScheduledFor: new Date() },
++  ])("rejects protected and public session reads when the originating admin loses authority %#", async (admin) => {
++    mocks.admin.mockResolvedValue(admin);
++    const response = await boundary.request("/protected", { headers });
++    expect(response.status).toBe(401);
++    expect(await readWebSession(new Request("http://localhost/auth/session", { headers }))).toBeNull();
++    expect(mocks.admin).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "admin-a" } }));
++  });
++
++  it.each(["ADMIN", "SUPER_ADMIN"])("preserves a valid %s impersonation", async (role) => {
++    mocks.admin.mockResolvedValue({ role, suspendedAt: null, deletionScheduledFor: null });
++    expect((await boundary.request("/protected", { headers })).status).toBe(200);
++    expect((await readWebSession(new Request("http://localhost/auth/session", { headers })))?.user.id).toBe(target.id);
++  });
++
++  it("does not add an authority lookup for an ordinary session", async () => {
++    mocks.session.mockResolvedValue({ ...session, impersonatedById: null, impersonationExpiresAt: null });
++    expect((await boundary.request("/protected", { headers })).status).toBe(200);
++    expect((await readWebSession(new Request("http://localhost/auth/session", { headers })))?.user.id).toBe(target.id);
++    expect(mocks.admin).not.toHaveBeenCalled();
++  });
++});
+--- a/apps/api/src/routes/admin.ts
++++ b/apps/api/src/routes/admin.ts
+@@ -630,9 +630,9 @@
+       });
+
+-      const revokeSessions = Boolean(body.suspendedAt);
++      const revokeSessions = Boolean(body.suspendedAt) || (body.role && body.role !== before.role);
+       const updated = revokeSessions
+         ? (await db.$transaction([
+             update,
+-            db.session.deleteMany({ where: { userId: id } }),
++            db.session.deleteMany({ where: { OR: [{ userId: id }, { impersonatedById: id }] } }),
+           ]))[0]
+         : await update;
+@@ -654,5 +654,5 @@
+     const suspendedAt = new Date();
+     const [, updated] = await db.$transaction([
+-      db.session.deleteMany({ where: { userId: id } }),
++      db.session.deleteMany({ where: { OR: [{ userId: id }, { impersonatedById: id }] } }),
+       db.user.update({ where: { id }, data: { suspendedAt } }),
+     ]);
+--- a/apps/api/test/routes/admin-user-authorization.test.ts
++++ b/apps/api/test/routes/admin-user-authorization.test.ts
+@@ -57,10 +57,10 @@
+   });
+
+-  it.each(["ADMIN", "SUPER_ADMIN"])("allows %s to suspend ordinary users and revokes their sessions", async (role) => {
++  it.each(["ADMIN", "SUPER_ADMIN"])("allows %s to suspend ordinary users and revokes their direct/derived sessions", async (role) => {
+     caller(role);
+     mocks.user.findUnique.mockResolvedValue({ id: "target", role: "USER", suspendedAt: null });
+     expect((await request("target", "PATCH", { suspendedAt: new Date().toISOString() })).status).toBe(200);
+     expect(mocks.session.deleteMany).toHaveBeenCalledWith({
+-      where: { userId: "target" },
++      where: { OR: [{ userId: "target" }, { impersonatedById: "target" }] },
+     });
+     expect(mocks.transaction).toHaveBeenCalledOnce();
+@@ -74,9 +74,18 @@
+   });
+
+-  it("revokes sessions on the dedicated suspension path", async () => {
++  it("revokes derived impersonation when a privileged user is demoted", async () => {
++    caller("SUPER_ADMIN");
++    mocks.user.findUnique.mockResolvedValue({ id: "target", role: "ADMIN", suspendedAt: null });
++    expect((await request("target", "PATCH", { role: "USER" })).status).toBe(200);
++    expect(mocks.session.deleteMany).toHaveBeenCalledWith({
++      where: { OR: [{ userId: "target" }, { impersonatedById: "target" }] },
++    });
++  });
++
++  it("revokes direct and derived sessions on the dedicated suspension path", async () => {
+     mocks.user.findUnique.mockResolvedValue({ id: "target", role: "USER", suspendedAt: null });
+     expect((await request("target/suspend", "POST")).status).toBe(200);
+     expect(mocks.session.deleteMany).toHaveBeenCalledWith({
+-      where: { userId: "target" },
++      where: { OR: [{ userId: "target" }, { impersonatedById: "target" }] },
+     });
+   });

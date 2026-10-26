@@ -1,0 +1,298 @@
+--- a/packages/shared/src/totp.ts
++++ b/packages/shared/src/totp.ts
+@@ -63,13 +63,18 @@
+ }
+
+-export function verifyTotpCode(secret: string, code: string, timestampMs = Date.now()): boolean {
++/** Return the newest matching step so callers can claim it once in durable storage. */
++export function matchTotpStep(secret: string, code: string, timestampMs = Date.now()): number | null {
+   const normalized = code.replace(/\s/g, "");
+-  if (!/^\d{6}$/.test(normalized)) return false;
+-  for (const drift of [-1, 0, 1]) {
++  if (!/^\d{6}$/.test(normalized)) return null;
++  for (const drift of [1, 0, -1]) {
+     if (safeCodeEqual(normalized, totpCode(secret, timestampMs + drift * PERIOD_SECONDS * 1000))) {
+-      return true;
++      return Math.floor(timestampMs / 1000 / PERIOD_SECONDS) + drift;
+     }
+   }
+-  return false;
++  return null;
++}
++
++export function verifyTotpCode(secret: string, code: string, timestampMs = Date.now()): boolean {
++  return matchTotpStep(secret, code, timestampMs) !== null;
+ }
+
+--- a/packages/shared/src/totp.test.ts
++++ b/packages/shared/src/totp.test.ts
+@@ -4,4 +4,5 @@
+   generateTotpSecret,
+   hashRecoveryCode,
++  matchTotpStep,
+   totpCode,
+   totpUri,
+@@ -41,3 +42,14 @@
+     );
+   });
++
++  it("returns the accepted step while preserving adjacent-window tolerance", () => {
++    const secret = "JBSWY3DPEHPK3PXP";
++    const now = 1_700_000_000_000;
++    const step = Math.floor(now / 30_000);
++    for (const drift of [-1, 0, 1]) {
++      expect(matchTotpStep(secret, totpCode(secret, now + drift * 30_000), now)).toBe(step + drift);
++    }
++    expect(matchTotpStep(secret, "not-a-code", now)).toBeNull();
++    expect(matchTotpStep(secret, totpCode(secret, now - 90_000), now)).toBeNull();
++  });
+ });
+--- a/packages/db/prisma/schema.prisma
++++ b/packages/db/prisma/schema.prisma
+@@ -30,4 +30,5 @@
+   totpSecretEncrypted   String?   @db.Text
+   totpRecoveryCodes     Json      @default("[]")
++  totpLastUsedStep      Int?
+   deletionRequestedAt   DateTime?
+   deletionScheduledFor  DateTime?
+--- /dev/null
++++ b/packages/db/prisma/migrations/20261026080000_totp_replay_protection/migration.sql
+@@ -0,0 +1,2 @@
++-- Existing accounts begin with no accepted step; secrets and recovery codes are unchanged.
++ALTER TABLE `User` ADD COLUMN `totpLastUsedStep` INTEGER NULL;
+--- /dev/null
++++ b/apps/api/src/lib/two-factor-totp.ts
+@@ -0,0 +1,20 @@
++import type { Prisma } from "@actorconsole/db";
++
++/** Atomically claim an increasing TOTP step against the exact factor verified. */
++export async function claimTotpStep(
++  client: Pick<Prisma.TransactionClient, "user">,
++  userId: string,
++  encryptedSecret: string,
++  step: number,
++): Promise<boolean> {
++  const claim = await client.user.updateMany({
++    where: {
++      id: userId,
++      totpEnabled: true,
++      totpSecretEncrypted: encryptedSecret,
++      OR: [{ totpLastUsedStep: null }, { totpLastUsedStep: { lt: step } }],
++    },
++    data: { totpLastUsedStep: step },
++  });
++  return claim.count === 1;
++}
+--- a/apps/api/src/lib/server-session.ts
++++ b/apps/api/src/lib/server-session.ts
+@@ -3,8 +3,9 @@
+ import { createHash, randomBytes } from "node:crypto";
+ import { db, Prisma } from "@actorconsole/db";
+-import { decrypt, getLogger, hashRecoveryCode, verifyTotpCode } from "@actorconsole/shared";
++import { decrypt, getLogger, hashRecoveryCode, matchTotpStep } from "@actorconsole/shared";
+ import { getAuthSessionCookieName, getAuthSessionCookieOptions } from "./auth-session-cookie.js";
+ import { consumeTwoFactorRecoveryCode } from "./two-factor-recovery.js";
+ import { getAuthRequestIp } from "./auth-request-ip.js";
++import { claimTotpStep } from "./two-factor-totp.js";
+
+ const log = getLogger("api:auth");
+@@ -99,4 +100,5 @@
+     const passphrase = process.env.APP_ENCRYPTION_KEY;
+     let valid = false;
++    let totpStep: number | null = null;
+     let recoveryHash: string | null = null;
+     if (passphrase && user.totpSecretEncrypted) {
+@@ -107,5 +109,6 @@
+           `${TOTP_KEY_PREFIX}${user.id}`,
+         );
+-        valid = verifyTotpCode(secret, input.totpCode);
++        totpStep = matchTotpStep(secret, input.totpCode);
++        valid = totpStep !== null;
+       } catch (error) {
+         log.error({ error, userId: user.id }, "Two-factor secret could not be decrypted");
+@@ -146,9 +149,13 @@
+       log.info({ userId: user.id }, "A recovery code was used for sign-in");
+     } else {
+-      const claim = await db.twoFactorChallenge.updateMany({
+-        where: { id: challenge.id, usedAt: null, attempts: challenge.attempts },
+-        data: { usedAt: new Date() },
++      const consumed = await db.$transaction(async (tx) => {
++        const claim = await tx.twoFactorChallenge.updateMany({
++          where: { id: challenge.id, usedAt: null, attempts: challenge.attempts },
++          data: { usedAt: new Date() },
++        });
++        if (claim.count !== 1) return false;
++        return claimTotpStep(tx, user.id, user.totpSecretEncrypted!, totpStep!);
+       });
+-      if (claim.count !== 1) {
++      if (!consumed) {
+         return JsonResponse.json(
+           { ok: false, error: "The two-factor challenge has expired" },
+--- a/apps/api/src/routes/account.ts
++++ b/apps/api/src/routes/account.ts
+@@ -13,4 +13,5 @@
+ import { loadPublishingOverview } from "../lib/publishing-overview.js";
+ import { consumeTwoFactorRecoveryCode } from "../lib/two-factor-recovery.js";
++import { claimTotpStep } from "../lib/two-factor-totp.js";
+ import { checkRateLimit } from "../lib/rate-limit";
+ import { ApifyClientError, getApifyAccountIdentity } from "@actorconsole/apify";
+@@ -31,5 +32,5 @@
+   hashRecoveryCode,
+   totpUri,
+-  verifyTotpCode,
++  matchTotpStep,
+ } from "@actorconsole/shared";
+ import type { McpCapability } from "@actorconsole/shared";
+@@ -111,6 +112,8 @@
+   if (!user?.totpEnabled || !user.totpSecretEncrypted) return null;
+   const secret = decrypt(user.totpSecretEncrypted, encryptionKey(), `${TOTP_KEY_PREFIX}${userId}`);
+-  if (verifyTotpCode(secret, code)) {
+-    return { factor: "totp", encryptedSecret: user.totpSecretEncrypted };
++  const step = matchTotpStep(secret, code);
++  if (step !== null) {
++    return await claimTotpStep(db, userId, user.totpSecretEncrypted, step)
++      ? { factor: "totp", encryptedSecret: user.totpSecretEncrypted } : null;
+   }
+
+@@ -737,4 +740,5 @@
+         ),
+         totpRecoveryCodes: [],
++        totpLastUsedStep: null,
+       },
+     });
+@@ -772,5 +776,6 @@
+         `${TOTP_KEY_PREFIX}${session.userId}`,
+       );
+-      if (!verifyTotpCode(secret, code)) {
++      const step = matchTotpStep(secret, code);
++      if (step === null) {
+         throw new AppError("totp_invalid", "That verification code is not valid", 400);
+       }
+@@ -784,4 +789,5 @@
+         data: {
+           totpEnabled: true,
++          totpLastUsedStep: step,
+           totpRecoveryCodes: recoveryCodes.map((value) =>
+             hashRecoveryCode(value, session.userId, encryptionKey()),
+@@ -807,5 +813,5 @@
+       const disabled = await db.user.updateMany({
+         where: { id: session.userId, totpEnabled: true, totpSecretEncrypted: factor.encryptedSecret },
+-        data: { totpEnabled: false, totpSecretEncrypted: null, totpRecoveryCodes: [] },
++        data: { totpEnabled: false, totpSecretEncrypted: null, totpRecoveryCodes: [], totpLastUsedStep: null },
+       });
+       if (disabled.count !== 1) {
+--- a/apps/api/test/lib/server-session.test.ts
++++ b/apps/api/test/lib/server-session.test.ts
+@@ -43,4 +43,5 @@
+ describe("two-factor session creation", () => {
+   let remaining: string[];
++  let lastUsedStep: number | null;
+   let challenges: Map<string, { id: string; userId: string; expiresAt: Date; attempts: number; usedAt: Date | null }>;
+
+@@ -50,4 +51,5 @@
+     vi.stubEnv("AUTH_URL", "http://localhost");
+     remaining = [...user.totpRecoveryCodes as string[]];
++    lastUsedStep = null;
+     challenges = new Map(["challenge-a", "challenge-b"].map((token) => [
+       createHash("sha256").update(token).digest("hex"),
+@@ -72,4 +74,9 @@
+     });
+     mocks.user.updateMany.mockImplementation(async ({ where, data }) => {
++      if (where.OR) {
++        if (lastUsedStep !== null && lastUsedStep >= data.totpLastUsedStep) return { count: 0 };
++        lastUsedStep = data.totpLastUsedStep;
++        return { count: 1 };
++      }
+       if (JSON.stringify(where.totpRecoveryCodes.equals) !== JSON.stringify(remaining)) return { count: 0 };
+       remaining = data.totpRecoveryCodes;
+@@ -112,4 +119,36 @@
+   });
+
++  it("rejects reuse of one TOTP value across separate challenges", async () => {
++    const code = totpCode(secret);
++    expect((await signIn("challenge-a", code)).status).toBe(200);
++    expect((await signIn("challenge-b", code)).status).toBe(401);
++    expect(mocks.createSession).toHaveBeenCalledOnce();
++  });
++
++  it("atomically accepts one of two concurrent challenges using the same TOTP step", async () => {
++    const code = totpCode(secret);
++    const responses = await Promise.all([signIn("challenge-a", code), signIn("challenge-b", code)]);
++    expect(responses.map((response) => response.status).sort()).toEqual([200, 401]);
++    expect(mocks.createSession).toHaveBeenCalledOnce();
++  });
++
++  it("does not move the accepted counter backwards inside the clock-drift window", async () => {
++    expect((await signIn("challenge-a", totpCode(secret, Date.now() + 30_000))).status).toBe(200);
++    expect((await signIn("challenge-b", totpCode(secret))).status).toBe(401);
++    expect(mocks.createSession).toHaveBeenCalledOnce();
++  });
++
++  it("accepts a later TOTP step after an earlier successful sign-in", async () => {
++    expect((await signIn("challenge-a", totpCode(secret))).status).toBe(200);
++    expect((await signIn("challenge-b", totpCode(secret, Date.now() + 30_000))).status).toBe(200);
++    expect(mocks.createSession).toHaveBeenCalledTimes(2);
++  });
++
++  it("does not issue a session if the verified factor changed before its atomic claim", async () => {
++    mocks.user.updateMany.mockResolvedValue({ count: 0 });
++    expect((await signIn("challenge-a", totpCode(secret))).status).toBe(401);
++    expect(mocks.createSession).not.toHaveBeenCalled();
++  });
++
+   it("counts invalid second factors without issuing a session", async () => {
+     const response = await signIn("challenge-a", "wrong-code");
+--- a/apps/api/test/routes/account.test.ts
++++ b/apps/api/test/routes/account.test.ts
+@@ -123,5 +123,5 @@
+     const secret = "JBSWY3DPEHPK3PXP";
+     const recoveryCode = "ABCDE-12345";
+-    let state: { totpEnabled: boolean; totpSecretEncrypted: string; totpRecoveryCodes: string[] };
++    let state: { totpEnabled: boolean; totpSecretEncrypted: string; totpRecoveryCodes: string[]; totpLastUsedStep: number | null };
+
+     beforeEach(() => {
+@@ -131,4 +131,5 @@
+         totpSecretEncrypted: encrypt(secret, passphrase, `totp:${mockSession.userId}`),
+         totpRecoveryCodes: [hashRecoveryCode(recoveryCode, mockSession.userId, passphrase)],
++        totpLastUsedStep: null,
+       };
+       mockDb.user.findUnique.mockImplementation(async () => structuredClone(state));
+@@ -141,4 +142,7 @@
+           (where.totpSecretEncrypted !== undefined && where.totpSecretEncrypted !== state.totpSecretEncrypted) ||
+           (where.totpRecoveryCodes && JSON.stringify(where.totpRecoveryCodes.equals) !== JSON.stringify(state.totpRecoveryCodes))) {
++          return { count: 0 };
++        }
++        if (where.OR && state.totpLastUsedStep !== null && state.totpLastUsedStep >= data.totpLastUsedStep) {
+           return { count: 0 };
+         }
+@@ -193,4 +197,5 @@
+       const { data } = await response.json();
+       expect(state.totpEnabled).toBe(true);
++      expect(state.totpLastUsedStep).toBe(Math.floor(Date.now() / 30_000));
+       expect(data.recoveryCodes).toHaveLength(8);
+       expect(state.totpRecoveryCodes).toEqual(data.recoveryCodes.map((code: string) =>
+@@ -199,9 +204,20 @@
+     });
+
++    it("rejects TOTP replay across security actions while accepting the next valid step", async () => {
++      const code = totpCode(secret);
++      expect((await factorRequest("/2fa/recovery-codes", code)).status).toBe(200);
++      expect((await factorRequest("/2fa/disable", code)).status).toBe(400);
++      expect(state.totpEnabled).toBe(true);
++      expect((await factorRequest("/2fa/disable", totpCode(secret, Date.now() + 30_000))).status).toBe(200);
++      expect(state.totpEnabled).toBe(false);
++      expect(state.totpLastUsedStep).toBeNull();
++    });
++
+     it.each(["disable", "recovery-codes"])("does not apply %s to a factor replaced after verification", async (action) => {
+-      mockDb.user.findUnique.mockImplementationOnce(async () => {
+-        const loaded = structuredClone(state);
+-        state.totpSecretEncrypted = "newly-confirmed-factor";
+-        return loaded;
++      const originalUpdate = mockDb.user.updateMany.getMockImplementation()!;
++      mockDb.user.updateMany.mockImplementation(async (args) => {
++        const result = await originalUpdate(args);
++        if (args.where.OR && result.count === 1) state.totpSecretEncrypted = "newly-confirmed-factor";
++        return result;
+       });
+       const response = await factorRequest(`/2fa/${action}`, totpCode(secret));
