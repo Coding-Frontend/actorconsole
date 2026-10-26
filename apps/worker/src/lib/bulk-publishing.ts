@@ -28,14 +28,18 @@ export async function ensureSuccessfulActorRun(
   actorId: string,
   input: Record<string, unknown> = {},
   waitSecs = 900,
+  assertLease?: () => Promise<void>,
 ): Promise<{ run: ApifyRun; started: boolean }> {
+  await assertLease?.();
   const [latestRun] = await apify.listActorRuns(actorId, { limit: 1, desc: true });
+  await assertLease?.();
   if (latestRun && isSuccessfulRun(latestRun)) {
     return { run: latestRun, started: false };
   }
 
   if (latestRun && !FAILED_RUN_STATUSES.has(latestRun.status.trim().toUpperCase())) {
     const finishedExistingRun = await apify.waitForRun(latestRun.id, waitSecs);
+    await assertLease?.();
     if (isSuccessfulRun(finishedExistingRun)) {
       return { run: finishedExistingRun, started: false };
     }
@@ -44,8 +48,11 @@ export async function ensureSuccessfulActorRun(
     assertRunFinished(finishedExistingRun);
   }
 
+  await assertLease?.();
   const startedRun = await apify.startActorRun(actorId, input);
+  await assertLease?.();
   const finishedRun = await apify.waitForRun(startedRun.id, waitSecs);
+  await assertLease?.();
   assertRunFinished(finishedRun);
   if (!isSuccessfulRun(finishedRun)) {
     throw new Error(

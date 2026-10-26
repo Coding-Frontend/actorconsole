@@ -41,6 +41,11 @@ import { syncActorOperationalData } from "./lib/operational-usage.js";
 import { reconcileExpiredSubscriptions } from "./lib/subscription-expiry.js";
 import { refreshWorkspaceAudience } from "./lib/workspace-audience.js";
 
+import {
+  withPublishingLease,
+  PublishingLeaseLostError,
+  type PublishingLease,
+} from "./lib/publishing-lease.js";
 import { createLeaderLock, scheduleTickLock } from "./lib/leader-election.js";
 import {
   needsDailyStoreCatalogCatchup,
@@ -446,8 +451,10 @@ async function runBulkActorStatusOperation(job: Job, payload: BulkActorStatusPay
 
 async function runBulkPublishSchedule(job: Job, scheduleId: string, force = false) {
   const redis = getRedis();
-  const runLock = createLeaderLock(`actorconsole:worker:bulk-publish:${scheduleId}:lock`, 60 * 60);
-  if (!(await runLock.tryAcquire(redis))) {
+  const leased = await withPublishingLease(redis, scheduleId, (lease) =>
+    runBulkPublishScheduleUnlocked(job, scheduleId, force, lease),
+  );
+  if (!leased.acquired) {
     const outcome = {
       status: "SKIPPED_ALREADY_RUNNING",
       scheduleId,
@@ -466,18 +473,16 @@ async function runBulkPublishSchedule(job: Job, scheduleId: string, force = fals
     return outcome;
   }
 
-  try {
-    return await runBulkPublishScheduleUnlocked(job, scheduleId, force);
-  } finally {
-    await runLock
-      .release(redis)
-      .catch((error) =>
-        log.warn({ err: error, scheduleId }, "Could not release bulk publishing run lock"),
-      );
-  }
+  return leased.value;
 }
 
-async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, force = false) {
+async function runBulkPublishScheduleUnlocked(
+  job: Job,
+  scheduleId: string,
+  force: boolean,
+  lease: PublishingLease,
+) {
+  await lease.assertHeld();
   const schedule = await db.bulkPublishSchedule.findUnique({
     where: { id: scheduleId },
     include: {
@@ -489,9 +494,11 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
       },
     },
   });
+  await lease.assertHeld();
   if (!schedule || (!schedule.enabled && !force)) return;
   if (!planHasFeature(schedule.businessProfile.plan, "publishing")) return;
   await assertWorkspacePlanAccess(schedule.userId, schedule.businessProfileId);
+  await lease.assertHeld();
   if (schedule.actors.length === 0) {
     await db.bulkPublishSchedule.update({
       where: { id: schedule.id },
@@ -526,7 +533,29 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
   const run = await db.bulkPublishScheduleRun.create({
     data: { scheduleId: schedule.id, status: "RUNNING" },
   });
+  const assertLease = async () => {
+    try {
+      await lease.assertHeld();
+    } catch (error) {
+      if (error instanceof PublishingLeaseLostError) {
+        // Only this run's history is finalized after loss. Shared Actor and
+        // schedule state is left for the current owner/reconciliation.
+        await db.bulkPublishScheduleRun
+          .updateMany({
+            where: { id: run.id, status: "RUNNING" },
+            data: {
+              status: "FAILED",
+              stoppedReason: "PUBLISHING_LEASE_LOST",
+              completedAt: new Date(),
+            },
+          })
+          .catch(() => log.warn({ runId: run.id }, "Could not record lost publishing lease"));
+      }
+      throw error;
+    }
+  };
   const apify = await getUserApifyClient(schedule.userId, schedule.businessProfileId);
+  await assertLease();
   if (!apify) {
     const message = "Connect a valid Apify API key before running this publishing schedule.";
     await db.bulkPublishScheduleRun.update({
@@ -558,6 +587,7 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
     candidates.map((item) => ({ actorId: item.actorId, status: "QUEUED" }));
 
   const publishProgress = async () => {
+    await assertLease();
     const completed = results.filter((result) =>
       ["PUBLISHED", "ALREADY_PUBLISHED", "FAILED", "BLOCKED", "QUOTA_BLOCKED"].includes(
         result.status,
@@ -588,6 +618,7 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
   await publishProgress();
 
   for (let index = 0; index < candidates.length; index += 1) {
+    await assertLease();
     const item = candidates[index]!;
     results[index] = { actorId: item.actorId, status: "RUNNING" };
     attemptedCount += 1;
@@ -595,14 +626,17 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
     try {
       const live = await apify.getActor(item.actor.apifyActorId);
       if (!live) throw new Error("Actor was not found on Apify");
+      await assertLease();
       const publicationPreflight = await apify.getActorPublicationPreflight(
         item.actor.apifyActorId,
       );
+      await assertLease();
       const readiness = await loadActorPublishReadiness(apify, live, {
         publicProfile: publicationPreflight.checks.publicProfile,
         verifiedEmail: publicationPreflight.checks.verifiedEmail,
         nonDisposableEmail: publicationPreflight.checks.nonDisposableEmail,
       });
+      await assertLease();
       await db.actor.update({
         where: { id: item.actorId },
         data: actorReadinessData(readiness),
@@ -615,6 +649,8 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
           apify,
           item.actor.apifyActorId,
           jsonObject(live.defaultRunInput) ?? {},
+          900,
+          assertLease,
         );
       }
       // Clearing lifecycle flags is a separate operation from publishing.
@@ -624,17 +660,20 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
       const needsLifecycleReset =
         !live.isPublic || live.isDeprecated === true || live.notice === "UNDER_MAINTENANCE";
       if (needsLifecycleReset) {
+        await assertLease();
         await apify.updateActorStoreStatus(item.actor.apifyActorId, {
           underMaintenance: false,
           isDeprecated: false,
         });
       }
       if (!live.isPublic) {
+        await assertLease();
         const published = await apify.publishActor(item.actor.apifyActorId);
         if (!published.isPublic) {
           throw new Error("Apify did not confirm that the Actor was published");
         }
       }
+      await assertLease();
       const publishedAt = new Date();
       await db.$transaction([
         db.bulkPublishScheduleActor.update({
@@ -669,6 +708,7 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
         status: needsLifecycleReset || !live.isPublic ? "PUBLISHED" : "ALREADY_PUBLISHED",
       };
     } catch (error) {
+      await assertLease();
       const message = error instanceof Error ? error.message : String(error);
       const quotaExceeded =
         error instanceof ApifyClientError && error.code === "daily_publication_limit";
@@ -712,6 +752,7 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
     if (index + 1 < candidates.length) await delayApifyBulkOperation();
   }
 
+  await assertLease();
   const nextRunAt = nextBulkPublishRun(schedule.cronExpr);
   const remainingCount = await db.bulkPublishScheduleActor.count({
     where: {
@@ -719,6 +760,7 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
       status: { in: [...BULK_PUBLISH_ELIGIBLE_ACTOR_STATUSES] },
     },
   });
+  await assertLease();
   const finalStatus = stoppedReason
     ? "QUOTA_BLOCKED"
     : results.some((result) => result.status === "FAILED" || result.status === "BLOCKED")
@@ -769,6 +811,7 @@ async function runBulkPublishScheduleUnlocked(job: Job, scheduleId: string, forc
     stoppedReason,
     items: results,
   };
+  await assertLease();
   await job.updateProgress({
     kind: "BULK_PUBLISH_SCHEDULE",
     runId: run.id,

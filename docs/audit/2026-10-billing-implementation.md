@@ -1,6 +1,6 @@
 # Billing implementation handoff — 2026-10-26
 
-> Integration note: selected source/tests, the additive migration and concise reports are imported from verified owner `ac5649bf6cdec57c0d0754687f47edf0b86ad6ed`. Bulk logs, JSON and scratch fixtures remain on the [owner evidence branch](https://github.com/Coding-Frontend/actorconsole/tree/ac5649bf6cdec57c0d0754687f47edf0b86ad6ed/docs/audit/evidence/billing-queues/). Owner counts below are independent; [the integration record](2026-10-integration.md) records combined verification. BQ-S1 and BQ-S2 are not resolved. No deployment or production migration is authorized.
+> Integration note: selected source/tests, the additive migration and concise reports are imported from verified owner `ac5649bf6cdec57c0d0754687f47edf0b86ad6ed`. Bulk logs, JSON and scratch fixtures remain on the [owner evidence branch](https://github.com/Coding-Frontend/actorconsole/tree/ac5649bf6cdec57c0d0754687f47edf0b86ad6ed/docs/audit/evidence/billing-queues/). Owner counts below are independent; [the integration record](2026-10-integration.md) records combined verification. BQ-S1 remains a policy hold; BQ-S2's later confirmed follow-up is recorded separately. No deployment or production migration is authorized.
 
 The user explicitly authorized implementation, commits and a normal push to the scoped handoff branch after the planning-only audit. This document supersedes the original report's planning-phase disposition; the original findings/evidence remain a baseline record.
 
@@ -58,7 +58,7 @@ These ports identify only this owned disposable fixture, not a production target
 ## Remaining decisions and limits
 
 - **BQ-S1 remains decision-needed, not silently fixed:** whether unpaid completed checkout/created-authenticated subscription should grant provisional access. The optional clarification was asked; current commercial/access policy was preserved.
-- **BQ-S2 remains suspected/untested:** a publishing run outliving its one-hour distributed lock. This batch does not expand into long-running publishing-lock redesign or load tests.
+- **BQ-S2 was outside this batch; now confirmed and fixed in a separate follow-up:** see [the bounded publishing-lease reproduction, fix and coverage limits](2026-10-bq-s2-publishing-lease.md). The BQ-01–09 batch's historical counts above remain unchanged.
 - Unknown checkout/cancellation and stuck RUNNING dispatch outcomes intentionally require reconciliation; no age-based release, blind provider create, or operator UI is added. This trades automatic retry convenience for avoiding duplicate external operations.
 - No provider sandbox/browser purchase/cancel/refund acceptance flow was executed. Database tests use real isolated MariaDB/Redis and mocked providers; they do not prove external metadata propagation or merchant configuration. The integration coordinator still owns rollout and acceptance.
 - Existing daily expiry timing, provisional rules, historical cost provenance, frontend unknown-count display, retention and financial settlement policies are preserved. The two unrelated schema drift statements need coordination.

@@ -1,6 +1,6 @@
 # Billing, usage, integrations and queue audit — 2026-10-26
 
-> Integration note: selected source/tests, the additive migration and concise reports are imported from verified owner `ac5649bf6cdec57c0d0754687f47edf0b86ad6ed`. Bulk logs, JSON and scratch fixtures remain on the [owner evidence branch](https://github.com/Coding-Frontend/actorconsole/tree/ac5649bf6cdec57c0d0754687f47edf0b86ad6ed/docs/audit/evidence/billing-queues/). Owner counts below are independent; [the integration record](2026-10-integration.md) records combined verification. BQ-S1 and BQ-S2 are not resolved. No deployment or production migration is authorized.
+> Integration note: selected source/tests, the additive migration and concise reports are imported from verified owner `ac5649bf6cdec57c0d0754687f47edf0b86ad6ed`. Bulk logs, JSON and scratch fixtures remain on the [owner evidence branch](https://github.com/Coding-Frontend/actorconsole/tree/ac5649bf6cdec57c0d0754687f47edf0b86ad6ed/docs/audit/evidence/billing-queues/). Owner counts below are independent; [the integration record](2026-10-integration.md) records combined verification. BQ-S1 remains a policy hold; BQ-S2's later confirmed follow-up is recorded separately. No deployment or production migration is authorized.
 
 ## Executive assessment
 
@@ -160,7 +160,7 @@ All source line references below are **at the recorded baseline SHA**, unless ex
 ## Suspected / policy-dependent items
 
 - **BQ-S1:** baseline `billing.ts:479` unconditionally grants Pro on `checkout.session.completed`, including non-paid sessions; `razorpay.ts:354` through `:394` grants Pro for created/authenticated as well as activated subscription events. Payment/activation semantics could permit trials or provisional access. Source behavior is confirmed; whether it violates intended entitlement policy is **SUSPECTED**, not a proven exploit. Obtain the exact policy; do not invent prices, settlement, refunds or grace rules.
-- **BQ-S2:** `apps/worker/src/index.ts:867` holds a one-hour publishing lock with no renewal; multiple validation runs can each wait up to 900 s (`apps/worker/src/lib/bulk-publishing.ts:23`). Another forced job may acquire after expiry while the original remains active. No long-running overlap test was performed. Verify with a bounded fake-clock fixture before assigning confirmed severity; no load test is needed.
+- **BQ-S2 (original planning-phase observation):** `apps/worker/src/index.ts:867` holds a one-hour publishing lock with no renewal; multiple validation runs can each wait up to 900 s (`apps/worker/src/lib/bulk-publishing.ts:23`). Another forced job may acquire after expiry while the original remains active. No long-running overlap test was performed in that phase. **Later authorized follow-up:** the bounded two-worker fixture reproduced overlap; BQ-S2 is now confirmed Medium with a separate renewal/ownership fix. See [the follow-up report](2026-10-bq-s2-publishing-lease.md) for exact base, evidence and remaining in-flight limits. The original findings table is a historical baseline snapshot.
 
 ## Verified sound within the tested limits
 
