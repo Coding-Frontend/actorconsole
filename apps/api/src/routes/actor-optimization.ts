@@ -440,38 +440,63 @@ export const actorOptimizationRoutes: Hono<AppEnv> = new Hono<AppEnv>()
     });
     if (!result) throw new AppError("not_found", "Optimization result not found", 404);
     assertApiKeyActorScope(session, result.actor.apifyActorId);
-    await db.$transaction([
-      db.actorOptimizationResult.update({
-        where: { id: result.id },
-        data: { status: "QUEUED", error: null, approvedFields: Prisma.JsonNull, approvedAt: null },
-      }),
-      db.actorOptimizationRun.update({
+    if (!["READY_FOR_APPROVAL", "FAILED", "APPLY_FAILED", "STALE", "APPLIED"].includes(result.status)) {
+      throw new AppError("invalid_recheck", "Wait for this Actor's current operation to finish", 409);
+    }
+    await db.$transaction(async (tx) => {
+      // Claim the exact result version before adjusting counters. Two recheck
+      // requests must not queue parallel audits or decrement the same count.
+      const claimed = await tx.actorOptimizationResult.updateMany({
+        where: { id: result.id, status: result.status, updatedAt: result.updatedAt },
+        data: {
+          status: "QUEUED",
+          error: null,
+          approvedFields: Prisma.JsonNull,
+          approvedAt: null,
+          appliedAt: null,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError("invalid_recheck", "This Actor's operation has already changed", 409);
+      }
+      await tx.actorOptimizationRun.update({
         where: { id: result.runId },
         data: {
           status: "RUNNING",
           completedAt: null,
+          appliedAt: null,
+          ...(result.status === "APPLIED" ? { appliedCount: { decrement: 1 } } : {}),
           ...(result.status === "FAILED"
             ? { failedCount: { decrement: 1 } }
             : { completedCount: { decrement: 1 } }),
         },
-      }),
-    ]);
+      });
+    });
     const jobId = await enqueue(
       "optimization",
       { action: "audit", resultId: result.id },
       { jobId: `actor-optimization-recheck-${result.id}-${Date.now()}` },
-    );
+    ).catch(() => null);
     if (!jobId) {
-      await db.$transaction([
-        db.actorOptimizationResult.update({
+      await db.$transaction(async (tx) => {
+        await tx.actorOptimizationResult.update({
           where: { id: result.id },
           data: { status: "FAILED", error: "The optimization queue is unavailable" },
-        }),
-        db.actorOptimizationRun.update({
+        });
+        const run = await tx.actorOptimizationRun.update({
           where: { id: result.runId },
-          data: { failedCount: { increment: 1 }, status: "READY_FOR_APPROVAL" },
-        }),
-      ]);
+          data: { failedCount: { increment: 1 } },
+        });
+        if (run.completedCount + run.failedCount >= run.totalCount) {
+          await tx.actorOptimizationRun.update({
+            where: { id: result.runId },
+            data: {
+              status: run.completedCount > 0 ? "READY_FOR_APPROVAL" : "FAILED",
+              completedAt: new Date(),
+            },
+          });
+        }
+      });
       throw new AppError("queue_unavailable", "The Actor optimization queue is unavailable", 503);
     }
     return c.json({ ok: true, data: { jobId } }, 202);

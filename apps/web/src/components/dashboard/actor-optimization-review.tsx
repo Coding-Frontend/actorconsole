@@ -79,6 +79,12 @@ const fields: Array<{ key: OptimizationField; label: string }> = [
   { key: "pricing", label: "Pay-per-event pricing" },
 ];
 const activeStatuses = new Set(["QUEUED", "RUNNING", "APPLYING"]);
+const resultProgress: Record<string, string> = {
+  QUEUED: "Waiting to generate the proposal…",
+  AUDITING: "Generating the proposal…",
+  APPROVED: "Approved changes are queued for application.",
+  APPLYING: "Applying approved fields to Apify…",
+};
 const REVIEW_PAGE_SIZE = 20;
 
 function displayValue(state: ListingState, field: OptimizationField) {
@@ -203,6 +209,7 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Record<string, OptimizationField[]>>({});
   const [approving, setApproving] = useState(false);
+  const [recheckingId, setRecheckingId] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [resultPage, setResultPage] = useState(1);
 
@@ -294,9 +301,24 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
           body: JSON.stringify({ items: approvalItems }),
         },
       );
-      const body = (await response.json()) as { error?: { message?: string } };
+      const body = (await response.json()) as {
+        data?: { queued: number; failed?: number };
+        error?: { message?: string };
+      };
       if (!response.ok) throw new Error(body.error?.message ?? "Could not approve these changes");
-      toast.success("Approved changes are being applied to Apify");
+      if (!body.data || !Number.isInteger(body.data.queued) || body.data.queued < 0) {
+        throw new Error("Could not confirm which changes were queued. Refresh this review.");
+      }
+      const { queued, failed = 0 } = body.data;
+      if (failed > 0) {
+        const failures = `${failed} Actor${failed === 1 ? "" : "s"} could not be queued.`;
+        if (queued === 0) toast.error(`No changes were queued. ${failures}`);
+        else toast.warning(`Changes queued for ${queued} Actor${queued === 1 ? "" : "s"}; ${failures}`);
+      } else if (queued > 0) {
+        toast.success("Approved changes are being applied to Apify");
+      } else {
+        toast.error("No changes were queued. Refresh this review.");
+      }
       setReviewOpen(false);
       await load();
     } catch (approvalError) {
@@ -307,20 +329,27 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
   }
 
   async function recheck(resultId: string) {
-    const response = await fetch(
-      `${API_BASE_URL}/actors/optimization/results/${encodeURIComponent(resultId)}/recheck`,
-      {
-        method: "POST",
-        credentials: "include",
-      },
-    );
-    const body = (await response.json()) as { error?: { message?: string } };
-    if (!response.ok) {
-      toast.error(body.error?.message ?? "Could not recheck this Actor");
-      return;
+    if (recheckingId !== null) return;
+    setRecheckingId(resultId);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/actors/optimization/results/${encodeURIComponent(resultId)}/recheck`,
+        { method: "POST", credentials: "include" },
+      );
+      const body = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) throw new Error(body.error?.message ?? "Could not recheck this Actor");
+      setSelection((current) => {
+        const next = { ...current };
+        delete next[resultId];
+        return next;
+      });
+      toast.success("Actor recheck queued");
+      await load();
+    } catch (recheckError) {
+      toast.error(recheckError instanceof Error ? recheckError.message : "Could not recheck this Actor");
+    } finally {
+      setRecheckingId(null);
     }
-    toast.success("Actor recheck queued");
-    await load();
   }
 
   if (loading) {
@@ -624,10 +653,10 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
                     <AlertTriangle className="text-destructive mt-0.5 h-4 w-4 shrink-0" />
                     <p>{result.error}</p>
                   </div>
-                  {result.status === "FAILED" || result.status === "STALE" ? (
+                  {["FAILED", "STALE", "APPLY_FAILED"].includes(result.status) ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => void recheck(result.id)}>
-                        Recheck Actor
+                      <Button size="sm" variant="outline" disabled={recheckingId !== null} onClick={() => void recheck(result.id)}>
+                        {recheckingId === result.id ? "Queuing recheck…" : "Recheck Actor"}
                       </Button>
                       <Button size="sm" variant="ghost" asChild>
                         <Link
@@ -639,12 +668,12 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
                     </div>
                   ) : null}
                 </div>
-              ) : (
-                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              ) : resultProgress[result.status] ? (
+                <div role="status" className="text-muted-foreground flex items-center gap-2 text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating the proposal…
+                  {resultProgress[result.status]}
                 </div>
-              )}
+              ) : null}
               {result.status === "APPLIED" ? (
                 <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
                   <CheckCircle2 className="h-4 w-4" />

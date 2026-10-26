@@ -6,6 +6,7 @@ import { AppError } from "../middleware/error.js";
 import { businessProfileScope } from "../lib/business-profile.js";
 import { integerQuery, limitQuery } from "../lib/query.js";
 import { recordUserAudit } from "../lib/user-audit.js";
+import { assertApiKeyActorScope } from "../middleware/api-key-scope.js";
 import type { AppEnv } from "../app.js";
 
 export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
@@ -16,7 +17,13 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
     const status = c.req.query("status") ?? "PENDING";
     const where = {
       status,
-      actor: { userId: session.userId, ...businessProfileScope(session) },
+      actor: {
+        userId: session.userId,
+        ...businessProfileScope(session),
+        ...(session.authMethod === "api-key" && session.apiKeyActorIds?.length
+          ? { apifyActorId: { in: session.apiKeyActorIds } }
+          : {}),
+      },
     };
     const [items, total] = await Promise.all([
       db.actorLogoRecommendation.findMany({
@@ -64,8 +71,10 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
         status: "PENDING",
         actor: { userId: session.userId, ...businessProfileScope(session) },
       },
+      include: { actor: { select: { apifyActorId: true } } },
     });
     if (!item) throw new AppError("not_found", "Logo recommendation not found", 404);
+    assertApiKeyActorScope(session, item.actor.apifyActorId);
     const updated = await db.actorLogoRecommendation.update({
       where: { id: item.id },
       data: { status: "DISMISSED", dismissedAt: new Date(), error: null },
@@ -86,6 +95,7 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
       include: { actor: true, logo: true },
     });
     if (!item) throw new AppError("not_found", "Logo recommendation not found", 404);
+    assertApiKeyActorScope(session, item.actor.apifyActorId);
     const apify = session.businessProfileId
       ? await getUserApifyClient(session.userId, session.businessProfileId)
       : await getUserApifyClient(session.userId);
