@@ -47,6 +47,34 @@ const profile = {
 } as BuilderProfile;
 
 describe("public catalog page availability", () => {
+  it("shows unknown publication counts as unavailable and never as a rank", async () => {
+    render(
+      await BuilderPage({
+        params: Promise.resolve({ username: "retired" }),
+        searchParams: Promise.resolve({}),
+        initialData: {
+          ...profile,
+          isAvailable: true,
+          actorCount: 74,
+          newActorCount: null,
+          publicationDateCoverage: { known: 0, total: 74 },
+          ranks: {
+            "new-actors": 50,
+            actors: 1,
+            "monthly-users": 1,
+            "total-users": 1,
+            "monthly-runs": 1,
+            "total-runs": 1,
+            "estimated-revenue": 1,
+          },
+        },
+      }),
+    );
+    expect(screen.getByText("Unavailable")).toBeTruthy();
+    expect(screen.getByText("Publication dates incomplete")).toBeTruthy();
+    expect(screen.queryByText("#50")).toBeNull();
+  });
+
   it("preserves an archived builder's history without displaying current ranks, usage or broken Store links", async () => {
     render(
       await BuilderPage({

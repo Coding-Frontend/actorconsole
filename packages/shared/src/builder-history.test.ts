@@ -3,6 +3,39 @@ import { buildDailyPortfolioTrends } from "./builder-history";
 
 afterEach(() => vi.useRealTimers());
 describe("historical builder membership", () => {
+  it("retains available runs with explicit coverage instead of hiding the portfolio", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-26T12:00:00Z"));
+    const trend = buildDailyPortfolioTrends(
+      [
+        {
+          storeActorId: "known",
+          capturedAt: new Date("2026-10-25"),
+          users30Days: 3,
+          runs30Days: 12,
+        },
+        {
+          storeActorId: "unknown",
+          capturedAt: new Date("2026-10-25"),
+          users30Days: 0,
+          runs30Days: null,
+        },
+      ],
+      7,
+      ["known", "unknown"].map((storeActorId) => ({
+        storeActorId,
+        firstSeenAt: new Date("2026-10-01"),
+      })),
+    );
+    expect(trend.find((point) => point.date === "2026-10-25")).toMatchObject({
+      observed: true,
+      users: 3,
+      runs: 12,
+      usersCoverage: { known: 2, total: 2 },
+      runsCoverage: { known: 1, total: 2 },
+    });
+  });
+
   it("retains retired Actors on their observed days without carrying usage into later days", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-26T12:00:00Z"));

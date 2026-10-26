@@ -46,7 +46,7 @@ const axisStyle = { fill: "hsl(var(--muted-foreground))", fontSize: 11 };
 
 function ChartEmpty({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-muted-foreground flex min-h-56 items-center justify-center px-5 text-center text-sm leading-6">
+    <div className="flex min-h-56 items-center justify-center px-5 text-center text-sm leading-6 text-muted-foreground">
       {children}
     </div>
   );
@@ -68,10 +68,10 @@ function MetricChart({
   const data = metricChartData(items, metric);
   const hasData = data.some((point) => point.value !== null);
   return (
-    <figure className="border-border min-w-0 rounded-xl border p-5">
+    <figure className="min-w-0 rounded-xl border border-border p-5">
       <figcaption>
         <h3 className="text-sm font-semibold">{title}</h3>
-        <p className="text-muted-foreground mt-1 text-xs leading-5">{subtitle}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{subtitle}</p>
       </figcaption>
       {!table ? (
         hasData ? (
@@ -133,7 +133,7 @@ function MetricChart({
         <caption className="sr-only">{title} chart data</caption>
         <tbody>
           {data.map((point) => (
-            <tr key={point.id} className="border-border border-b last:border-0">
+            <tr key={point.id} className="border-b border-border last:border-0">
               <th scope="row" className="py-3 text-left font-normal">
                 {point.name}
               </th>
@@ -145,7 +145,7 @@ function MetricChart({
         </tbody>
       </table>
       {!table && data.some((point) => point.value === null) && hasData ? (
-        <p className="text-muted-foreground mt-3 text-xs">
+        <p className="mt-3 text-xs text-muted-foreground">
           Some selections have no published value.
         </p>
       ) : null}
@@ -164,15 +164,15 @@ function EarningsChart({ items }: { items: PublicCompareItem[] }) {
     (point) => point.low !== null || point.central !== null || point.high !== null,
   );
   return (
-    <figure className="border-border rounded-xl border p-5 sm:p-6">
+    <figure className="rounded-xl border border-border p-5 sm:p-6">
       <figcaption className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">Monthly earnings scenarios</h3>
-          <p className="text-muted-foreground mt-1 text-xs leading-5">
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Low, central, and high estimates in USD, before costs.
           </p>
         </div>
-        <span className="text-muted-foreground text-xs">Fixed 30-day estimates</span>
+        <span className="text-xs text-muted-foreground">Fixed 30-day estimates</span>
       </figcaption>
       {hasData ? (
         <div className="mt-6 h-64" aria-hidden="true">
@@ -244,7 +244,7 @@ function EarningsChart({ items }: { items: PublicCompareItem[] }) {
           ))}
         </tbody>
       </table>
-      <p className="text-muted-foreground mt-4 text-xs leading-5">
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">
         Estimates include covered Actors only. Coverage and the full calculation method appear
         below.
       </p>
@@ -269,13 +269,26 @@ function HistoryChart({
       ).length ?? 0,
   );
   const hasTrend = observed.some((count) => count >= 2);
+  const coverageKey = metric === "users" ? "usersCoverage" : "runsCoverage";
+  const partialItems = items.filter((item) =>
+    item.history?.some((point) => {
+      const coverage = point[coverageKey];
+      return point[metric] != null && coverage && coverage.known < coverage.total;
+    }),
+  );
   return (
-    <figure className="border-border min-w-0 rounded-xl border p-5 sm:p-6">
+    <figure className="min-w-0 rounded-xl border border-border p-5 sm:p-6">
       <figcaption>
         <h3 className="font-semibold">{title}</h3>
-        <p className="text-muted-foreground mt-1 text-xs leading-5">
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Rolling 30-day totals recorded in daily Store snapshots.
         </p>
+        {partialItems.length ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Partial totals for {partialItems.map((item) => item.title).join(", ")}. Only available
+            Actor counters are included; unknown values are not counted as zero.
+          </p>
+        ) : null}
       </figcaption>
       {hasTrend ? (
         <div className="mt-6 h-60" aria-hidden="true">
@@ -305,7 +318,7 @@ function HistoryChart({
               {items.map((item, index) => (
                 <Line
                   key={item.id}
-                  name={item.title}
+                  name={`${item.title}${partialItems.includes(item) ? " (partial)" : ""}`}
                   dataKey={`series${index}`}
                   stroke={comparisonColors[index]}
                   strokeWidth={2}
@@ -322,7 +335,7 @@ function HistoryChart({
       ) : (
         <ChartEmpty>
           <span>
-            <span className="text-foreground mb-2 block font-medium">
+            <span className="mb-2 block font-medium text-foreground">
               Activity history is forming
             </span>
             At least two complete daily snapshots are needed to show a trend.
@@ -343,18 +356,23 @@ function HistoryChart({
           {data.map((point) => (
             <tr key={point.date}>
               <th>{point.date}</th>
-              {items.map((item) => (
-                <td key={item.id}>
-                  {fullNumber(
-                    item.history?.find((entry) => entry.date === point.date)?.[metric] ?? null,
-                  )}
-                </td>
-              ))}
+              {items.map((item) => {
+                const entry = item.history?.find((entry) => entry.date === point.date);
+                const coverage = entry?.[coverageKey];
+                return (
+                  <td key={item.id}>
+                    {fullNumber(entry?.[metric] ?? null)}
+                    {coverage && coverage.known < coverage.total
+                      ? ` · ${coverage.known}/${coverage.total} Actors`
+                      : ""}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="text-muted-foreground mt-4 text-xs leading-5">
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">
         Missing or incomplete days remain gaps.{" "}
         {items
           .filter((_, index) => observed[index] < 2)
@@ -386,12 +404,12 @@ export function ComparisonCharts({
             <h2 className="text-xl font-semibold tracking-tight">
               {kind === "builder" ? "Portfolio & demand" : "Usage & trust"}
             </h2>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="mt-1 text-sm text-muted-foreground">
               Compare the same metric on a shared scale.
             </p>
           </div>
           <div
-            className="border-border inline-flex rounded-lg border p-1"
+            className="inline-flex rounded-lg border border-border p-1"
             role="group"
             aria-label="Visualization view"
           >
@@ -399,7 +417,7 @@ export function ComparisonCharts({
               type="button"
               aria-pressed={!table}
               onClick={() => setTable(false)}
-              className={`focus-visible:ring-ring flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 ${!table ? "bg-muted text-foreground" : "text-muted-foreground"}`}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${!table ? "bg-muted text-foreground" : "text-muted-foreground"}`}
             >
               <BarChart3 className="h-3.5 w-3.5" />
               Charts
@@ -408,7 +426,7 @@ export function ComparisonCharts({
               type="button"
               aria-pressed={table}
               onClick={() => setTable(true)}
-              className={`focus-visible:ring-ring flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 ${table ? "bg-muted text-foreground" : "text-muted-foreground"}`}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${table ? "bg-muted text-foreground" : "text-muted-foreground"}`}
             >
               <Table2 className="h-3.5 w-3.5" />
               Data
@@ -459,7 +477,7 @@ export function ComparisonCharts({
       </section>
       <section aria-label="Activity history">
         <h2 className="text-xl font-semibold tracking-tight">Activity history</h2>
-        <p className="text-muted-foreground mb-5 mt-1 text-sm">
+        <p className="mb-5 mt-1 text-sm text-muted-foreground">
           Observed snapshots over the selected {window} days. These are rolling totals, not daily
           events.
         </p>

@@ -7,6 +7,7 @@ export type InteractiveBarPoint = {
   date: string;
   value: number | null;
   observed?: boolean;
+  coverage?: { known: number; total: number };
 };
 
 const toneColors = {
@@ -27,6 +28,7 @@ export function InteractiveBarChart({
   const data = points.map((point) => ({
     date: point.date,
     value: point.observed === false ? null : point.value,
+    coverage: point.coverage,
   }));
   const series = [
     {
@@ -39,7 +41,7 @@ export function InteractiveBarChart({
 
   return (
     <div
-      className="border-border bg-muted/10 min-h-64 w-full border p-2 sm:p-3"
+      className="min-h-64 w-full border border-border bg-muted/10 p-2 sm:p-3"
       role="img"
       aria-label={`${label} by UTC day. Hover or focus the chart to inspect each value.`}
     >
@@ -83,7 +85,11 @@ export function InteractiveBarChart({
                 content={
                   <ChartTooltip
                     series={series}
-                    labelFormatter={(value) => formatLongDate(String(value))}
+                    labelFormatter={(value) => {
+                      const coverage = data.find((point) => point.date === String(value))?.coverage;
+                      const partial = coverage && coverage.known < coverage.total;
+                      return `${formatLongDate(String(value))}${partial ? ` · Partial: ${coverage.known}/${coverage.total} Actors` : ""}`;
+                    }}
                   />
                 }
               />

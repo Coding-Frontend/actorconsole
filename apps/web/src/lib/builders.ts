@@ -55,7 +55,9 @@ export interface BuilderLeaderboardEntry {
   totalUsers: number;
   recentRuns: number;
   totalRuns: number;
-  newActorCount: number;
+  newActorCount: number | null;
+  publicationDateCoverage?: { known: number; total: number };
+  runCounterCoverage?: { known: number; total: number };
   lastUpdatedAt: Date;
   rank: number;
   changes: Record<BuilderMetric, number | null>;
@@ -100,7 +102,9 @@ export interface BuilderProfile {
   totalUsers: number;
   recentRuns: number;
   totalRuns: number;
-  newActorCount: number;
+  newActorCount: number | null;
+  publicationDateCoverage?: { known: number; total: number };
+  runCounterCoverage?: { known: number; total: number };
   ranks: BuilderMetricRanks;
   totalBuilders: number;
   lastUpdatedAt: Date;
@@ -111,6 +115,8 @@ export interface BuilderProfile {
     observed: boolean;
     runs: number | null;
     users: number | null;
+    usersCoverage?: { known: number; total: number };
+    runsCoverage?: { known: number; total: number };
   }>;
   actors: BuilderActorEntry[];
   actorPage: number;
@@ -167,30 +173,10 @@ export interface BuilderActorDetail extends BuilderActorEntry {
   relatedActors: BuilderActorEntry[];
 }
 
-export function newlyPublishedWhere(
-  start: Date,
-  baseline: Date | null,
-  end?: Date,
-): Record<string, unknown> {
+export function newlyPublishedWhere(start: Date, end?: Date): Record<string, unknown> {
   const range = { gte: start, ...(end ? { lt: end } : {}) };
   return {
-    OR: [
-      { firstPublishedAt: range },
-      // The public Store search response does not expose firstPublishedAt.
-      // ActorHunt's daily publication series matches the canonical Actor API
-      // createdAt date for public Actors, so use it to backfill history when
-      // an owner-scoped Console publication timestamp is unavailable.
-      { firstPublishedAt: null, apifyCreatedAt: range },
-      ...(baseline
-        ? [
-            {
-              firstPublishedAt: null,
-              apifyCreatedAt: null,
-              firstSeenAt: { ...range, gt: baseline },
-            } satisfies Record<string, unknown>,
-          ]
-        : []),
-    ],
+    firstPublishedAt: range,
   };
 }
 

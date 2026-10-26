@@ -43,21 +43,12 @@ describe("builder leaderboard metrics", () => {
     });
   });
 
-  it("uses publication time, Actor creation time, then post-baseline discovery", () => {
+  it("uses only publication time, never upload or discovery dates", () => {
     const start = new Date("2026-07-16T00:00:00.000Z");
     const end = new Date("2026-08-15T00:00:00.000Z");
-    const baseline = new Date("2026-08-08T10:20:00.000Z");
 
-    expect(newlyPublishedWhere(start, baseline, end)).toEqual({
-      OR: [
-        { firstPublishedAt: { gte: start, lt: end } },
-        { firstPublishedAt: null, apifyCreatedAt: { gte: start, lt: end } },
-        {
-          firstPublishedAt: null,
-          apifyCreatedAt: null,
-          firstSeenAt: { gte: start, lt: end, gt: baseline },
-        },
-      ],
+    expect(newlyPublishedWhere(start, end)).toEqual({
+      firstPublishedAt: { gte: start, lt: end },
     });
   });
 

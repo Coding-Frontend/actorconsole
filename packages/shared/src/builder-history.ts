@@ -42,20 +42,26 @@ export function buildDailyPortfolioTrends(
       expected.length > 0 &&
       points.every((point) => point != null) &&
       (day !== today || options.currentDayComplete === true);
-    // A persisted row with an unknown counter is not an observed zero.
+    // Preserve available counters without inventing zeros for unknown ones.
+    // Missing Actor snapshots still leave a gap; missing run counters
+    // produce an explicitly covered, partial total.
+    const userPoints = points.filter((point) => point?.users30Days != null);
+    const runPoints = points.filter((point) => point?.runs30Days != null);
     const users =
-      complete && points.every((point) => point?.users30Days != null)
-        ? points.reduce((sum, point) => sum + point!.users30Days!, 0)
+      complete && userPoints.length === expected.length
+        ? userPoints.reduce((sum, point) => sum + point!.users30Days!, 0)
         : null;
     const runs =
-      complete && points.every((point) => point?.runs30Days != null)
-        ? points.reduce((sum, point) => sum + point!.runs30Days!, 0)
+      complete && runPoints.length
+        ? runPoints.reduce((sum, point) => sum + point!.runs30Days!, 0)
         : null;
     return {
       date: new Date(day).toISOString().slice(0, 10),
       observed: complete && (users !== null || runs !== null),
       users,
       runs,
+      usersCoverage: { known: userPoints.length, total: expected.length },
+      runsCoverage: { known: runPoints.length, total: expected.length },
     };
   });
 }

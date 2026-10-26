@@ -18,7 +18,13 @@ export interface PublicCompareItem extends ComparisonItem {
   username: string;
   actorName?: string;
   window: BuilderWindow;
-  history?: Array<{ date: string; users: number | null; runs: number | null }>;
+  history?: Array<{
+    date: string;
+    users: number | null;
+    runs: number | null;
+    usersCoverage?: { known: number; total: number };
+    runsCoverage?: { known: number; total: number };
+  }>;
 }
 
 export const builderComparisonRows: ComparisonRow[] = [
@@ -54,6 +60,7 @@ export const builderComparisonRows: ComparisonRow[] = [
   { key: "activeUsers", label: "Active users in period", group: "Audience", better: "higher" },
   { key: "totalUsers", label: "Total users", group: "Audience", better: "higher" },
   { key: "recentRuns", label: "Runs / 30d", group: "Activity", better: "higher" },
+  { key: "runCounterCoverage", label: "Run counters available", group: "Activity", format: "text" },
   { key: "totalRuns", label: "Total runs", group: "Activity", better: "higher" },
   { key: "rank", label: "Active-user rank", group: "Standing", better: "lower" },
   { key: "earningsRank", label: "Revenue rank (central)", group: "Standing", better: "lower" },
@@ -101,6 +108,7 @@ type BuilderCompareSource = Pick<
   | "recentRuns"
   | "totalRuns"
   | "lastUpdatedAt"
+  | "runCounterCoverage"
 > & { rank?: number; ranks?: BuilderProfile["ranks"]; earnings?: EarningsRollup };
 
 function comparisonDate(value: Date | null | undefined) {
@@ -161,6 +169,9 @@ export function builderCompareItem(
       activeUsers: builder.activeUsers,
       totalUsers: builder.totalUsers,
       recentRuns: builder.recentRuns,
+      runCounterCoverage: builder.runCounterCoverage
+        ? `${builder.runCounterCoverage.known}/${builder.runCounterCoverage.total} Actors${builder.runCounterCoverage.known < builder.runCounterCoverage.total ? "; partial total" : ""}`
+        : null,
       totalRuns: builder.totalRuns,
       rank:
         builder.ranks?.["monthly-users"] ??

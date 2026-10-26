@@ -74,6 +74,8 @@ export async function loadPublicComparison(
         date: point.date,
         users: point.observed ? point.users : null,
         runs: point.observed ? point.runs : null,
+        usersCoverage: point.usersCoverage,
+        runsCoverage: point.runsCoverage,
       }));
     }
   return { items, missing: requested.length - items.length };

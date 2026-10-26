@@ -149,7 +149,9 @@ export interface BuilderLeaderboardEntry {
   totalUsers: number;
   recentRuns: number;
   totalRuns: number;
-  newActorCount: number;
+  newActorCount: number | null;
+  publicationDateCoverage?: { known: number; total: number };
+  runCounterCoverage?: { known: number; total: number };
   lastUpdatedAt: Date;
   rank: number;
   changes: Record<BuilderMetric, number | null>;
@@ -194,7 +196,9 @@ export interface BuilderProfile {
   totalUsers: number;
   recentRuns: number;
   totalRuns: number;
-  newActorCount: number;
+  newActorCount: number | null;
+  publicationDateCoverage?: { known: number; total: number };
+  runCounterCoverage?: { known: number; total: number };
   ranks: BuilderMetricRanks;
   totalBuilders: number;
   lastUpdatedAt: Date;
@@ -205,6 +209,8 @@ export interface BuilderProfile {
     observed: boolean;
     runs: number | null;
     users: number | null;
+    usersCoverage?: { known: number; total: number };
+    runsCoverage?: { known: number; total: number };
   }>;
   actors: BuilderActorEntry[];
   actorPage: number;
@@ -275,51 +281,11 @@ function windowCutoff(window: BuilderWindow) {
   return cutoff;
 }
 
-async function catalogBaseline() {
-  const completedRuns = await db.storeCatalogSync.findMany({
-    where: {
-      // Full daily crawls use SEARCH_FULL. Include legacy targeted SEARCH
-      // runs as a fallback so publication dates always have a real baseline.
-      operation: { in: ["SEARCH", "SEARCH_FULL"] },
-      status: "COMPLETED",
-      completedAt: { not: null },
-      expectedCount: { not: null },
-    },
-    orderBy: { completedAt: "asc" },
-    select: { completedAt: true, expectedCount: true, processedCount: true },
-  });
-  return (
-    completedRuns.find(
-      (run) =>
-        run.completedAt && run.expectedCount !== null && run.processedCount >= run.expectedCount,
-    )?.completedAt ?? null
-  );
-}
-
-export function newlyPublishedWhere(
-  start: Date,
-  baseline: Date | null,
-  end?: Date,
-): Prisma.StoreActorWhereInput {
+export function newlyPublishedWhere(start: Date, end?: Date): Prisma.StoreActorWhereInput {
   const range = { gte: start, ...(end ? { lt: end } : {}) };
   return {
-    OR: [
-      { firstPublishedAt: range },
-      // The public Store search response does not expose firstPublishedAt.
-      // ActorHunt's daily publication series matches the canonical Actor API
-      // createdAt date for public Actors, so use it to backfill history when
-      // an owner-scoped Console publication timestamp is unavailable.
-      { firstPublishedAt: null, apifyCreatedAt: range },
-      ...(baseline
-        ? [
-            {
-              firstPublishedAt: null,
-              apifyCreatedAt: null,
-              firstSeenAt: { ...range, gt: baseline },
-            } satisfies Prisma.StoreActorWhereInput,
-          ]
-        : []),
-    ],
+    // Upload and catalog-discovery timestamps do not establish publication.
+    firstPublishedAt: range,
   };
 }
 
@@ -364,7 +330,7 @@ export async function getBuilderCatalogSummary() {
 
 function metricValue(value: AggregatedBuilder, metric: BuilderMetric) {
   if (metric === "estimated-revenue") return value.earnings?.centralUsd ?? -Infinity;
-  if (metric === "new-actors") return value.newActorCount;
+  if (metric === "new-actors") return value.newActorCount ?? -Infinity;
   if (metric === "actors") return value.actorCount;
   if (metric === "monthly-users") return value.activeUsers;
   if (metric === "total-users") return value.totalUsers;
@@ -598,12 +564,11 @@ async function getAggregatedBuilderValues(window: BuilderWindow) {
     username: { not: "apify" },
   };
 
-  const baseline = await catalogBaseline();
   const [groups, newActorGroups, market] = await Promise.all([
     db.storeActor.groupBy({
       by: ["username"],
       where: baseWhere,
-      _count: { _all: true },
+      _count: { _all: true, firstPublishedAt: true, runs30Days: true },
       _sum: {
         users7Days: true,
         users30Days: true,
@@ -616,7 +581,7 @@ async function getAggregatedBuilderValues(window: BuilderWindow) {
     }),
     db.storeActor.groupBy({
       by: ["username"],
-      where: { ...baseWhere, ...newlyPublishedWhere(windowCutoff(window), baseline) },
+      where: { ...baseWhere, ...newlyPublishedWhere(windowCutoff(window)) },
       _count: { _all: true },
     }),
     getBuilderEarnings(),
@@ -638,7 +603,12 @@ async function getAggregatedBuilderValues(window: BuilderWindow) {
     totalUsers: group._sum.totalUsers ?? 0,
     recentRuns: group._sum.runs30Days ?? 0,
     totalRuns: group._sum.totalRuns ?? 0,
-    newActorCount: newActorCounts.get(group.username) ?? 0,
+    newActorCount:
+      group._count.firstPublishedAt === group._count._all
+        ? (newActorCounts.get(group.username) ?? 0)
+        : null,
+    publicationDateCoverage: { known: group._count.firstPublishedAt, total: group._count._all },
+    runCounterCoverage: { known: group._count.runs30Days, total: group._count._all },
     lastUpdatedAt: group._max.lastSeenAt ?? new Date(0),
     rank: 0,
   }));
@@ -650,7 +620,7 @@ async function getAggregatedBuilderValues(window: BuilderWindow) {
 // source of truth and naturally refreshes this cache within five minutes.
 const getCachedAggregatedBuilderValues = publicCache(
   async (window: BuilderWindow) => getAggregatedBuilderValues(window),
-  ["builder-aggregates-v3"],
+  ["builder-aggregates-v4"],
   { revalidate: 300 },
 );
 
@@ -662,11 +632,11 @@ async function getAggregatedBuilders(metric: BuilderMetric, window: BuilderWindo
     lastUpdatedAt: new Date(group.lastUpdatedAt),
   }));
   return normalizedGroups
-    .sort(
-      (a, b) =>
-        metricValue(b, metric) - metricValue(a, metric) || a.username.localeCompare(b.username),
-    )
-    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+    .sort((a, b) => compareBuilders(a, b, metric, "desc"))
+    .map((entry, index) => ({
+      ...entry,
+      rank: metric === "new-actors" && entry.newActorCount == null ? 0 : index + 1,
+    }));
 }
 
 export async function getBuildersForComparison(
@@ -800,9 +770,11 @@ function compareBuilders(
   metric: BuilderMetric,
   direction: BuilderSortDirection,
 ) {
-  if (metric === "estimated-revenue") {
-    const leftMissing = left.earnings?.centralUsd == null;
-    const rightMissing = right.earnings?.centralUsd == null;
+  if (metric === "estimated-revenue" || metric === "new-actors") {
+    const leftMissing =
+      metric === "new-actors" ? left.newActorCount == null : left.earnings?.centralUsd == null;
+    const rightMissing =
+      metric === "new-actors" ? right.newActorCount == null : right.earnings?.centralUsd == null;
     if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
     if (leftMissing) return left.username.localeCompare(right.username);
   }
@@ -851,7 +823,6 @@ export async function getBuilderLeaderboard(options: {
   const currentWindowStart = windowCutoff(window);
   const previousWindowStart = new Date(currentWindowStart);
   previousWindowStart.setUTCDate(previousWindowStart.getUTCDate() - window);
-  const baseline = await catalogBaseline();
   const visibleUsernames = pageEntries.map((builder) => builder.username);
   const needsSnapshotHistory = [
     "monthly-users",
@@ -913,7 +884,7 @@ export async function getBuilderLeaderboard(options: {
           where: {
             username: { in: visibleUsernames },
             ...PUBLIC_CATALOG_ACTOR_WHERE,
-            ...newlyPublishedWhere(previousWindowStart, baseline, currentWindowStart),
+            ...newlyPublishedWhere(previousWindowStart, currentWindowStart),
           },
           _count: { _all: true },
         })
@@ -938,8 +909,7 @@ export async function getBuilderLeaderboard(options: {
   const items: BuilderLeaderboardEntry[] = pageEntries.map((builder) => {
     const profile = profiles.get(builder.username);
     const previous = previousByUsername.get(builder.username);
-    const hasCompleteHistory =
-      previous && previous.samples + builder.newActorCount === builder.actorCount;
+    const hasCompleteHistory = previous && previous.samples === builder.actorCount;
     return {
       ...builder,
       name: ownerDisplayName(profile?.ownerName, builder.username),
@@ -947,7 +917,10 @@ export async function getBuilderLeaderboard(options: {
       pictureUrl: profile?.ownerPictureUrl ?? null,
       changes: {
         "estimated-revenue": null,
-        "new-actors": builder.newActorCount - (previousNewActorCounts.get(builder.username) ?? 0),
+        "new-actors":
+          builder.newActorCount == null
+            ? null
+            : builder.newActorCount - (previousNewActorCounts.get(builder.username) ?? 0),
         actors: builder.newActorCount,
         "monthly-users":
           window === 30 && hasCompleteHistory ? builder.activeUsers - previous.activeUsers : null,
@@ -995,6 +968,7 @@ function rankMapFor(
 ): BuilderMetricRanks {
   return Object.fromEntries(
     BUILDER_METRICS.map(({ value }) => {
+      if (value === "new-actors" && builder.newActorCount == null) return [value, 0];
       const ranked = [...allBuilders].sort(
         (a, b) =>
           metricValue(b, value) - metricValue(a, value) || a.username.localeCompare(b.username),
@@ -1088,7 +1062,6 @@ export async function getBuilderProfile(
   if (!aggregate && username === "apify") return null;
 
   const cutoff = windowCutoff(window);
-  const baseline = await catalogBaseline();
   const actorWhere: Prisma.StoreActorWhereInput = {
     username,
     ...PUBLIC_CATALOG_ACTOR_WHERE,
@@ -1127,9 +1100,9 @@ export async function getBuilderProfile(
       where: {
         username,
         ...HISTORICAL_CATALOG_ACTOR_WHERE,
-        ...newlyPublishedWhere(cutoff, baseline),
+        ...newlyPublishedWhere(cutoff),
       },
-      select: { firstPublishedAt: true, apifyCreatedAt: true, firstSeenAt: true },
+      select: { firstPublishedAt: true },
     }),
     db.storeActorSnapshot.findMany({
       where: {
@@ -1158,7 +1131,7 @@ export async function getBuilderProfile(
         username,
         ...HISTORICAL_CATALOG_ACTOR_WHERE,
       },
-      select: { id: true, firstSeenAt: true, lastSeenAt: true },
+      select: { id: true, firstSeenAt: true, lastSeenAt: true, firstPublishedAt: true },
     }),
   ]);
 
@@ -1187,10 +1160,14 @@ export async function getBuilderProfile(
     { currentDayComplete: Boolean(latestFullCatalogSync?.completedAt) },
   );
   const validUserTrends = trendChart.filter(
-    (point): point is typeof point & { users: number } => point.observed && point.users != null,
+    (point): point is typeof point & { users: number } =>
+      point.observed &&
+      point.users != null &&
+      point.usersCoverage.known === point.usersCoverage.total,
   );
   const validRunTrends = trendChart.filter(
-    (point): point is typeof point & { runs: number } => point.observed && point.runs != null,
+    (point): point is typeof point & { runs: number } =>
+      point.observed && point.runs != null && point.runsCoverage.known === point.runsCoverage.total,
   );
   const firstUserTrend = validUserTrends[0];
   const lastUserTrend = validUserTrends.at(-1);
@@ -1211,7 +1188,12 @@ export async function getBuilderProfile(
     totalUsers: aggregate?.totalUsers ?? 0,
     recentRuns: aggregate?.recentRuns ?? 0,
     totalRuns: aggregate?.totalRuns ?? 0,
-    newActorCount: aggregate?.newActorCount ?? 0,
+    newActorCount: aggregate ? aggregate.newActorCount : null,
+    runCounterCoverage: aggregate?.runCounterCoverage,
+    publicationDateCoverage: {
+      known: trendActors.filter((actor) => actor.firstPublishedAt != null).length,
+      total: trendActors.length,
+    },
     ranks: aggregate
       ? rankMapFor(aggregate, allBuilders)
       : (Object.fromEntries(BUILDER_METRICS.map(({ value }) => [value, 0])) as BuilderMetricRanks),
@@ -1224,9 +1206,7 @@ export async function getBuilderProfile(
       ),
     window,
     publishingChart: buildPublishingChart(
-      publicationRows.map(
-        (actor) => actor.firstPublishedAt ?? actor.apifyCreatedAt ?? actor.firstSeenAt,
-      ),
+      publicationRows.flatMap((actor) => (actor.firstPublishedAt ? [actor.firstPublishedAt] : [])),
       window,
     ),
     trendChart,

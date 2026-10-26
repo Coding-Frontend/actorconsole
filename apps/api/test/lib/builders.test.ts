@@ -28,6 +28,7 @@ import {
   getBuilderComparisonHistory,
   getBuilderProfile,
   getBuildersForComparison,
+  newlyPublishedWhere,
 } from "../../src/lib/builders.js";
 
 beforeEach(() => {
@@ -41,7 +42,7 @@ beforeEach(() => {
       ? [
           {
             username: "alice",
-            _count: { _all: 1 },
+            _count: { _all: 1, firstPublishedAt: 1, runs30Days: 1 },
             _sum: {
               users7Days: 50,
               users30Days: 100,
@@ -90,6 +91,93 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("builder catalog availability and history", () => {
+  it("never treats upload or discovery timestamps as publication dates", async () => {
+    expect(newlyPublishedWhere(new Date("2026-09-27"))).toEqual({
+      firstPublishedAt: { gte: new Date("2026-09-27") },
+    });
+    mocks.actor.groupBy.mockImplementation(async (query) =>
+      query._sum
+        ? [
+            {
+              username: "alice",
+              _count: { _all: 1, firstPublishedAt: 0, runs30Days: 0 },
+              _sum: {},
+              _max: { lastSeenAt: new Date("2026-10-26") },
+            },
+          ]
+        : [],
+    );
+    mocks.actor.findMany.mockImplementation(async ({ select }) => {
+      if (select.lastSeenAt && !select.title)
+        return [
+          {
+            id: "old",
+            firstSeenAt: new Date("2026-10-08"),
+            lastSeenAt: new Date("2026-10-26"),
+            firstPublishedAt: null,
+          },
+        ];
+      if (select.firstPublishedAt && !select.title)
+        return [
+          {
+            firstPublishedAt: null,
+            apifyCreatedAt: new Date("2026-09-30"),
+            firstSeenAt: new Date("2026-10-08"),
+          },
+        ];
+      return [];
+    });
+    const profile = await getBuilderProfile("alice");
+    expect(profile?.newActorCount).toBeNull();
+    expect(profile?.ranks["new-actors"]).toBe(0);
+    expect(profile?.publicationDateCoverage).toEqual({ known: 0, total: 1 });
+    expect(profile?.publishingChart.reduce((sum, point) => sum + point.actors, 0)).toBe(0);
+  });
+
+  it("shows partial run history with coverage and suppresses full-portfolio growth", async () => {
+    mocks.actor.findMany.mockImplementation(async ({ select }) =>
+      select.lastSeenAt && !select.title
+        ? ["known", "missing"].map((id) => ({
+            id,
+            firstSeenAt: new Date("2026-08-08"),
+            lastSeenAt: new Date("2026-10-26"),
+          }))
+        : [],
+    );
+    mocks.snapshots.findMany.mockResolvedValue([
+      {
+        storeActorId: "known",
+        capturedAt: new Date("2026-10-25"),
+        users30Days: 10,
+        runs30Days: 100,
+      },
+      {
+        storeActorId: "missing",
+        capturedAt: new Date("2026-10-25"),
+        users30Days: 0,
+        runs30Days: null,
+      },
+      {
+        storeActorId: "known",
+        capturedAt: new Date("2026-10-26"),
+        users30Days: 10,
+        runs30Days: 110,
+      },
+      {
+        storeActorId: "missing",
+        capturedAt: new Date("2026-10-26"),
+        users30Days: 0,
+        runs30Days: null,
+      },
+    ]);
+    const profile = await getBuilderProfile("alice");
+    expect(profile?.trendChart.at(-1)).toMatchObject({
+      runs: 110,
+      runsCoverage: { known: 1, total: 2 },
+    });
+    expect(profile?.changes.runs).toBeNull();
+  });
+
   it("uses Store observation time and current aggregates rather than retired Actor history for headline metrics", async () => {
     const profile = await getBuilderProfile("alice", { window: 30 });
     expect(profile).toMatchObject({

@@ -42,7 +42,8 @@ export async function generateMetadata({
     : { title: "Builder not found", robots: { index: false } };
 }
 
-function compact(value: number) {
+function compact(value: number | null) {
+  if (value == null) return "Unavailable";
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
     value,
   );
@@ -132,6 +133,8 @@ export default async function BuilderProfilePage({
   if (!profile) notFound();
 
   const displayName = profile.name ?? profile.username;
+  const latestRunCoverage = profile.runCounterCoverage;
+  const partialRuns = latestRunCoverage && latestRunCoverage.known < latestRunCoverage.total;
   return (
     <div className="bg-mist">
       <HomeGridSection>
@@ -221,7 +224,7 @@ export default async function BuilderProfilePage({
                     <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden border bg-border sm:grid-cols-3 xl:grid-cols-7">
                       <RankMetric
                         label={`New Actors / ${window}d`}
-                        rank={profile.ranks["new-actors"]}
+                        rank={profile.newActorCount == null ? null : profile.ranks["new-actors"]}
                       />
                       <RankMetric label="Total Actors" rank={profile.ranks.actors} />
                       <RankMetric
@@ -248,6 +251,9 @@ export default async function BuilderProfilePage({
                       <PortfolioMetric
                         label={`New Actors / ${window}d`}
                         value={profile.newActorCount}
+                        detail={
+                          profile.newActorCount == null ? "Publication dates incomplete" : undefined
+                        }
                       />
                       <PortfolioMetric label="Total Actors" value={profile.actorCount} />
                       <PortfolioMetric
@@ -259,7 +265,11 @@ export default async function BuilderProfilePage({
                       <PortfolioMetric
                         label="Runs / 30d"
                         value={profile.recentRuns}
-                        detail={signed(profile.changes.runs)}
+                        detail={
+                          partialRuns
+                            ? `Partial · ${latestRunCoverage.known}/${latestRunCoverage.total} Actor counters`
+                            : signed(profile.changes.runs)
+                        }
                       />
                       <PortfolioMetric label="Total runs" value={profile.totalRuns} />
                     </div>
@@ -288,6 +298,7 @@ export default async function BuilderProfilePage({
                 publishing={profile.publishingChart}
                 trends={profile.trendChart}
                 window={window}
+                publicationCoverage={profile.publicationDateCoverage}
               />
             </div>
           </HomeGridCell>
@@ -594,7 +605,7 @@ function PortfolioMetric({
   detail,
 }: {
   label: string;
-  value: number;
+  value: number | null;
   detail?: string;
 }) {
   return (
