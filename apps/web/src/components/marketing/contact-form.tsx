@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { API_BASE_URL } from "@/lib/api-base";
 
 export function ContactForm() {
   const [loading, setLoading] = useState(false);
+  const pending = useRef(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -19,17 +21,21 @@ export function ContactForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (pending.current) return;
     if (!formData.name || !formData.email || !formData.message) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
+    const submitted = formData;
+    pending.current = true;
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/contact`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitted),
         signal: AbortSignal.timeout(15_000),
       });
       const body = (await response.json().catch(() => null)) as
@@ -39,15 +45,18 @@ export function ContactForm() {
         throw new Error(body?.error?.message ?? "Your message could not be delivered");
       }
       toast.success("Your message was delivered.");
-      setFormData({
+      setFormData((current) => current === submitted ? {
         name: "",
         email: "",
         subject: "support",
         message: "",
-      });
+      } : current);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Your message could not be delivered");
+      const message = error instanceof Error ? error.message : "Your message could not be delivered";
+      setError(message);
+      toast.error(message);
     } finally {
+      pending.current = false;
       setLoading(false);
     }
   };
@@ -120,9 +129,10 @@ export function ContactForm() {
         />
       </div>
 
+      {error ? <p role="alert" className="text-destructive text-sm">{error}</p> : null}
       <Button
         type="submit"
-        className="bg-signal-orange hover:bg-signal-orange/90 mt-2 w-full text-white"
+        className="mt-2 w-full"
         disabled={loading}
       >
         {loading ? (

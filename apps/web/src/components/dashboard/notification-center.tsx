@@ -39,10 +39,20 @@ export function NotificationCenter({ unreadNotifications = 0 }: { unreadNotifica
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasRequested = useRef(false);
+  const requestId = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => setUnread(unreadNotifications), [unreadNotifications]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (workspaceChanged = false) => {
+    const request = ++requestId.current;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    if (workspaceChanged) {
+      setItems([]);
+      setUnread(0);
+    }
     hasRequested.current = true;
     setLoading(true);
     setError(null);
@@ -50,31 +60,36 @@ export function NotificationCenter({ unreadNotifications = 0 }: { unreadNotifica
       const response = await fetch(`${API_BASE_URL}/notifications?page=1&limit=6`, {
         credentials: "include",
         cache: "no-store",
+        signal: controller.signal,
       });
       const body = await response.json().catch(() => null);
+      if (controller.signal.aborted || request !== requestId.current) return;
       if (!response.ok || !body?.ok) {
         throw new Error(body?.error?.message ?? "Could not load notifications");
       }
       setItems(body.data.items ?? []);
       setUnread(Number(body.data.unread) || 0);
     } catch (loadError) {
+      if (controller.signal.aborted || request !== requestId.current) return;
       hasRequested.current = false;
       setError(loadError instanceof Error ? loadError.message : "Could not load notifications");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && request === requestId.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load();
+    return () => { controllerRef.current?.abort(); };
   }, [load]);
 
   useEffect(() => {
     const refresh = () => void load();
-    window.addEventListener(WORKSPACE_CHANGED_EVENT, refresh);
+    const workspaceChanged = () => void load(true);
+    window.addEventListener(WORKSPACE_CHANGED_EVENT, workspaceChanged);
     window.addEventListener(DASHBOARD_STATUS_CHANGED_EVENT, refresh);
     return () => {
-      window.removeEventListener(WORKSPACE_CHANGED_EVENT, refresh);
+      window.removeEventListener(WORKSPACE_CHANGED_EVENT, workspaceChanged);
       window.removeEventListener(DASHBOARD_STATUS_CHANGED_EVENT, refresh);
     };
   }, [load]);

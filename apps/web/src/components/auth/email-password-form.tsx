@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -31,6 +31,17 @@ export function EmailPasswordForm({
   const [twoFactorChallenge, setTwoFactorChallenge] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+  const codeInput = useRef<HTMLInputElement>(null);
+  const errorId = useId();
+
+  useEffect(() => { if (twoFactorChallenge) codeInput.current?.focus(); }, [twoFactorChallenge]);
+
+  function reportError(message: string) {
+    setError(message);
+    toast.error(message);
+  }
 
   async function completeSession(input: { totpCode?: string; challengeToken?: string } = {}) {
     const response = await fetch("/api/auth/local/login", {
@@ -46,7 +57,7 @@ export function EmailPasswordForm({
       challengeToken?: string;
     };
     if (!result.ok) {
-      toast.error(result.error ?? "Failed to sign in. Please try again.");
+      reportError(result.error ?? "Failed to sign in. Please try again.");
       if (result.code === "EMAIL_UNVERIFIED") {
         router.push(
           `/signup/verify-email?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(safeCallbackUrl(callbackUrl))}`,
@@ -67,6 +78,11 @@ export function EmailPasswordForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending.current) return;
+    if (twoFactorChallenge) {
+      await verifyTwoFactor();
+      return;
+    }
 
     if (mode === "signup" && !termsAccepted) {
       toast.error("Please accept the Terms of Service and Privacy Policy first.");
@@ -83,7 +99,9 @@ export function EmailPasswordForm({
       return;
     }
 
+    pending.current = true;
     setIsPending(true);
+    setError(null);
     try {
       if (mode === "signup") {
         const response = await fetch("/api/auth/local/register", {
@@ -93,7 +111,7 @@ export function EmailPasswordForm({
         });
         const result = (await response.json()) as { ok: boolean; error?: string };
         if (!result.ok) {
-          toast.error(result.error ?? "Unable to create the account.");
+          reportError(result.error ?? "Unable to create the account.");
           return;
         }
         toast.success("Account created. Check your email for the verification code.");
@@ -104,22 +122,27 @@ export function EmailPasswordForm({
         await completeSession();
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      reportError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
+      pending.current = false;
       setIsPending(false);
     }
   }
 
-  async function verifyTwoFactor(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!twoFactorChallenge || !twoFactorCode.trim()) return;
+  async function verifyTwoFactor() {
+    if (pending.current || !twoFactorChallenge || !twoFactorCode.trim()) return;
+    pending.current = true;
     setIsPending(true);
+    setError(null);
     try {
       await completeSession({
         totpCode: twoFactorCode.trim(),
         challengeToken: twoFactorChallenge,
       });
+    } catch (err) {
+      reportError(err instanceof Error ? err.message : "Verification failed. Please try again.");
     } finally {
+      pending.current = false;
       setIsPending(false);
     }
   }
@@ -135,6 +158,7 @@ export function EmailPasswordForm({
             </p>
           </div>
           <Input
+            ref={codeInput}
             id="totp-code"
             inputMode="text"
             autoComplete="one-time-code"
@@ -142,13 +166,13 @@ export function EmailPasswordForm({
             value={twoFactorCode}
             onChange={(e) => setTwoFactorCode(e.target.value)}
             disabled={isPending}
+            aria-describedby={error ? errorId : undefined}
           />
           <Button
-            type="button"
+            type="submit"
             className="w-full"
             size="lg"
             disabled={isPending || !twoFactorCode.trim()}
-            onClick={() => void verifyTwoFactor()}
           >
             {isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -213,6 +237,7 @@ export function EmailPasswordForm({
           </Button>
         </>
       )}
+      {error ? <p id={errorId} role="alert" className="text-destructive text-sm">{error}</p> : null}
     </form>
   );
 }
