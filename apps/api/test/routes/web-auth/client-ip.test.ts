@@ -12,6 +12,7 @@ vi.mock("@actorconsole/db", () => ({
 }));
 vi.mock("../../../src/lib/queue.js", () => ({ getRedis: () => null }));
 import { webAuthRoutes } from "../../../src/routes/web-auth.js";
+import { app as fullApp } from "../../../src/app.js";
 
 const app = new Hono().route("/", webAuthRoutes);
 const user = {
@@ -60,6 +61,19 @@ describe("authentication uses the API owner's verified client-IP contract", () =
     expect(response.status).toBe(200);
     expect(mocks.loginEvent).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: user.id, ip: expected, success: true }),
+    });
+  });
+
+  it("retains verified peer metadata after the app's request-body guard replaces the Request", async () => {
+    mocks.user.mockResolvedValue(user);
+    const response = await fullApp.request("/auth/local/login", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.99" },
+      body: JSON.stringify({ email: user.email, password: "local-mocked-password" }),
+    }, { incoming: { socket: { remoteAddress: "::ffff:192.0.2.54" } } });
+    expect(response.status).toBe(200);
+    expect(mocks.loginEvent).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: user.id, ip: "192.0.2.54", success: true }),
     });
   });
 });
