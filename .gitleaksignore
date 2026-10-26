@@ -1,0 +1,4 @@
+# Verified nonsecret SHA-256 file-content digests in UI handoff metadata.
+# Exact commit/path/rule/line fingerprints only; see docs/audit/2026-10-integration.md.
+89061cef35edbeba4c48f3525361aa4ba4eccc9c:audit/ui-ux/implementation-handoff.json:generic-api-key:88
+89061cef35edbeba4c48f3525361aa4ba4eccc9c:audit/ui-ux/implementation-handoff.json:generic-api-key:89
