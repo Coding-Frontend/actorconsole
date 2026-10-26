@@ -1493,6 +1493,9 @@ async function tickScheduleQueue() {
       defaultJobOptions: QUEUE_RETRY_POLICIES.schedules,
     });
     try {
+      // An idle tick may enqueue nothing. Finish Redis initialization before
+      // closing the queue, or BullMQ can emit an unhandled late init error.
+      await q.waitUntilReady();
       await dispatchPendingActorStatusOperations(q);
       for (const schedule of dueBulk) {
         await q.add(
