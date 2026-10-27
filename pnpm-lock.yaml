@@ -93,8 +93,8 @@ importers:
         specifier: ^5.79.2
         version: 5.81.5
       cron-parser:
-        specifier: ^4.9.0
-        version: 4.9.0
+        specifier: ^5.10.2
+        version: 5.10.2
       dodopayments:
         specifier: 2.55.0
         version: 2.55.0
@@ -283,8 +283,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       cron-parser:
-        specifier: ^4.9.0
-        version: 4.9.0
+        specifier: ^5.10.2
+        version: 5.10.2
       firebase:
         specifier: ^12.15.0
         version: 12.19.0
@@ -419,8 +419,8 @@ importers:
         specifier: ^5.79.2
         version: 5.81.5
       cron-parser:
-        specifier: ^4.9.0
-        version: 4.9.0
+        specifier: ^5.10.2
+        version: 5.10.2
       ioredis:
         specifier: 5.11.1
         version: 5.11.1
@@ -4264,6 +4264,10 @@ packages:
     resolution: {integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q==}
     engines: {node: '>=12.0.0'}
     deprecated: v4 is no longer maintained, upgrade to v5
+
+  cron-parser@5.10.2:
+    resolution: {integrity: sha512-JfAYMY0LZaWQTuict8PhtF/ksSnq8xefSDmQUnnoqvkPYkU/y3UP0DTWzJKFBz0P1IXsDG8q0vY3zHkoFZOhvw==}
+    engines: {node: '>=18'}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -11215,6 +11219,10 @@ snapshots:
   crelt@1.0.7: {}
 
   cron-parser@4.9.0:
+    dependencies:
+      luxon: 3.7.2
+
+  cron-parser@5.10.2:
     dependencies:
       luxon: 3.7.2
 
