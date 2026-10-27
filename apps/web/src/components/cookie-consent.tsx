@@ -109,9 +109,8 @@ export function CookieConsent() {
                     sign-in session (Auth.js) and CSRF protection. Always on.
                   </li>
                   <li>
-                    <span className="text-foreground font-medium">Analytics:</span> Optional
-                    first-party product measurement. No analytics provider is loaded until an
-                    analytics integration is configured and you opt in.
+                    <span className="text-foreground font-medium">Analytics:</span> Google Analytics
+                    measures product usage only after you opt in.
                   </li>
                   <li>
                     <span className="text-foreground font-medium">Marketing:</span> Not used. We

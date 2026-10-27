@@ -7,6 +7,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Send } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 
 export function ContactForm() {
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,7 @@ export function ContactForm() {
       if (!response.ok) {
         throw new Error(body?.error?.message ?? "Your message could not be delivered");
       }
+      void trackEvent("generate_lead", { form: "contact" });
       toast.success("Your message was delivered.");
       setFormData((current) => current === submitted ? {
         name: "",

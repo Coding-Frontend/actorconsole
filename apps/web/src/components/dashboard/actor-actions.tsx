@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, DollarSign, Loader2, MessageSquareText } from "lucide-react";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { toast } from "sonner";
 import { PricingDialog } from "@/components/dashboard/pricing-dialog";
 import { CopyRewriteDialog } from "@/components/dashboard/copy-rewrite-dialog";
@@ -94,7 +95,7 @@ export function ActorActions({
     }
   }
 
-  async function createImprovementRun(kind: string, fields: string[]) {
+  async function createImprovementRun(kind: "GENERATE_IMPROVEMENTS", fields: string[]) {
     setStartingKind(kind);
     try {
       const response = await fetch(`${API_BASE_URL}/actors/optimization/runs`, {
@@ -110,6 +111,7 @@ export function ActorActions({
       if (!response.ok || !body.data?.runId) {
         throw new Error(body.error?.message ?? "Could not start this generation");
       }
+      void trackEvent("actor_optimization_started", { kind });
       router.push(`/dashboard/actors/optimization/${body.data.runId}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not start this generation");

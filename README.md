@@ -52,6 +52,16 @@ pnpm db:seed:content
 
 `ADMIN_SEED_PASSWORD` optionally creates an admin password; clear it afterward. Content seeds create unpublished policy drafts. Review and publish your policies in Admin. Development FAQ/blog fixtures are excluded in production. Connect providers using your installation's credentials.
 
+## Google Analytics
+
+The web app can send consent-based GA4 events through its Firebase web app. Link the Firebase project to a GA4 property, enable Analytics for the web app, and set the matching `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, and `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` values from Firebase's web configuration. Set these in `apps/web/.env.local` locally and in the production web build environment; `NEXT_PUBLIC_*` settings are embedded at build time, so rebuild after changing them. The production deployment workflow reads the corresponding GitHub Actions variables. An unconfigured installation continues to work without analytics.
+
+In the GA4 web data stream, **disable enhanced measurement**. The app sends its own page views, and GA's automatic history, form, search, and outbound-click measurements can duplicate page views or collect URLs and text outside the app's redaction. Keep other independently installed Google tags or tag managers disabled unless they implement the same consent and redaction rules. Google Analytics loads only after a visitor accepts optional analytics. The app excludes query strings and dynamic route values from its events; it does not send account details, credentials, form contents, or Actor identifiers.
+
+Events include `page_view`, `login` (email, Google, GitHub), `sign_up` (email registration), `generate_lead` (successful contact form), `begin_checkout`, `workspace_created`, `onboarding_completed`, `apify_connected`, `actor_optimization_started`, `actor_optimization_approved`, `actor_copy_generated`, `actor_copy_applied`, `publishing_schedule_created`, `bulk_actor_operation_started`, and `financial_sync_started`. Queued events indicate that a job was accepted, not that it finished. Social sign-ins are recorded as `login`; the app does not currently distinguish new social accounts. Checkout initiation is not a confirmed purchase, so no `purchase` event is emitted.
+
+To verify, accept the cookie banner, navigate and perform a test action, then check GA4 Realtime or DebugView. Confirm that visits with essential-only consent produce no events. See [Google's recommended events](https://developers.google.com/analytics/devguides/collection/ga4/reference/events) and [page-view settings](https://developers.google.com/analytics/devguides/collection/ga4/views) for GA4 configuration details. Route templates used for privacy are maintained in `apps/web/src/lib/analytics-path.ts`; update them when adding pages.
+
 ## Environment templates
 
 | Template | Used for |

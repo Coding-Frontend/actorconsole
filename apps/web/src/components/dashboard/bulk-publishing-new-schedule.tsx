@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,6 +195,7 @@ export function BulkPublishingNewSchedule() {
       if (!response.ok || !body?.ok) {
         throw new Error(body?.error?.message ?? "Could not create publishing schedule");
       }
+      void trackEvent("publishing_schedule_created", { actor_count: actors.length, enabled: startActive ? 1 : 0 });
       savePublishingSelection([]);
       toast.success(
         startActive

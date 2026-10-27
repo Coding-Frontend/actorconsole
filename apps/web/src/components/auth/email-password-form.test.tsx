@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EmailPasswordForm } from "./email-password-form";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+const analytics = vi.hoisted(() => ({ trackEvent: vi.fn() }));
+vi.mock("@/lib/analytics-events", () => analytics);
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() } }));
 
@@ -36,6 +38,7 @@ describe("email/password verification UI", () => {
         .mockResolvedValue({ json: async () => ({ ok: true }) });
       vi.stubGlobal("fetch", fetcher);
       await challenge();
+      expect(analytics.trackEvent).not.toHaveBeenCalled();
       // DOM availability can precede React's passive focus effect.
       await waitFor(() =>
         expect(document.activeElement).toBe(screen.getByLabelText("Authenticator code")),
@@ -45,6 +48,8 @@ describe("email/password verification UI", () => {
       expect(button.getAttribute("type")).toBe("submit");
       fireEvent.submit(button.closest("form")!);
       await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/dashboard"));
+      expect(analytics.trackEvent).toHaveBeenCalledOnce();
+      expect(analytics.trackEvent).toHaveBeenCalledWith("login", { method: "email" });
       expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({
         email: "audit@example.com",
         password: "fixture-password",

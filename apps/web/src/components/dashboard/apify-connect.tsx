@@ -1,6 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -189,6 +190,7 @@ export function ApifyConnect({
         });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+        void trackEvent("apify_connected", { method: hasValidApiKey ? "api_key" : "console" });
         setStatus((current) => ({
           ...current,
           connected: true,
@@ -249,6 +251,7 @@ export function ApifyConnect({
   }
 
   async function handleExtensionConnected(result: ApifyExtensionConnectionResult) {
+    void trackEvent("apify_connected", { method: "extension" });
     setStatus((current) => ({
       ...current,
       connected: true,

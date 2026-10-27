@@ -2,10 +2,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContactForm } from "./contact-form";
 
+const analytics = vi.hoisted(() => ({ trackEvent: vi.fn() }));
+vi.mock("@/lib/analytics-events", () => analytics);
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 function fill() {
   fireEvent.change(screen.getByLabelText("Full Name *"), { target: { value: "Local Audit" } });
@@ -53,6 +56,7 @@ describe("contact send lifecycle", () => {
     fill();
     fireEvent.submit(screen.getByLabelText("Message *").closest("form")!);
     expect((await screen.findByRole("alert")).textContent).toContain("Offline");
+    expect(analytics.trackEvent).not.toHaveBeenCalled();
     expect((screen.getByLabelText("Message *") as HTMLTextAreaElement).value).toBe(
       "Original message",
     );
@@ -60,5 +64,7 @@ describe("contact send lifecycle", () => {
     await waitFor(() =>
       expect((screen.getByLabelText("Message *") as HTMLTextAreaElement).value).toBe(""),
     );
+    expect(analytics.trackEvent).toHaveBeenCalledOnce();
+    expect(analytics.trackEvent).toHaveBeenCalledWith("generate_lead", { form: "contact" });
   });
 });

@@ -1,8 +1,9 @@
 "use client";
 
-import { type ProBillingOption, type PaymentMode } from "@actorconsole/shared/payment-gateways";
+import { currencyMinorUnitFactor, type ProBillingOption, type PaymentMode } from "@actorconsole/shared/payment-gateways";
 import { PLAN_ACTOR_LIMITS, PLAN_MONTHLY_USER_LIMITS } from "@actorconsole/shared/plans";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -65,6 +66,14 @@ export function BillingCard({
 
   async function checkout() {
     if (!checkoutOffer) return;
+    const { option } = checkoutOffer;
+    void trackEvent("begin_checkout", {
+      ...(option.currency && option.amountMinor !== undefined ? {
+        currency: option.currency,
+        value: option.amountMinor / currencyMinorUnitFactor(option.currency),
+      } : {}),
+      items: [{ item_id: "pro", item_name: "Pro", item_variant: option.interval }],
+    });
     const res = await fetch(`${API_BASE_URL}/billing/checkout`, {
       method: "POST",
       credentials: "include",

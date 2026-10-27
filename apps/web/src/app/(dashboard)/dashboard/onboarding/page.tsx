@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { PLAN_ACTOR_LIMITS, PLAN_MARKETING_FEATURES } from "@actorconsole/shared/plans";
 import type { Plan } from "@actorconsole/shared";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent, trackEventBeforeNavigation } from "@/lib/analytics-events";
 import { cn } from "@/lib/utils";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
 import { Badge } from "@/components/ui/badge";
@@ -210,7 +211,11 @@ export default function OnboardingPage() {
     if (!response.ok) {
       throw new Error(await responseMessage(response, "Could not save onboarding progress"));
     }
-    return (await response.json()) as { data?: { currentStep?: OnboardingStep } };
+    const result = (await response.json()) as { data?: { currentStep?: OnboardingStep } };
+    if (step === "credentials" && result.data?.currentStep === "complete") {
+      await trackEventBeforeNavigation("onboarding_completed", {});
+    }
+    return result;
   }
 
   async function previewApifyAccount(
@@ -279,6 +284,7 @@ export default function OnboardingPage() {
           throw new Error(await responseMessage(response, "Could not create the workspace"));
         }
         workspaceCreated = true;
+        void trackEvent("workspace_created", {});
 
         let syncWarning: string | null = null;
         if (token) {
@@ -295,6 +301,7 @@ export default function OnboardingPage() {
                 "The workspace was created, but the Apify API key could not be saved.",
             );
           }
+          void trackEvent("apify_connected", { method: "api_key" });
 
           const syncResponse = await fetch(`${API_BASE_URL}/actors/sync`, {
             method: "POST",
@@ -343,6 +350,7 @@ export default function OnboardingPage() {
     startTransition(async () => {
       try {
         await completeStep("plan");
+        await trackEventBeforeNavigation("onboarding_completed", {});
         toast.success("Workspace setup complete");
         // Completing onboarding changes the active workspace and plan state
         // consumed by the dashboard layout. A client-side route transition can
@@ -362,6 +370,7 @@ export default function OnboardingPage() {
     startTransition(async () => {
       try {
         await completeStep("plan");
+        await trackEventBeforeNavigation("onboarding_completed", {});
         // Choose a billing interval before starting any subscription.
         navigateInApp("/dashboard/billing");
       } catch (error) {

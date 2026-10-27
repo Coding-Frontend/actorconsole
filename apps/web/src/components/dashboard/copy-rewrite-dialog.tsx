@@ -1,6 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +54,7 @@ export function CopyRewriteDialog({ open, onOpenChange, apifyActorId, onChanged 
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+      void trackEvent("actor_copy_generated", {});
       setVariants(body.data.variants);
       setKeywords(body.data.keywords ?? []);
       onChanged?.();
@@ -81,6 +83,7 @@ export function CopyRewriteDialog({ open, onOpenChange, apifyActorId, onChanged 
         });
         const body = await res.json().catch(() => null);
         if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+        void trackEvent("actor_copy_applied", {});
         toast.success("Actor listing updated on Apify");
         onChanged?.();
         onOpenChange(false);
