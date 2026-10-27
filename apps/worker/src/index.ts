@@ -1,10 +1,4 @@
-import {
-  Worker,
-  Queue,
-  type Job,
-  type JobsOptions,
-  type ConnectionOptions,
-} from "bullmq";
+import { Worker, Queue, type Job, type JobsOptions, type ConnectionOptions } from "bullmq";
 import IORedis from "ioredis";
 import cronParser from "cron-parser";
 import { refreshStoreWatchAlerts } from "./lib/watch-alerts.js";
@@ -36,7 +30,10 @@ import {
 } from "@actorconsole/shared";
 import { initOpenTelemetry } from "@actorconsole/shared/telemetry";
 import { assertWorkspacePlanAccess } from "./lib/plan-access.js";
-import { dispatchPendingActorStatusOperations, claimActorStatusOperation } from "./lib/operation-dispatch.js";
+import {
+  dispatchPendingActorStatusOperations,
+  claimActorStatusOperation,
+} from "./lib/operation-dispatch.js";
 import { syncActorOperationalData } from "./lib/operational-usage.js";
 import { reconcileExpiredSubscriptions } from "./lib/subscription-expiry.js";
 import { refreshWorkspaceAudience } from "./lib/workspace-audience.js";
@@ -55,6 +52,7 @@ import {
 import { classifyWebsiteCatalog, enrichWebsiteLogos } from "./lib/website-catalog.js";
 import { syncActorInsights } from "./lib/actor-insights.js";
 import { actorReadinessData, loadActorPublishReadiness } from "./lib/publish-readiness.js";
+import { publishAndRecordActor } from "./lib/publication-event.js";
 import {
   BULK_PUBLISH_ELIGIBLE_ACTOR_STATUSES,
   ensureSuccessfulActorRun,
@@ -288,7 +286,8 @@ async function runBulkActorStatusOperation(job: Job, payload: BulkActorStatusPay
   if (!operation) throw new Error("Bulk status operation is no longer available");
 
   if (!["QUEUED", "RUNNING"].includes(operation.status)) return { status: operation.status };
-  if (!(await claimActorStatusOperation(operation, String(job.id)))) return { status: "ALREADY_CLAIMED" };
+  if (!(await claimActorStatusOperation(operation, String(job.id))))
+    return { status: "ALREADY_CLAIMED" };
 
   const actorById = new Map(
     operation.items.flatMap((item) => (item.actor ? [[item.actor.id, item.actor] as const] : [])),
@@ -668,10 +667,14 @@ async function runBulkPublishScheduleUnlocked(
       }
       if (!live.isPublic) {
         await assertLease();
-        const published = await apify.publishActor(item.actor.apifyActorId);
-        if (!published.isPublic) {
-          throw new Error("Apify did not confirm that the Actor was published");
-        }
+        // Record the confirmed transition immediately. An Actor may have been
+        // public before, so this is an event rather than a first-publication date.
+        await publishAndRecordActor(apify, db, {
+          runId: run.id,
+          apifyActorId: item.actor.apifyActorId,
+          username: item.actor.username,
+          actorName: item.actor.actorName,
+        });
       }
       await assertLease();
       const publishedAt = new Date();

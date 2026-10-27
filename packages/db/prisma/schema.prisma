@@ -855,6 +855,27 @@ model StoreActor {
   @@index([websiteIdentityId])
 }
 
+// A confirmed transition to public visibility performed through ActorConsole.
+// This is a publication event, not necessarily the Actor's first publication.
+model ActorPublicationEvent {
+  id           String   @id @default(cuid())
+  runId        String
+  apifyActorId String
+  username     String
+  actorName    String
+  publishedAt  DateTime
+
+  @@unique([runId, apifyActorId])
+  @@index([username, publishedAt])
+}
+
+// Preserve values removed because they preceded the Actor's creation.
+model InvalidPublicationDate {
+  storeActorId  String   @id
+  originalValue DateTime
+  correctedAt   DateTime @default(now())
+}
+
 // A single canonical website or service (for example Google Maps rather than
 // the broader Google company) shared by public and workspace-owned Actors.
 model WebsiteIdentity {

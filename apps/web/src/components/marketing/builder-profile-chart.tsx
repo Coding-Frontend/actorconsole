@@ -15,21 +15,24 @@ type TrendPoint = {
 };
 
 export function BuilderProfileChart({
-  publishing,
+  discoveries = [],
+  actorConsolePublishing = [],
   trends,
   window,
-  publicationCoverage,
 }: {
-  publishing: PublishingPoint[];
+  discoveries?: PublishingPoint[];
+  actorConsolePublishing?: PublishingPoint[];
   trends: TrendPoint[];
   window: number;
-  publicationCoverage?: { known: number; total: number };
 }) {
   return (
     <Tabs defaultValue="actors" className="mt-6">
       <TabsList className="h-auto w-full justify-start overflow-x-auto p-1 sm:w-auto">
         <TabsTrigger value="actors" className="whitespace-nowrap">
           New Actors
+        </TabsTrigger>
+        <TabsTrigger value="published" className="whitespace-nowrap">
+          Published via ActorConsole
         </TabsTrigger>
         <TabsTrigger value="users" className="whitespace-nowrap">
           Active users / 30d
@@ -39,30 +42,32 @@ export function BuilderProfileChart({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="actors" className="mt-6">
-        {publicationCoverage?.known === 0 && !publishing.some((point) => point.actors > 0) ? (
-          <div className="border border-dashed border-border bg-muted/25 px-5 py-12 text-center">
-            <p className="font-semibold">Publication dates unavailable</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              No verified first-publication dates are recorded for this portfolio. Upload dates and
-              first discovery are not used as publication dates.
-            </p>
-          </div>
-        ) : (
-          <>
-            {publicationCoverage && publicationCoverage.known < publicationCoverage.total ? (
-              <p className="mb-4 text-xs text-muted-foreground">
-                Confirmed publication dates only.{" "}
-                {publicationCoverage.total - publicationCoverage.known} of{" "}
-                {publicationCoverage.total} Actors have no recorded publication date.
-              </p>
-            ) : null}
-            <DailyBarChart
-              points={publishing.map((point) => ({ date: point.date, value: point.actors }))}
-              label="Actors published"
-              emptyMessage={`No verified publication events were recorded during this ${window}-day window.`}
-            />
-          </>
-        )}
+        <p className="mb-4 text-xs text-muted-foreground">
+          Actors first observed in the public catalog. This is the discovery date, not the
+          publication date. Initial catalog imports and delayed checks can group older Actors
+          together; a zero means none were first observed that day.
+        </p>
+        <DailyBarChart
+          points={discoveries.map((point) => ({ date: point.date, value: point.actors }))}
+          heading="Daily discoveries"
+          label="Actors first observed"
+          emptyMessage={`No Actors were first observed during this ${window}-day window.`}
+        />
+      </TabsContent>
+      <TabsContent value="published" className="mt-6">
+        <p className="mb-4 text-xs text-muted-foreground">
+          Successful publication events recorded by ActorConsole. These may include republications
+          and do not include Actors published elsewhere or events before recording began.
+        </p>
+        <DailyBarChart
+          points={actorConsolePublishing.map((point) => ({
+            date: point.date,
+            value: point.actors,
+          }))}
+          heading="ActorConsole publication events"
+          label="Publication events"
+          emptyMessage={`No ActorConsole publication events were recorded during this ${window}-day window.`}
+        />
       </TabsContent>
       <TabsContent value="users" className="mt-6">
         <p className="mb-4 text-xs text-muted-foreground">
@@ -99,10 +104,12 @@ export function BuilderProfileChart({
 
 function DailyBarChart({
   points,
+  heading,
   label,
   emptyMessage,
 }: {
   points: Array<{ date: string; value: number }>;
+  heading: string;
   label: string;
   emptyMessage: string;
 }) {
@@ -117,7 +124,7 @@ function DailyBarChart({
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="type-kicker">Confirmed daily publishing</p>
+          <p className="type-kicker">{heading}</p>
           <p className="font-display-tight mt-1 text-3xl tabular-nums">
             {total.toLocaleString("en-IN")}
           </p>

@@ -204,6 +204,8 @@ export interface BuilderProfile {
   lastUpdatedAt: Date;
   window: BuilderWindow;
   publishingChart: Array<{ date: string; actors: number }>;
+  discoveryChart: Array<{ date: string; actors: number }>;
+  actorConsolePublishingChart: Array<{ date: string; actors: number }>;
   trendChart: Array<{
     date: string;
     observed: boolean;
@@ -1082,6 +1084,7 @@ export async function getBuilderProfile(
     categoryRows,
     profileActor,
     publicationRows,
+    actorConsoleEvents,
     snapshotRows,
     latestFullCatalogSync,
     trendActors,
@@ -1103,6 +1106,10 @@ export async function getBuilderProfile(
         ...newlyPublishedWhere(cutoff),
       },
       select: { firstPublishedAt: true },
+    }),
+    db.actorPublicationEvent.findMany({
+      where: { username, publishedAt: { gte: cutoff } },
+      select: { publishedAt: true },
     }),
     db.storeActorSnapshot.findMany({
       where: {
@@ -1207,6 +1214,14 @@ export async function getBuilderProfile(
     window,
     publishingChart: buildPublishingChart(
       publicationRows.flatMap((actor) => (actor.firstPublishedAt ? [actor.firstPublishedAt] : [])),
+      window,
+    ),
+    discoveryChart: buildPublishingChart(
+      trendActors.map((actor) => actor.firstSeenAt),
+      window,
+    ),
+    actorConsolePublishingChart: buildPublishingChart(
+      actorConsoleEvents.map((event) => event.publishedAt),
       window,
     ),
     trendChart,

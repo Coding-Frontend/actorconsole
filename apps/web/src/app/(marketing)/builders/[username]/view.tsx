@@ -295,10 +295,10 @@ export default async function BuilderProfilePage({
                 <Badge variant="outline">{window} days</Badge>
               </div>
               <BuilderProfileChart
-                publishing={profile.publishingChart}
+                discoveries={profile.discoveryChart}
+                actorConsolePublishing={profile.actorConsolePublishingChart}
                 trends={profile.trendChart}
                 window={window}
-                publicationCoverage={profile.publicationDateCoverage}
               />
             </div>
           </HomeGridCell>
