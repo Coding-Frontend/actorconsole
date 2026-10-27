@@ -110,6 +110,8 @@ export interface BuilderProfile {
   lastUpdatedAt: Date;
   window: BuilderWindow;
   publishingChart: Array<{ date: string; actors: number }>;
+  discoveryChart: Array<{ date: string; actors: number }>;
+  actorConsolePublishingChart: Array<{ date: string; actors: number }>;
   trendChart: Array<{
     date: string;
     observed: boolean;

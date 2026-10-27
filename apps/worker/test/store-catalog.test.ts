@@ -9,16 +9,14 @@ import {
 function databaseMock() {
   const storeActor = {
     findMany: vi.fn().mockResolvedValue([]),
-    findUnique: vi
-      .fn()
-      .mockResolvedValue({
-        id: "row-1",
-        apifyActorId: "actor-1",
-        username: "alice",
-        actorName: "one",
-        isPublic: true,
-        _count: { watches: 0 },
-      }),
+    findUnique: vi.fn().mockResolvedValue({
+      id: "row-1",
+      apifyActorId: "actor-1",
+      username: "alice",
+      actorName: "one",
+      isPublic: true,
+      _count: { watches: 0 },
+    }),
     createMany: vi.fn().mockResolvedValue({ count: 0 }),
     update: vi.fn().mockResolvedValue({}),
     count: vi.fn().mockResolvedValue(0),
@@ -35,6 +33,7 @@ function databaseMock() {
     storeActor,
     storeActorSnapshot,
     storeCatalogSync,
+    invalidPublicationDate: { upsert: vi.fn().mockResolvedValue({}) },
     $transaction: vi.fn((operations: Array<Promise<unknown>>) => Promise.all(operations)),
   };
 }
@@ -274,6 +273,55 @@ describe("Apify Store catalog synchronization", () => {
     );
   });
 
+  it("does not save a publication date preceding Actor creation", async () => {
+    const database = databaseMock();
+    database.storeActor.count.mockResolvedValueOnce(1);
+    database.storeActor.findMany.mockResolvedValueOnce([{ id: "row-1", apifyActorId: "actor-1" }]);
+    const getActor = vi.fn().mockResolvedValueOnce({
+      id: "actor-1",
+      username: "alice",
+      name: "one",
+      createdAt: "2026-09-30T12:00:00.000Z",
+      firstPublishedAt: "2026-09-01T00:00:00.000Z",
+      stats: {},
+    });
+    await syncStoreActorDetails({ getActor } as unknown as ApifyClientWrapper, {
+      limit: 1,
+      database: database as never,
+    });
+    const update = database.storeActor.update.mock.calls[0]?.[0];
+    expect(update.data.apifyCreatedAt).toEqual(new Date("2026-09-30T12:00:00.000Z"));
+    expect(update.data).not.toHaveProperty("firstPublishedAt");
+  });
+
+  it("archives an earlier stored date when a later detail read establishes creation", async () => {
+    const database = databaseMock();
+    database.storeActor.count.mockResolvedValueOnce(1);
+    const originalValue = new Date("2026-09-01");
+    database.storeActor.findMany.mockResolvedValueOnce([
+      { id: "row-1", apifyActorId: "actor-1", firstPublishedAt: originalValue },
+    ]);
+    const getActor = vi.fn().mockResolvedValueOnce({
+      id: "actor-1",
+      username: "alice",
+      name: "one",
+      createdAt: "2026-09-30T12:00:00.000Z",
+      stats: {},
+    });
+    await syncStoreActorDetails({ getActor } as unknown as ApifyClientWrapper, {
+      limit: 1,
+      database: database as never,
+    });
+    expect(database.invalidPublicationDate.upsert).toHaveBeenCalledWith({
+      where: { storeActorId: "row-1" },
+      create: { storeActorId: "row-1", originalValue },
+      update: {},
+    });
+    expect(database.storeActor.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ firstPublishedAt: null }) }),
+    );
+  });
+
   it("limits reviewed metric repair to the requested row IDs", async () => {
     const database = databaseMock();
     database.storeActor.count.mockResolvedValue(1);
@@ -282,14 +330,12 @@ describe("Apify Store catalog synchronization", () => {
       .mockResolvedValueOnce([
         { id: "row-1", apifyActorId: "actor-1", users30Days: 999, totalUsers: 999 },
       ]);
-    const getActor = vi
-      .fn()
-      .mockResolvedValue({
-        id: "actor-1",
-        username: "alice",
-        name: "one",
-        stats: { totalUsers: 100, totalUsers30Days: 25 },
-      });
+    const getActor = vi.fn().mockResolvedValue({
+      id: "actor-1",
+      username: "alice",
+      name: "one",
+      stats: { totalUsers: 100, totalUsers30Days: 25 },
+    });
     await syncStoreActorDetails({ getActor } as unknown as ApifyClientWrapper, {
       actorIds: ["row-1"],
       repairMetrics: true,

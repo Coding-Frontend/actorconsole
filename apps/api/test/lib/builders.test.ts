@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   actor: { groupBy: vi.fn(), count: vi.fn(), findMany: vi.fn(), findFirst: vi.fn() },
   snapshots: { findMany: vi.fn() },
   sync: { findFirst: vi.fn(), findMany: vi.fn() },
+  publicationEvents: { findMany: vi.fn() },
   publicActor: vi.fn(),
   earnings: vi.fn(),
 }));
@@ -15,6 +16,7 @@ vi.mock("@actorconsole/db", async () => {
       storeActor: mocks.actor,
       storeActorSnapshot: mocks.snapshots,
       storeCatalogSync: mocks.sync,
+      actorPublicationEvent: mocks.publicationEvents,
     },
   };
 });
@@ -37,6 +39,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-10-26T12:00:00Z"));
   mocks.earnings.mockResolvedValue({ builders: {} });
   mocks.sync.findMany.mockResolvedValue([]);
+  mocks.publicationEvents.findMany.mockResolvedValue([]);
   mocks.actor.groupBy.mockImplementation(async (query) =>
     query._sum
       ? [
@@ -132,6 +135,17 @@ describe("builder catalog availability and history", () => {
     expect(profile?.ranks["new-actors"]).toBe(0);
     expect(profile?.publicationDateCoverage).toEqual({ known: 0, total: 1 });
     expect(profile?.publishingChart.reduce((sum, point) => sum + point.actors, 0)).toBe(0);
+    expect(profile?.discoveryChart.find((point) => point.date === "2026-10-08")?.actors).toBe(1);
+    expect(profile?.discoveryChart.find((point) => point.date === "2026-09-30")?.actors).toBe(0);
+  });
+
+  it("charts ActorConsole publication events separately from catalog discoveries", async () => {
+    mocks.publicationEvents.findMany.mockResolvedValue([{ publishedAt: new Date("2026-10-22") }]);
+    const profile = await getBuilderProfile("alice");
+    expect(profile?.actorConsolePublishingChart.find((p) => p.date === "2026-10-22")?.actors).toBe(
+      1,
+    );
+    expect(profile?.discoveryChart.find((p) => p.date === "2026-10-22")?.actors).toBe(0);
   });
 
   it("shows partial run history with coverage and suppresses full-portfolio growth", async () => {

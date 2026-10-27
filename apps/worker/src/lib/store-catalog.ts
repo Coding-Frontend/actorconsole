@@ -10,7 +10,11 @@ import { reconcileStoreActorIdentity } from "./store-catalog-identity.js";
 
 type StoreCatalogDatabase = Pick<
   typeof db,
-  "storeActor" | "storeActorSnapshot" | "storeCatalogSync" | "$transaction"
+  | "storeActor"
+  | "storeActorSnapshot"
+  | "storeCatalogSync"
+  | "invalidPublicationDate"
+  | "$transaction"
 >;
 
 export interface StoreCatalogSyncResult {
@@ -120,7 +124,9 @@ function searchActorData(actor: ApifyStoreSearchResult, now: Date) {
     metaLabels: jsonOrNull(actor.metaLabelDetails ?? actor.metaLabels),
     pricingInfos: jsonOrNull(actor.pricingInfos),
     ...(apifyCreatedAt ? { apifyCreatedAt } : {}),
-    ...(firstPublishedAt ? { firstPublishedAt } : {}),
+    ...(firstPublishedAt && apifyCreatedAt && firstPublishedAt >= apifyCreatedAt
+      ? { firstPublishedAt }
+      : {}),
     ...(apifyModifiedAt ? { apifyModifiedAt } : {}),
     lastSeenAt: now,
   };
@@ -147,7 +153,9 @@ function detailActorData(detail: ApifyActorBasicInfo | ApifyActorDetail, now: Da
     isPublic: detail.isPublic ?? true,
     isDeprecated: detail.isDeprecated ?? false,
     ...(apifyCreatedAt ? { apifyCreatedAt } : {}),
-    ...(firstPublishedAt ? { firstPublishedAt } : {}),
+    ...(firstPublishedAt && apifyCreatedAt && firstPublishedAt >= apifyCreatedAt
+      ? { firstPublishedAt }
+      : {}),
     ...(apifyModifiedAt ? { apifyModifiedAt } : {}),
     totalRuns: stats?.totalRuns ?? null,
     totalUsers: stats?.totalUsers ?? null,
@@ -648,6 +656,7 @@ export async function syncStoreActorDetails(
       select: {
         id: true,
         apifyActorId: true,
+        firstPublishedAt: true,
         totalRuns: true,
         totalUsers: true,
         users7Days: true,
@@ -674,6 +683,7 @@ export async function syncStoreActorDetails(
           select: {
             id: true,
             apifyActorId: true,
+            firstPublishedAt: true,
             totalRuns: true,
             totalUsers: true,
             users7Days: true,
@@ -703,6 +713,12 @@ export async function syncStoreActorDetails(
             }
             const now = new Date();
             const data = detailActorData(detail, now);
+            const invalidStoredDate =
+              actor.firstPublishedAt &&
+              data.apifyCreatedAt &&
+              actor.firstPublishedAt < data.apifyCreatedAt
+                ? actor.firstPublishedAt
+                : null;
             await reconcileStoreActorIdentity(apify, actor.id, detail, database);
             // Store search is the canonical, same-pass leaderboard metric
             // source. Detail reads are for lifecycle fields, Store metadata,
@@ -732,9 +748,25 @@ export async function syncStoreActorDetails(
                   bookmarkCount: actor.bookmarkCount ?? data.bookmarkCount,
                 };
             await database.$transaction([
+              ...(invalidStoredDate
+                ? [
+                    database.invalidPublicationDate.upsert({
+                      where: { storeActorId: actor.id },
+                      create: { storeActorId: actor.id, originalValue: invalidStoredDate },
+                      update: {},
+                    }),
+                  ]
+                : []),
               database.storeActor.update({
                 where: { id: actor.id },
-                data: { ...data, ...metrics, ...(detail.id ? { apifyActorId: detail.id } : {}) },
+                data: {
+                  ...data,
+                  ...metrics,
+                  ...(invalidStoredDate && !data.firstPublishedAt
+                    ? { firstPublishedAt: null }
+                    : {}),
+                  ...(detail.id ? { apifyActorId: detail.id } : {}),
+                },
               }),
               database.storeActorSnapshot.upsert({
                 where: {

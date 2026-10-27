@@ -9,22 +9,26 @@ vi.mock("./interactive-bar-chart", () => ({ InteractiveBarChart: () => null }));
 afterEach(cleanup);
 
 describe("builder user history units", () => {
-  it("does not draw a zero publishing chart when publication dates are unknown", () => {
+  it("labels discovery dates separately from publication dates", () => {
     render(
       <BuilderProfileChart
-        publishing={[{ date: "2026-09-30", actors: 0 }]}
+        discoveries={[{ date: "2026-10-08", actors: 74 }]}
         trends={[]}
         window={30}
-        publicationCoverage={{ known: 0, total: 74 }}
       />,
     );
-    expect(screen.getByText("Publication dates unavailable")).toBeTruthy();
-    expect(screen.queryByText("Confirmed daily publishing")).toBeNull();
-    expect(screen.getByText(/Upload dates and first discovery are not used/)).toBeTruthy();
+    expect(screen.getByText("Daily discoveries")).toBeTruthy();
+    expect(screen.getByText("74")).toBeTruthy();
+    expect(screen.getByText(/discovery date, not the publication date/)).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Published via ActorConsole" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    expect(screen.getByText(/may include republications/)).toBeTruthy();
   });
 
   it.each([7, 30, 90])("labels rolling user history explicitly in a %s-day view", (window) => {
-    render(<BuilderProfileChart publishing={[]} trends={[]} window={window} />);
+    render(<BuilderProfileChart trends={[]} window={window} />);
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Active users / 30d" }), {
       button: 0,
       ctrlKey: false,
