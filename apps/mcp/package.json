@@ -59,14 +59,14 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "pino": "^10.4.0",
     "zod": "^4.6.7"
   },
   "optionalDependencies": {
-    "@opentelemetry/auto-instrumentations-node": "^0.81.2",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
-    "@opentelemetry/sdk-node": "^0.223.0"
+    "@opentelemetry/auto-instrumentations-node": "^0.82.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
+    "@opentelemetry/sdk-node": "^0.300.0"
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",
