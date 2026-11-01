@@ -62,3 +62,16 @@ A non-ancestor branch can contain changes already squash-merged or superseded. O
 | `origin/fixes/actorconsole-20261026-billing` | Divergent older branch: retained; overlapping/newer implementation reviewed |
 | `origin/fixes/actorconsole-20261026-focus` | Patch-equivalent changes already included |
 | `origin/fixes/actorconsole-20261026-ui` | Divergent older branch: retained; overlapping/newer implementation reviewed |
+
+## Confirmed squash-merge history
+
+The repository PR history provides additional evidence for the older divergent tips:
+
+- PR #9 incorporated dependency/CI branches #1–#8, #10, #12 and #13.
+- PR #23 incorporated the second compatible dependency batch; PR #27 incorporated editor, extension and Resend updates.
+- PR #37 incorporated the Zod 4, Vite 8 and Sentry 11 compatibility work.
+- PR #50 incorporated the reviewed billing, queue, security and UI fixes, with subsequent hardening retained here.
+- PR #52 incorporated catalog availability/revenue/history fixes; PR #59 supplies the newer explicit publication/discovery behavior.
+- PRs #14–#16 incorporated MCP publishing, absolute tarball paths and npm-processing verification.
+
+These old tips do not require replaying their commits to recover their functionality. The table records Git ancestry/patch divergence, rather than claiming those older dependency batches were never incorporated. New proposals such as cron-parser 5, TypeScript 6, Hono Node server 2 and Lucide 1 remain separate compatibility work.
