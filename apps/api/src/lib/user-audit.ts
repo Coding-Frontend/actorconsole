@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { db } from "@actorconsole/db";
 import type { UserSession } from "@actorconsole/shared";
+import { verifiedClientIp } from "./client-ip.js";
 
 /**
  * Record user mutations made through either the dashboard cookie or a
@@ -21,11 +22,12 @@ export async function recordUserAudit(
   await auditLog.create({
     data: {
       actorId: session.userId,
+      adminId: session.impersonatedById ?? null,
       action,
       resource,
       after: after as object | undefined,
       source,
-      ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      ip: verifiedClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
     },
   });

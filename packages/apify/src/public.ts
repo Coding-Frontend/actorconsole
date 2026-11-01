@@ -15,7 +15,7 @@
 
 import { createApifyClient, type ApifyClientWrapper } from "./client";
 import type { ApifyActorDetail, ApifyRun, ApifyUserProfile } from "./types";
-import { getLogger } from "@actorconsole/shared";
+import { getLogger, BoundedTtlCache, isRedisEnabled } from "@actorconsole/shared";
 import IORedis from "ioredis";
 
 let _anon: ApifyClientWrapper | null = null;
@@ -25,9 +25,8 @@ function anon(): ApifyClientWrapper {
 }
 
 function toUsernameActor(s: string): { username: string; name: string } | null {
-  const [username, name] = s.split(/[~/]/);
-  if (!username || !name) return null;
-  return { username, name };
+  const match = /^([a-zA-Z0-9][a-zA-Z0-9_.-]{0,99})[~/]([a-zA-Z0-9][a-zA-Z0-9_.-]{0,99})$/.exec(s);
+  return match ? { username: match[1]!, name: match[2]! } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -36,12 +35,9 @@ function toUsernameActor(s: string): { username: string; name: string } | null {
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes — matches audit recommendation
 
-interface CacheEntry<T> {
-  value: T;
-  expiresAt: number;
-}
-
-const cache = new Map<string, CacheEntry<unknown>>();
+export const PUBLIC_CACHE_MAX_ENTRIES = 1000;
+const cache = new BoundedTtlCache<unknown>(PUBLIC_CACHE_MAX_ENTRIES);
+const pending = new Map<string, Promise<unknown>>();
 let redisCache: IORedis | null | undefined;
 
 /** Sentinel that lives outside the user-provided value space to mark
@@ -50,20 +46,16 @@ const NO_ENTRY = Symbol("no-cache-entry");
 type CacheLookup<T> = T | typeof NO_ENTRY | null;
 
 function cacheGet<T>(key: string): CacheLookup<T> {
-  const entry = cache.get(key) as CacheEntry<T> | undefined;
-  if (!entry) return NO_ENTRY;
-  if (entry.expiresAt < Date.now()) {
-    cache.delete(key);
-    return NO_ENTRY;
-  }
-  return entry.value;
+  const value = cache.get(key);
+  return value === undefined ? NO_ENTRY : value as T;
 }
 
 function cacheSet<T>(key: string, value: T, ttlMs: number): void {
-  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+  cache.set(key, value, Math.min(ttlMs, DEFAULT_TTL_MS));
 }
 
 function getRedisCache(): IORedis | null {
+  if (!isRedisEnabled()) return null;
   if (redisCache !== undefined) return redisCache;
   const url = process.env.REDIS_URL;
   if (!url) {
@@ -115,6 +107,25 @@ export function clearPublicCache(): void {
   cache.clear();
 }
 
+async function lookup<T>(key: string, options: { ttlMs?: number; bypassCache?: boolean }, load: () => Promise<T>): Promise<T | null> {
+  const underway = pending.get(key);
+  if (underway) return underway as Promise<T>;
+  if (pending.size >= 64) return null;
+  const operation = (async () => {
+    if (!options.bypassCache) {
+      const cached = await distributedCacheGet<T>(key);
+      if (cached !== NO_ENTRY) return cached as T;
+    }
+    let result: T | null;
+    try { result = await load(); }
+    catch (err) { log.warn({ err, key }, "Public lookup failed"); result = null; }
+    await distributedCacheSet(key, result, options.ttlMs ?? DEFAULT_TTL_MS);
+    return result;
+  })();
+  pending.set(key, operation);
+  try { return await operation; } finally { pending.delete(key); }
+}
+
 /** Test/diagnostic helper — how many entries are currently cached. */
 export function publicCacheSize(): number {
   return cache.size;
@@ -128,45 +139,18 @@ export async function getPublicActor(
   usernameActor: string,
   options: { ttlMs?: number; bypassCache?: boolean } = {},
 ): Promise<ApifyActorDetail | null> {
-  const key = `actor:${usernameActor}`;
-  if (!options.bypassCache) {
-    const cached = await distributedCacheGet<ApifyActorDetail | null>(key);
-    if (cached !== NO_ENTRY) return cached as ApifyActorDetail | null;
-  }
   const parts = toUsernameActor(usernameActor);
   if (!parts) return null;
-  let result: ApifyActorDetail | null = null;
-  try {
-    result = await anon().getActor(`${parts.username}/${parts.name}`);
-  } catch (err) {
-    log.warn({ err, actor: usernameActor }, "Public actor lookup failed");
-    result = null;
-  }
-  // Cache the result (even null) for the TTL window so a transient
-  // outage doesn't cause N identical retries.
-  await distributedCacheSet(key, result, options.ttlMs ?? DEFAULT_TTL_MS);
-  return result;
+  return lookup(`actor:${parts.username}/${parts.name}`, options,
+    () => anon().getActor(`${parts.username}/${parts.name}`));
 }
 
 export async function getPublicUser(
   username: string,
   options: { ttlMs?: number; bypassCache?: boolean } = {},
 ): Promise<ApifyUserProfile | null> {
-  if (!username) return null;
-  const key = `user:${username}`;
-  if (!options.bypassCache) {
-    const cached = await distributedCacheGet<ApifyUserProfile | null>(key);
-    if (cached !== NO_ENTRY) return cached as ApifyUserProfile | null;
-  }
-  let result: ApifyUserProfile | null = null;
-  try {
-    result = await anon().getPublicUser(username);
-  } catch (err) {
-    log.warn({ err, username }, "Public user lookup failed");
-    result = null;
-  }
-  await distributedCacheSet(key, result, options.ttlMs ?? DEFAULT_TTL_MS);
-  return result;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}$/.test(username)) return null;
+  return lookup(`user:${username}`, options, () => anon().getPublicUser(username));
 }
 
 export async function getLatestPublicRun(
@@ -175,18 +159,6 @@ export async function getLatestPublicRun(
 ): Promise<ApifyRun | null> {
   const parts = toUsernameActor(usernameActor);
   if (!parts) return null;
-  const key = `run:${usernameActor}`;
-  if (!options.bypassCache) {
-    const cached = await distributedCacheGet<ApifyRun | null>(key);
-    if (cached !== NO_ENTRY) return cached as ApifyRun | null;
-  }
-  let result: ApifyRun | null = null;
-  try {
-    result = await anon().getLatestPublicRun(`${parts.username}/${parts.name}`);
-  } catch (err) {
-    log.warn({ err, actor: usernameActor }, "Public run lookup failed");
-    result = null;
-  }
-  await distributedCacheSet(key, result, options.ttlMs ?? DEFAULT_TTL_MS);
-  return result;
+  return lookup(`run:${parts.username}/${parts.name}`, options,
+    () => anon().getLatestPublicRun(`${parts.username}/${parts.name}`));
 }

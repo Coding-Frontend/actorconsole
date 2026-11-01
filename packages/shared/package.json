@@ -65,7 +65,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node ../../scripts/fix-esm-imports.mjs dist",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -76,7 +76,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.81.2",
     "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
     "@opentelemetry/sdk-node": "^0.223.0",
-    "@sentry/node": "^10.62.0",
+    "@sentry/node": "^10.76.2",
     "pino": "^10.4.0",
     "zod": "^4.6.7"
   },

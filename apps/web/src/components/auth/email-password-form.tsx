@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Mail } from "lucide-react";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
 import { notifySessionChanged } from "@/lib/session-events";
+import { trackEvent } from "@/lib/analytics-events";
 
 interface EmailPasswordFormProps {
   mode: "login" | "signup";
@@ -71,6 +72,7 @@ export function EmailPasswordForm({
       return false;
     }
     notifySessionChanged();
+    void trackEvent("login", { method: "email" });
     router.push(safeCallbackUrl(callbackUrl));
     router.refresh();
     return true;
@@ -114,6 +116,7 @@ export function EmailPasswordForm({
           reportError(result.error ?? "Unable to create the account.");
           return;
         }
+        void trackEvent("sign_up", { method: "email" });
         toast.success("Account created. Check your email for the verification code.");
         router.push(
           `/signup/verify-email?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(safeCallbackUrl(callbackUrl))}`,

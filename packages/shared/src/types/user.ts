@@ -42,6 +42,7 @@ export interface UserSession {
   plan: Plan;
   businessProfileId?: string;
   authMethod?: "session" | "api-key" | "impersonation";
+  authenticatedAt?: string;
   apiKeyId?: string;
   apiKeyScopes?: ApiKeyScope[];
   apiKeyActorIds?: string[];

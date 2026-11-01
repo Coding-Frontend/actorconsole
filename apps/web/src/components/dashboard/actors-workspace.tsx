@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEventBeforeNavigation } from "@/lib/analytics-events";
 import { ActorCardActions } from "@/components/dashboard/actor-card-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -944,6 +945,7 @@ export function ActorsWorkspace({
       if (!response.ok || !body.data?.runId) {
         throw new Error(body.error?.message ?? "Could not start the Actor audit");
       }
+      await trackEventBeforeNavigation("actor_optimization_started", { kind: "CUSTOM" });
       navigateInApp(`/dashboard/actors/optimization/${body.data.runId}`);
     } catch (auditError) {
       toast.error(

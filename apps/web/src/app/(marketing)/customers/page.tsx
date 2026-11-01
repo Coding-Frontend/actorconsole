@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Bot, Building2, Code2 } from "lucide-react";
@@ -6,11 +7,13 @@ import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { PageHero } from "@/components/marketing/page-hero";
 
-export const metadata: Metadata = {
-  title: "For Apify Builders — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "Tools for Apify Developers & Teams",
   description:
-    "ActorConsole workflows for independent Apify developers, studios, and engineering teams.",
-};
+    "Explore ActorConsole workflows for independent Apify developers, studios, and engineering teams managing an Actor portfolio.",
+  path: "/customers",
+  image: "customers",
+});
 
 const useCases = [
   {

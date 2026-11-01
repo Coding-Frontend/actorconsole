@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { Button } from "@/components/ui/button";
 
 type FinancialSyncScope = "usage" | "costs" | "revenue";
@@ -50,6 +51,7 @@ export function UsageSyncButton({ scope = "usage" }: { scope?: FinancialSyncScop
         router.refresh();
         return;
       }
+      void trackEvent("financial_sync_started", { scope });
       toast.info(
         `Synchronizing ${scopeLabels[scope]} for ${body.data.queued} Actor${body.data.queued === 1 ? "" : "s"}…`,
       );

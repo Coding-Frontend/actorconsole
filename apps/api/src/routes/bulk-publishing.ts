@@ -736,6 +736,7 @@ export const bulkPublishingRoutes = new Hono<AppEnv>()
     await assertPlanFeature(session, "publishing");
     const body = c.req.valid("json");
     const businessProfileId = session.businessProfileId!;
+    if (body.enabled) assertApiKeyCapability(session, "publishing:run");
     await requireApifyPublishingApiKey(session);
     await requireWorkspaceActors(session, body.actorIds);
     if (body.idempotencyKey) {
@@ -778,7 +779,10 @@ export const bulkPublishingRoutes = new Hono<AppEnv>()
     await assertPlanFeature(session, "publishing");
     const id = c.req.param("id");
     const body = c.req.valid("json");
-    if (body.enabled === true) await requireApifyPublishingApiKey(session);
+    if (body.enabled === true) {
+      assertApiKeyCapability(session, "publishing:run");
+      await requireApifyPublishingApiKey(session);
+    }
     await requireOwnedSchedule(session, id);
     const existing = await db.bulkPublishSchedule.findFirst({
       where: { id, userId: session.userId, ...businessProfileScope(session) },
@@ -885,6 +889,7 @@ export const bulkPublishingRoutes = new Hono<AppEnv>()
 
   .post("/schedules/:id/resume", async (c) => {
     const session = c.get("session");
+    assertApiKeyCapability(session, "publishing:run");
     await assertPlanFeature(session, "publishing");
     await requireOwnedSchedule(session, c.req.param("id"));
     await requireApifyPublishingApiKey(session);
@@ -955,13 +960,22 @@ export const bulkPublishingRoutes = new Hono<AppEnv>()
       );
     }
     const idempotencyKey = c.req.header("idempotency-key")?.trim().slice(0, 191);
-    const payload = { bulkPublishScheduleId: schedule.id, force: true };
-    const jobId = idempotencyKey
-      ? await enqueue("schedules", payload, {
-          jobId: `bulk-publish-run:${schedule.id}:${idempotencyKey}`,
+    const authorization = {
+      scheduleId: schedule.id, userId: session.userId, businessProfileId: session.businessProfileId!,
+      apiKeyId: session.apiKeyId, idempotencyKey, expiresAt: new Date(Date.now() + 5 * 60_000),
+    };
+    const grant = idempotencyKey
+      ? await db.bulkPublishManualRun.upsert({
+          where: { scheduleId_idempotencyKey: { scheduleId: schedule.id, idempotencyKey } },
+          create: authorization, update: {},
         })
-      : await enqueue("schedules", payload);
+      : await db.bulkPublishManualRun.create({ data: authorization });
+    if (grant.expiresAt <= new Date()) throw new AppError("run_authorization_expired", "Request a new publishing run", 409);
+    const jobId = await enqueue("schedules", {
+      bulkPublishScheduleId: schedule.id, manualRunAuthorizationId: grant.id,
+    }, { jobId: `bulk-publish-manual-${grant.id}` });
     if (!jobId) throw new AppError("queue_unavailable", "The job queue is not configured", 503);
+    await recordUserAudit(c, session, "bulk-publish-schedule.run-authorized", `schedule:${schedule.id}`, { authorizationId: grant.id, jobId });
     return c.json({ ok: true, data: { queued: true, jobId } });
   })
 

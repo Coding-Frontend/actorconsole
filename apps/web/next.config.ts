@@ -4,6 +4,9 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  // Keep metadata in the initial HTML head for every social preview crawler,
+  // including platforms whose user agents Next.js does not recognize yet.
+  htmlLimitedBots: /.*/,
   experimental: {
     // Helps pnpm monorepos find workspace packages
     externalDir: true,

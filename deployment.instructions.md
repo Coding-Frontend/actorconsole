@@ -19,6 +19,13 @@ Review draft policies before publishing in Admin. Preserve database, Redis and l
 
 ## VPS Next.js frontend
 
+Redis is optional at the application level. Set `REDIS_ENABLED=false` for both
+API and worker to use the database queue, after running the database migration.
+The default Compose deployment still provisions Redis; this flag prevents all
+application connections to it. For installations without Docker, omit the Redis
+service entirely. See the README's Redis section for cron processing and safe
+backend changes. Keep `REDIS_ENABLED=true` with `REDIS_URL` for BullMQ mode.
+
 The `web` service starts with the backend stack and listens on loopback port 4202 by default. It uses the standalone Next.js image as a non-root user. Only public browser configuration enters the build; runtime API calls use `WEB_API_BASE_URL=http://api:4000`. Backend database, encryption, mail and provider secrets are not passed to the web container.
 
 Use `.deploy/nginx-web.conf` as a bootstrap template, retain existing TLS certificate settings, and proxy the web hostname to `127.0.0.1:4202`. Verify `/api/health` and the backend `/health/ready` before changing DNS.

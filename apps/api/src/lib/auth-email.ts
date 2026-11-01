@@ -109,3 +109,9 @@ export function sendPasswordResetCode(to: string, userName: string | null, code:
     }),
   );
 }
+
+export function sendRegistrationGuidance(to: string) {
+  const signInUrl = new URL("/login", getAppBaseUrl()).href;
+  return sendAuthEmail(to, "Your ActorConsole registration request",
+    `<p>An ActorConsole account already uses this email address.</p><p>Sign in to your account or use the password reset option on the sign-in page.</p><p><a href="${signInUrl}">Sign in to ActorConsole</a></p><p>If you did not request this email, you can ignore it.</p>`);
+}

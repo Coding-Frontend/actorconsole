@@ -1,14 +1,16 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Container, Section } from "@/components/ui/layout";
 import { PageHero } from "@/components/marketing/page-hero";
 import { ChromeExtensionLink } from "@/components/chrome-extension-link";
 
-export const metadata: Metadata = {
-  title: "Chrome Extension Privacy — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "Chrome Extension Privacy",
   description:
-    "How the ActorConsole Apify Connector detects an Apify account and handles the ApifyRT cookie during a workspace connection.",
-  robots: { index: true, follow: true },
-};
+    "Learn how the ActorConsole Apify Connector detects your account and handles connection credentials when linking an Apify workspace.",
+  path: "/chrome-extension/privacy",
+  image: "legal",
+});
 
 export default function ChromeExtensionPrivacyPage() {
   return (

@@ -5,11 +5,13 @@ import { onErrorHandler } from "../../src/middleware/error.js";
 const mocks = vi.hoisted(() => ({
   user: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
   session: { findUnique: vi.fn(), deleteMany: vi.fn() },
+  revokeGrants: vi.fn(),
   audit: vi.fn(),
   transaction: vi.fn(),
 }));
 vi.mock("@actorconsole/db", () => ({ db: {
   user: mocks.user, session: mocks.session, auditLog: { create: mocks.audit },
+  impersonationSession: { updateMany: mocks.revokeGrants },
   $transaction: mocks.transaction,
 } }));
 import { adminRoutes } from "../../src/routes/admin.js";
@@ -35,6 +37,7 @@ describe("administrator user-management authority", () => {
     mocks.user.update.mockImplementation(async ({ data }) => ({ id: "target", ...data }));
     mocks.user.count.mockResolvedValue(2);
     mocks.session.deleteMany.mockResolvedValue({ count: 1 });
+    mocks.revokeGrants.mockResolvedValue({ count: 1 });
     mocks.audit.mockResolvedValue({});
     mocks.transaction.mockImplementation((operations) => Promise.all(operations));
   });
@@ -61,7 +64,7 @@ describe("administrator user-management authority", () => {
     mocks.user.findUnique.mockResolvedValue({ id: "target", role: "USER", suspendedAt: null });
     expect((await request("target", "PATCH", { suspendedAt: new Date().toISOString() })).status).toBe(200);
     expect(mocks.session.deleteMany).toHaveBeenCalledWith({
-      where: { userId: "target" },
+      where: { OR: [{ userId: "target" }, { impersonatedById: "target" }] },
     });
     expect(mocks.transaction).toHaveBeenCalledOnce();
   });
@@ -77,7 +80,7 @@ describe("administrator user-management authority", () => {
     mocks.user.findUnique.mockResolvedValue({ id: "target", role: "USER", suspendedAt: null });
     expect((await request("target/suspend", "POST")).status).toBe(200);
     expect(mocks.session.deleteMany).toHaveBeenCalledWith({
-      where: { userId: "target" },
+      where: { OR: [{ userId: "target" }, { impersonatedById: "target" }] },
     });
   });
 
@@ -85,6 +88,16 @@ describe("administrator user-management authority", () => {
     mocks.user.findUnique.mockResolvedValue({ id: "target", role: "SUPER_ADMIN", suspendedAt: null });
     expect((await request("target", "PATCH", { name: "Updated name" })).status).toBe(200);
     expect(mocks.session.deleteMany).not.toHaveBeenCalled();
+  });
+  it("revokes both derived sessions and unredeemed grants on demotion", async () => {
+    caller("SUPER_ADMIN");
+    mocks.user.findUnique.mockResolvedValue({ id: "target", role: "ADMIN", suspendedAt: null });
+    expect((await request("target", "PATCH", { role: "USER" })).status).toBe(200);
+    expect(mocks.session.deleteMany).toHaveBeenCalledWith({ where: { OR: [{ userId: "target" }, { impersonatedById: "target" }] } });
+    expect(mocks.revokeGrants).toHaveBeenCalledWith({
+      where: { OR: [{ adminId: "target" }, { targetUserId: "target" }], revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
   });
 
   it.each([

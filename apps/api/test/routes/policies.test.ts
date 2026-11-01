@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Tests for /policies/* — public policy read + authenticated acceptance.
@@ -61,6 +61,20 @@ const samplePolicy = {
   status: "PUBLISHED",
   publishedAt: "2026-06-01T00:00:00.000Z",
 };
+
+it("records verified consent IPs rather than caller-supplied forwarding prefixes", async () => {
+  vi.stubEnv("TRUSTED_PROXY_IPS", "127.0.0.1,10.0.0.2");
+  mockDb.policy.findUnique.mockResolvedValue(samplePolicy);
+  mockDb.policyAcceptance.create.mockResolvedValue({});
+  mockDb.user.update.mockResolvedValue({});
+  mockDb.$transaction.mockImplementation((operations) => Promise.all(operations));
+  const response = await buildApp().request("/TERMS/accept", { method: "POST", headers: {
+    "content-type": "application/json", "x-forwarded-for": "203.0.113.99,192.0.2.40,10.0.0.2",
+  }, body: JSON.stringify({ version: "1.0.0" }) }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
+  expect(response.status).toBe(200);
+  expect(mockDb.policyAcceptance.create).toHaveBeenCalledWith({ data: expect.objectContaining({ ip: "192.0.2.40" }) });
+});
+afterEach(() => vi.unstubAllEnvs());
 
 describe("policies", () => {
   beforeEach(() => {

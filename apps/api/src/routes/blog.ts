@@ -323,7 +323,7 @@ export const newsletterSendRoutes = new Hono<AppEnv>()
     const jobId = await enqueue(
       "newsletter",
       { campaignId: campaign.id },
-      { jobId: `newsletter:${campaign.id}` },
+      { jobId: `newsletter-${campaign.id}` },
     );
     if (!jobId) {
       await db.newsletterCampaign.update({

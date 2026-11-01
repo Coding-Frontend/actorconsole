@@ -1,6 +1,6 @@
 /**
  * Rate limiter for API routes. Uses Redis when available (multi-instance safe),
- * falls back to in-memory Map when Redis isn't configured (local dev).
+ * uses MySQL/MariaDB without Redis in production, and memory in local dev.
  *
  * The Redis implementation uses a sorted set per key with scores = timestamps.
  * We drop entries outside the window, count remaining, and add the new entry.
@@ -10,6 +10,7 @@
  */
 
 import { getRedis } from "./queue.js";
+import { checkDatabaseRateLimit } from "@actorconsole/db";
 
 const FALLBACK_PREFIX = "rl:";
 const REDIS_RATE_LIMIT_TIMEOUT_MS = 750;
@@ -50,7 +51,7 @@ export interface RateLimitResult {
 }
 
 /**
- * Rate check using Redis (if available) or in-memory fallback.
+ * Rate check using Redis, the production database or development memory.
  * Call from your route handler; if `!allowed`, return 429.
  */
 export async function checkRateLimit(
@@ -112,7 +113,11 @@ export async function checkRateLimit(
   }
 
   if (process.env.NODE_ENV === "production") {
-    return { allowed: false, remaining: 0, retryAfterMs: opts.windowMs };
+    try {
+      return await withTimeout(checkDatabaseRateLimit(key, opts));
+    } catch {
+      return { allowed: false, remaining: 0, retryAfterMs: opts.windowMs };
+    }
   }
 
   // In-memory fallback

@@ -646,6 +646,7 @@ export interface ProviderSubscriptionState {
   customerId?: string | null;
   productId?: string | null;
   metadata: Record<string, unknown>;
+  paymentBacked?: boolean;
 }
 
 /** Read current provider state instead of assigning arrival order to signed events. */
@@ -690,10 +691,29 @@ export async function retrieveProviderSubscription(
     const razorpay = await getRazorpayClient(context);
     if (!razorpay) throw new Error("Razorpay is not configured");
     const subscription = await razorpay.subscriptions.fetch(id);
+    // Lifecycle status and historical paid_count cannot prove that the current
+    // billing period was paid. Read a paid invoice and its captured payment.
+    let paidPeriodEnd: Date | null = null;
+    if (subscription.paid_count > 0 && !["created", "authenticated"].includes(subscription.status)) {
+      const invoices = await razorpay.invoices.all({ subscription_id: id, count: 100 });
+      const invoice = invoices.items.filter((item) => "subscription_id" in item && item.subscription_id === id && item.status === "paid" &&
+        item.payment_id && item.billing_end && item.billing_end * 1000 > Date.now() &&
+        Number(item.amount_paid) > 0 && Number(item.amount_due) === 0)
+        .sort((left, right) => right.billing_end! - left.billing_end!)[0];
+      if (invoice?.payment_id) {
+        const payment = await razorpay.payments.fetch(invoice.payment_id);
+        if (payment.status === "captured" && payment.invoice_id === invoice.id &&
+            payment.currency === invoice.currency && Number(payment.amount) >= Number(invoice.amount_paid) &&
+            Number(payment.amount_refunded ?? 0) === 0) {
+          paidPeriodEnd = new Date(invoice.billing_end! * 1000);
+        }
+      }
+    }
     state = {
       id: subscription.id,
       status: subscription.status,
-      periodEnd: subscription.current_end ? new Date(subscription.current_end * 1000) : null,
+      periodEnd: paidPeriodEnd,
+      paymentBacked: paidPeriodEnd !== null,
       cancelAtPeriodEnd: ["cancelled", "completed", "halted"].includes(subscription.status),
       customerId: subscription.customer_id,
       productId: subscription.plan_id,

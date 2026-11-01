@@ -5,7 +5,9 @@ test.describe("public application smoke checks", () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/ActorConsole/i);
     await expect(page.getByRole("link", { name: /pricing/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /sign in|log in/i }).first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /get started|start for free/i }).first(),
+    ).toHaveAttribute("href", "/signup");
   });
 
   test("public API documentation is reachable", async ({ page }) => {

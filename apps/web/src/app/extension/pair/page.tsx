@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { ExtensionPairClient } from "./pair-client";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Connect extension", robots: { index: false, follow: false } };
 
 export default async function ExtensionPairPage({
   searchParams,

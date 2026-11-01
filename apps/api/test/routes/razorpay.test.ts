@@ -13,6 +13,8 @@ const mockSubscriptionsCreate = vi.fn();
 const mockSubscriptionsCancel = vi.fn();
 const mockVerifyRazorpayCheckout = vi.fn();
 const mockVerifyRazorpaySignature = vi.fn();
+const mockAdminSession = vi.fn();
+const mockPaymentsAll = vi.fn();
 
 // Mock the Razorpay class constructor
 vi.mock("razorpay", () => {
@@ -23,7 +25,7 @@ vi.mock("razorpay", () => {
         cancel: (...args: unknown[]) => mockSubscriptionsCancel(...args),
       },
       orders: { create: (...args: unknown[]) => mockCreateOrder(...args) },
-      payments: { fetch: (...args: unknown[]) => mockFetchPayment(...args) },
+      payments: { fetch: (...args: unknown[]) => mockFetchPayment(...args), all: (...args: unknown[]) => mockPaymentsAll(...args) },
     })),
   };
 });
@@ -38,6 +40,7 @@ vi.mock("@actorconsole/shared", async (importOriginal) => ({
 vi.mock("@actorconsole/db", async () => ({
   Prisma: (await import("@prisma/client")).Prisma,
   db: {
+    session: { findUnique: (...args: unknown[]) => mockAdminSession(...args) },
     billingCheckoutOperation: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(), $queryRaw: vi.fn(),
     subscription: {
@@ -118,6 +121,14 @@ function buildApp() {
 let storedSubscription: any;
 let storedCheckout: any;
 describe("Razorpay routes", () => {
+  it("rejects an ordinary user from the merchant diagnostic without provider calls or writes", async () => {
+    mockAdminSession.mockResolvedValue({ expires: new Date(Date.now() + 60_000),
+      user: { id: "u1", role: "USER", suspendedAt: null } });
+    const response = await buildApp().request("/razorpay/test", { method: "POST", headers: { cookie: "authjs.session-token=user-token" } });
+    expect(response.status).toBe(403);
+    expect(mockPaymentsAll).not.toHaveBeenCalled();
+    expect(mockRecordIntegrationTest).not.toHaveBeenCalled();
+  });
   beforeEach(async () => {
     vi.clearAllMocks();
     const { db } = await import("@actorconsole/db");

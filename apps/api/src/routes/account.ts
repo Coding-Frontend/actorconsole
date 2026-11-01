@@ -5,6 +5,7 @@ import { db } from "@actorconsole/db";
 import { cancelScheduledDeletion } from "@actorconsole/db";
 import { getCookie } from "hono/cookie";
 import { requireAuth } from "../middleware/auth.js";
+import { requireOwnerSession } from "../middleware/owner-session.js";
 import { AppError } from "../middleware/error.js";
 import { trackEvent } from "../lib/analytics.js";
 import { assertPlanFeature, refreshWorkspacePlanUsage } from "../lib/plan-access.js";
@@ -31,6 +32,7 @@ import {
   hashRecoveryCode,
   totpUri,
   verifyTotpCode,
+  matchedTotpCounter,
 } from "@actorconsole/shared";
 import type { McpCapability } from "@actorconsole/shared";
 import type { AppEnv } from "../app.js";
@@ -136,6 +138,9 @@ async function enforceTwoFactorRateLimit(userId: string, action: string, max = 5
 
 export const accountRoutes = new Hono<AppEnv>()
   .use("*", requireAuth())
+  .use("/2fa/*", async (c, next) => c.req.method === "GET" ? next() : requireOwnerSession({ recent: true })(c, next))
+  .use("/api-keys", async (c, next) => c.req.method === "GET" ? next() : requireOwnerSession({ recent: true })(c, next))
+  .use("/api-keys/*", async (c, next) => c.req.method === "GET" ? next() : requireOwnerSession({ recent: true })(c, next))
 
   .get("/publishing-overview", async (c) => {
     c.header("Cache-Control", "no-store");
@@ -736,6 +741,7 @@ export const accountRoutes = new Hono<AppEnv>()
           `${TOTP_KEY_PREFIX}${session.userId}`,
         ),
         totpRecoveryCodes: [],
+        lastAcceptedTotpCounter: null,
       },
     });
     if (setup.count !== 1) {
@@ -783,6 +789,7 @@ export const accountRoutes = new Hono<AppEnv>()
         },
         data: {
           totpEnabled: true,
+          lastAcceptedTotpCounter: matchedTotpCounter(secret, code),
           totpRecoveryCodes: recoveryCodes.map((value) =>
             hashRecoveryCode(value, session.userId, encryptionKey()),
           ),
@@ -806,7 +813,7 @@ export const accountRoutes = new Hono<AppEnv>()
       if (!factor) throw new AppError("totp_invalid", "That verification code is not valid", 400);
       const disabled = await db.user.updateMany({
         where: { id: session.userId, totpEnabled: true, totpSecretEncrypted: factor.encryptedSecret },
-        data: { totpEnabled: false, totpSecretEncrypted: null, totpRecoveryCodes: [] },
+        data: { totpEnabled: false, totpSecretEncrypted: null, totpRecoveryCodes: [], lastAcceptedTotpCounter: null },
       });
       if (disabled.count !== 1) {
         throw new AppError("totp_setup_changed", "Two-factor setup changed. Please try again.", 409);
@@ -910,7 +917,7 @@ export const accountRoutes = new Hono<AppEnv>()
   )
 
   // ==================== Account Deletion ====================
-  .delete("/", zValidator("json", z.object({ confirmation: z.literal("DELETE") })), async (c) => {
+  .delete("/", requireOwnerSession({ recent: true }), zValidator("json", z.object({ confirmation: z.literal("DELETE") })), async (c) => {
     const session = c.get("session");
     const rate = await checkRateLimit(`account:delete:${session.userId}`, {
       windowMs: 86400000,
@@ -1283,7 +1290,7 @@ export const accountRoutes = new Hono<AppEnv>()
           expiresAt: expiresAt ? new Date(expiresAt) : null,
         },
       });
-      trackEvent("api_key.created", { userId: session.userId, properties: { name } });
+      trackEvent("api_key.created", { userId: session.userId, businessProfileId: session.businessProfileId, properties: { name } });
       await recordUserAudit(c, session, "api-key.created", `api-key:${key.id}`, {
         name,
         expiresAt: key.expiresAt,
@@ -1444,7 +1451,7 @@ export const accountRoutes = new Hono<AppEnv>()
         rotatedAt: now,
       },
     });
-    trackEvent("api_key.rotated", { userId: session.userId });
+    trackEvent("api_key.rotated", { userId: session.userId, businessProfileId: session.businessProfileId });
     await recordUserAudit(c, session, "api-key.rotated", `api-key:${id}`);
     return c.json({
       ok: true,
@@ -1477,7 +1484,7 @@ export const accountRoutes = new Hono<AppEnv>()
     if (result.count === 0) {
       throw new AppError("not_found", "MCP credential not found", 404);
     }
-    trackEvent("api_key.revoked", { userId: session.userId });
+    trackEvent("api_key.revoked", { userId: session.userId, businessProfileId: session.businessProfileId });
     await recordUserAudit(c, session, "api-key.revoked", `api-key:${id}`);
     return c.json({ ok: true, data: { id } });
   })

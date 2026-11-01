@@ -12,4 +12,6 @@ Keep private vulnerability reporting, Dependabot security updates, secret scanni
 
 Store deployment secrets in the `production` environment restricted to `main`. Successful CI and secret scanning on a push to `main` trigger the VPS deployment automatically. Forks should configure their own repository controls, environment and deployment credentials.
 
+Container publication requires the `containers` environment with required reviewers and deployment rules for `main` and protected `v*.*.*` tags. Restrict tag creation/update/deletion to release maintainers. The workflow verifies main ancestry and the latest successful CI and secret-scan runs for the exact commit, builds without registry write access, and publishes the checked image artifact after verifying its checksum and image ID. Repository/environment protection rules must be configured in GitHub; workflow YAML cannot create those rules.
+
 Revoke exposed credentials at their issuers. Deleting local Git history does not revoke credentials or erase old remotes, clones, CI artifacts or backups. Follow [GitHub's cleanup guidance](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository).

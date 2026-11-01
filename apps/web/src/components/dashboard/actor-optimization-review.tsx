@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -310,6 +311,7 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
         throw new Error("Could not confirm which changes were queued. Refresh this review.");
       }
       const { queued, failed = 0 } = body.data;
+      if (queued > 0) void trackEvent("actor_optimization_approved", { queued_count: queued });
       if (failed > 0) {
         const failures = `${failed} Actor${failed === 1 ? "" : "s"} could not be queued.`;
         if (queued === 0) toast.error(`No changes were queued. ${failures}`);

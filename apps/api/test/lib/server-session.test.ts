@@ -42,6 +42,7 @@ function signIn(challengeToken: string, code = recoveryCode, authUser = user) {
 
 describe("two-factor session creation", () => {
   let remaining: string[];
+  let lastCounter: number | null;
   let challenges: Map<string, { id: string; userId: string; expiresAt: Date; attempts: number; usedAt: Date | null }>;
 
   beforeEach(() => {
@@ -49,6 +50,7 @@ describe("two-factor session creation", () => {
     vi.stubEnv("APP_ENCRYPTION_KEY", passphrase);
     vi.stubEnv("AUTH_URL", "http://localhost");
     remaining = [...user.totpRecoveryCodes as string[]];
+    lastCounter = null;
     challenges = new Map(["challenge-a", "challenge-b"].map((token) => [
       createHash("sha256").update(token).digest("hex"),
       { id: token, userId: user.id, expiresAt: new Date(Date.now() + 60_000), attempts: 0, usedAt: null },
@@ -71,6 +73,11 @@ describe("two-factor session creation", () => {
       return {};
     });
     mocks.user.updateMany.mockImplementation(async ({ where, data }) => {
+      if (data.lastAcceptedTotpCounter !== undefined) {
+        if (lastCounter !== null && lastCounter >= where.OR[1].lastAcceptedTotpCounter.lt) return { count: 0 };
+        lastCounter = data.lastAcceptedTotpCounter;
+        return { count: 1 };
+      }
       if (JSON.stringify(where.totpRecoveryCodes.equals) !== JSON.stringify(remaining)) return { count: 0 };
       remaining = data.totpRecoveryCodes;
       return { count: 1 };
@@ -116,5 +123,18 @@ describe("two-factor session creation", () => {
     expect(response.status).toBe(401);
     expect([...challenges.values()][0].attempts).toBe(1);
     expect(mocks.createSession).not.toHaveBeenCalled();
+  });
+  it("atomically rejects the same TOTP counter across independent concurrent challenges", async () => {
+    const code = totpCode(secret);
+    const responses = await Promise.all([signIn("challenge-a", code), signIn("challenge-b", code)]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 401]);
+    expect(mocks.createSession).toHaveBeenCalledOnce();
+    expect(lastCounter).toBeGreaterThan(0);
+  });
+  it("rejects a previously accepted or older counter on a later challenge", async () => {
+    const code = totpCode(secret);
+    expect((await signIn("challenge-a", code)).status).toBe(200);
+    expect((await signIn("challenge-b", code)).status).toBe(401);
+    expect(mocks.createSession).toHaveBeenCalledOnce();
   });
 });

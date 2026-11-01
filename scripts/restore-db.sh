@@ -12,7 +12,7 @@ if [[ "${RESTORE_CONFIRM:-}" != "YES" ]]; then
 fi
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  IFS=$'\t' read -r url_host url_port url_user url_password url_database < <(
+  IFS=$'\x1f' read -r url_host url_port url_user url_password url_database < <(
     RESTORE_DATABASE_URL="$DATABASE_URL" node - <<'NODE'
 const url = new URL(process.env.RESTORE_DATABASE_URL);
 process.stdout.write([
@@ -21,7 +21,7 @@ process.stdout.write([
   decodeURIComponent(url.username),
   decodeURIComponent(url.password),
   url.pathname.replace(/^\//, ""),
-  ].join("\t") + "\n");
+  ].join("\x1f") + "\n");
 NODE
   )
 fi

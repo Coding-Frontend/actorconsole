@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PublicComparisonPage } from "@/components/comparison/public-comparison-page";
@@ -6,10 +7,13 @@ import { parseComparisonIds, parseComparisonWindow } from "@/lib/public-comparis
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Compare Apify builders",
-  description: "Compare public Apify builders side by side.",
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "Compare Apify Builders",
+  description:
+    "Compare public Apify builders side by side by Actor portfolios, users, runs, and estimated earnings.",
+  path: "/builders/compare",
+  image: "compare",
+});
 
 export default async function BuilderComparisonPage({
   searchParams,

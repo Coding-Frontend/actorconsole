@@ -1,10 +1,11 @@
-import { Worker, Queue, type Job, type JobsOptions, type ConnectionOptions } from "bullmq";
-import IORedis from "ioredis";
+import type { QueueJob as Job } from "@actorconsole/shared";
+import { createQueue, createWorker, getRedis, tickRecurringJobs, type RuntimeQueue as Queue } from "./lib/queue-runtime.js";
+import { DatabaseWorker } from "./lib/database-worker.js";
 import cronParser from "cron-parser";
 import { refreshStoreWatchAlerts } from "./lib/watch-alerts.js";
 import { runOptimizationJob, type OptimizationPayload } from "./lib/actor-optimization.js";
 
-import { admitWorkspaceActors, db, getIntegration, Prisma, purgeDueUsers } from "@actorconsole/db";
+import { admitWorkspaceActors, db, getIntegration, Prisma, purgeDueUsers, pruneBackgroundInfrastructure } from "@actorconsole/db";
 import {
   getAdminApifyClient,
   getUserApifyClient,
@@ -27,6 +28,7 @@ import {
   incrementMetric,
   analyzeActorPublishReadiness,
   type ActorPublishReadiness,
+  publishingJobSchema,
 } from "@actorconsole/shared";
 import { initOpenTelemetry } from "@actorconsole/shared/telemetry";
 import { assertWorkspacePlanAccess } from "./lib/plan-access.js";
@@ -36,6 +38,7 @@ import {
 } from "./lib/operation-dispatch.js";
 import { syncActorOperationalData } from "./lib/operational-usage.js";
 import { reconcileExpiredSubscriptions } from "./lib/subscription-expiry.js";
+import { claimManualPublishingRun } from "./lib/publishing-authorization.js";
 import { refreshWorkspaceAudience } from "./lib/workspace-audience.js";
 
 import {
@@ -101,22 +104,6 @@ function publicationFailureReadinessData(code: string) {
   if (code === "DISPOSABLE_EMAIL") return { hasNonDisposableEmail: false };
   if (code === "ACTOR_RUN_FAILED") return { publishReady: false };
   return {};
-}
-
-// ----- runtime singletons ----------------------------------------------------
-
-declare global {
-  var __redis: IORedis | undefined;
-}
-
-function getRedis(): IORedis {
-  if (!process.env.REDIS_URL) throw new Error("REDIS_URL is not set");
-  if (!global.__redis) {
-    global.__redis = new IORedis(process.env.REDIS_URL, {
-      maxRetriesPerRequest: null,
-    });
-  }
-  return global.__redis;
 }
 
 let resendClient: Resend | null = null;
@@ -448,10 +435,10 @@ async function runBulkActorStatusOperation(job: Job, payload: BulkActorStatusPay
   }
 }
 
-async function runBulkPublishSchedule(job: Job, scheduleId: string, force = false) {
+async function runBulkPublishSchedule(job: Job, scheduleId: string, manualRunAuthorizationId?: string) {
   const redis = getRedis();
   const leased = await withPublishingLease(redis, scheduleId, (lease) =>
-    runBulkPublishScheduleUnlocked(job, scheduleId, force, lease),
+    runBulkPublishScheduleUnlocked(job, scheduleId, manualRunAuthorizationId, lease),
   );
   if (!leased.acquired) {
     const outcome = {
@@ -478,7 +465,7 @@ async function runBulkPublishSchedule(job: Job, scheduleId: string, force = fals
 async function runBulkPublishScheduleUnlocked(
   job: Job,
   scheduleId: string,
-  force: boolean,
+  manualRunAuthorizationId: string | undefined,
   lease: PublishingLease,
 ) {
   await lease.assertHeld();
@@ -494,9 +481,13 @@ async function runBulkPublishScheduleUnlocked(
     },
   });
   await lease.assertHeld();
-  if (!schedule || (!schedule.enabled && !force)) return;
+  if (!schedule) return;
+  if (!manualRunAuthorizationId && (!schedule.enabled || !schedule.nextRunAt || schedule.nextRunAt > new Date())) return;
   if (!planHasFeature(schedule.businessProfile.plan, "publishing")) return;
   await assertWorkspacePlanAccess(schedule.userId, schedule.businessProfileId);
+  if (manualRunAuthorizationId && !(await claimManualPublishingRun(manualRunAuthorizationId, schedule))) {
+    throw new Error("Manual publishing authorization is missing, expired, revoked, or already used");
+  }
   await lease.assertHeld();
   if (schedule.actors.length === 0) {
     await db.bulkPublishSchedule.update({
@@ -1243,7 +1234,7 @@ async function enqueueAllActorSnapshots(queue: Queue) {
       pendingBootstraps.map((workspace) => ({
         name: "workspace-insight-bootstrap-retry",
         data: { workspaceBootstrap: workspace },
-        opts: { jobId: `workspace-insight-bootstrap:${workspace.businessProfileId}:${day}` },
+        opts: { jobId: `workspace-insight-bootstrap-${workspace.businessProfileId}-${day}` },
       })),
     );
   }
@@ -1262,7 +1253,7 @@ async function enqueueAllActorSnapshots(queue: Queue) {
       actors.map((actor) => ({
         name: "actor-snapshot",
         data: { actorId: actor.id, bootstrapInsights: actor.lastInsightSyncAt === null },
-        opts: { jobId: `actor-snapshot:${actor.id}:${day}` },
+        opts: { jobId: `actor-snapshot-${actor.id}-${day}` },
       })),
     );
     if (actors.length < 250) break;
@@ -1453,23 +1444,12 @@ async function syncUsageCosts() {
 
 // ----- worker bootstrap ------------------------------------------------------
 
-function redisConnectionOptions(redis: IORedis): ConnectionOptions {
-  const opts: ConnectionOptions = {
-    host: redis.options.host ?? "127.0.0.1",
-    port: redis.options.port ?? 6379,
-  };
-  if (redis.options.password) opts.password = redis.options.password;
-  if (redis.options.username) opts.username = redis.options.username;
-  return opts;
-}
-
 /**
  * Per-queue retry / backoff policy. Imported from the shared package so
  * the API and the worker agree on retry semantics. See
  * `@actorconsole/shared/queue/retry-policies` for the full rationale.
  */
 import { QUEUE_RETRY_POLICIES } from "@actorconsole/shared";
-const defaultJobOptions: Record<string, JobsOptions> = QUEUE_RETRY_POLICIES;
 
 /**
  * Distributed lock for the schedule tick (see `lib/leader-election.ts`).
@@ -1478,6 +1458,7 @@ const defaultJobOptions: Record<string, JobsOptions> = QUEUE_RETRY_POLICIES;
  */
 async function tickScheduleQueue() {
   const redis = getRedis();
+  await tickRecurringJobs();
   const acquired = await scheduleTickLock.tryAcquire(redis);
   if (!acquired) {
     // Another replica is handling this tick. No-op.
@@ -1485,16 +1466,13 @@ async function tickScheduleQueue() {
   }
 
   try {
-    // Find due publishing schedules and enqueue them via Redis directly.
+    // Find due publishing schedules and enqueue them on the selected backend.
     const now = new Date();
     const dueBulk = await db.bulkPublishSchedule.findMany({
       where: { enabled: true, nextRunAt: { lte: now } },
       take: 25,
     });
-    const q = new Queue("schedules", {
-      connection: redisConnectionOptions(redis),
-      defaultJobOptions: QUEUE_RETRY_POLICIES.schedules,
-    });
+    const q = createQueue("schedules");
     try {
       // An idle tick may enqueue nothing. Finish Redis initialization before
       // closing the queue, or BullMQ can emit an unhandled late init error.
@@ -1505,7 +1483,7 @@ async function tickScheduleQueue() {
           "bulk-publishing",
           { bulkPublishScheduleId: schedule.id },
           {
-            jobId: `bulk-publish:${schedule.id}:${schedule.nextRunAt?.getTime() ?? now.getTime()}`,
+            jobId: `bulk-publish-${schedule.id}-${schedule.nextRunAt?.getTime() ?? now.getTime()}`,
           },
         );
       }
@@ -1516,26 +1494,24 @@ async function tickScheduleQueue() {
     log.error({ err }, "Schedule queue tick failed");
     // Release the lock early on error so the next tick can retry quickly.
     await scheduleTickLock.release(redis).catch(() => {});
+    throw err;
   }
 }
 
 async function start() {
   const redis = getRedis();
-  const connection = redisConnectionOptions(redis);
+  const once = process.argv.includes("--once");
+  if (once && redis) throw new Error("--once requires REDIS_ENABLED=false; Redis mode uses the persistent BullMQ worker");
+  if (!redis && !process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for the database worker");
+  const budgetMs = Number(process.env.WORKER_RUN_BUDGET_MS ?? 50_000);
+  if (!Number.isFinite(budgetMs) || budgetMs < 1) throw new Error("WORKER_RUN_BUDGET_MS must be a positive number");
 
   // Register Queue objects with retry/backoff defaults. BullMQ applies
   // these to all jobs added to the queue, and the API process (which also
   // creates Queue instances) will pick up the same defaults when adding
   // jobs via shared lib/queue helpers.
   const queueRegistry: Queue[] = [];
-  for (const [name, defaults] of Object.entries(defaultJobOptions)) {
-    queueRegistry.push(
-      new Queue(name, {
-        connection,
-        defaultJobOptions: defaults,
-      }),
-    );
-  }
+  for (const name of Object.keys(QUEUE_RETRY_POLICIES)) queueRegistry.push(createQueue(name));
   const snapshotsQueue = queueRegistry.find((queue) => queue.name === "snapshots");
   const catalogQueue = queueRegistry.find((queue) => queue.name === "catalog");
   await snapshotsQueue?.upsertJobScheduler(
@@ -1640,32 +1616,23 @@ async function start() {
       scheduleNextTick();
     }, delayMs);
   };
-  tickScheduleQueue().catch((err) => log.error({ err }, "Initial schedule queue tick failed"));
-  scheduleNextTick();
+  await tickScheduleQueue();
+  if (!once) scheduleNextTick();
 
-  const worker = new Worker(
+  const worker = createWorker(
     "schedules",
     async (job) => {
-      const { bulkPublishScheduleId, bulkActorStatus, force } = job.data as {
-        bulkPublishScheduleId?: string;
-        bulkActorStatus?: BulkActorStatusPayload;
-        force?: boolean;
-      };
-      if (bulkActorStatus) {
-        return runBulkActorStatusOperation(job, bulkActorStatus);
-      }
-      if (bulkPublishScheduleId) {
-        return runBulkPublishSchedule(job, bulkPublishScheduleId, force);
-      }
-      throw new Error("Publishing job is missing its identifier");
+      const payload = publishingJobSchema.parse(job.data);
+      if ("bulkActorStatus" in payload) return runBulkActorStatusOperation(job, payload.bulkActorStatus);
+      return runBulkPublishSchedule(job, payload.bulkPublishScheduleId, payload.manualRunAuthorizationId);
     },
     {
-      connection,
+      autorun: !once,
       concurrency: Number(process.env.WORKER_CONCURRENCY ?? 5),
     },
   );
 
-  const snapshotWorker = new Worker(
+  const snapshotWorker = createWorker(
     "snapshots",
     async (job) => {
       const { actorId, catalog } = job.data as {
@@ -1710,10 +1677,10 @@ async function start() {
       } else if (actorId) await runSnapshot(actorId, Boolean(job.data.bootstrapInsights));
       else if (snapshotsQueue) await enqueueAllActorSnapshots(snapshotsQueue);
     },
-    { connection, concurrency: 1 },
+    { autorun: !once, concurrency: 1 },
   );
 
-  const catalogWorker = new Worker(
+  const catalogWorker = createWorker(
     "catalog",
     async (job) => {
       const { catalog } = job.data as {
@@ -1781,27 +1748,27 @@ async function start() {
         log.error({ error }, "Store watch alerts failed"),
       );
     },
-    { connection, concurrency: 1 },
+    { autorun: !once, concurrency: 1 },
   );
 
   // Keep audience totals independent of long-running inventory/insight jobs.
-  const audienceWorker = new Worker<{ userId: string; businessProfileId: string }>(
+  const audienceWorker = createWorker<{ userId: string; businessProfileId: string }>(
     "audience",
     (job) => refreshWorkspaceAudience(job.data),
-    { connection, concurrency: 1 },
+    { autorun: !once, concurrency: 1 },
   );
 
-  const newsletterWorker = new Worker(
+  const newsletterWorker = createWorker(
     "newsletter",
     async (job) => {
       const { campaignId } = job.data as { campaignId: string };
       await runNewsletterCampaign(campaignId);
     },
-    { connection, concurrency: 1 },
+    { autorun: !once, concurrency: 1 },
   );
 
-  const optimizationWorker = new Worker<OptimizationPayload>("optimization", runOptimizationJob, {
-    connection,
+  const optimizationWorker = createWorker<OptimizationPayload>("optimization", runOptimizationJob, {
+    autorun: !once,
     concurrency: Number(process.env.OPTIMIZATION_WORKER_CONCURRENCY ?? 2),
   });
 
@@ -1855,8 +1822,9 @@ async function start() {
       throw err;
     });
   };
-  runUsageSyncAsLeader().catch((err) => log.error({ err }, "Initial usage-cost sync failed"));
-  const usageCostTick = setInterval(
+  const initialUsageSync = runUsageSyncAsLeader();
+  if (!once) initialUsageSync.catch((err) => log.error({ err }, "Initial usage-cost sync failed"));
+  const usageCostTick = once ? undefined : setInterval(
     () => {
       runUsageSyncAsLeader().catch((err) => log.error({ err }, "Usage-cost sync failed"));
     },
@@ -1869,6 +1837,8 @@ async function start() {
     if (!(await retentionLock.tryAcquire(redis))) return;
     try {
       await pruneOldSnapshots();
+      if (!redis) await pruneBackgroundInfrastructure();
+      await db.bulkPublishManualRun.deleteMany({ where: { expiresAt: { lt: new Date(Date.now() - 24 * 60 * 60_000) } } });
       const count = await purgeDueUsers();
       if (count > 0) log.info({ count }, "Purged accounts past their deletion grace period");
       const expired = await reconcileExpiredSubscriptions();
@@ -1878,8 +1848,9 @@ async function start() {
       throw err;
     }
   };
-  runRetentionAsLeader().catch((err) => log.error({ err }, "Initial retention pass failed"));
-  const retentionTick = setInterval(
+  const initialRetention = runRetentionAsLeader();
+  if (!once) initialRetention.catch((err) => log.error({ err }, "Initial retention pass failed"));
+  const retentionTick = once ? undefined : setInterval(
     () => {
       runRetentionAsLeader().catch((err) => log.error({ err }, "Retention pass failed"));
     },
@@ -1901,7 +1872,7 @@ async function start() {
   }
 
   log.info(
-    { queues: ["schedules", "snapshots", "audience", "catalog", "newsletter", "optimization"] },
+    { backend: redis ? "redis" : "database", once, queues: ["schedules", "snapshots", "audience", "catalog", "newsletter", "optimization"] },
     "Worker listening",
   );
 
@@ -1916,13 +1887,22 @@ async function start() {
       catalogWorker.close(),
       newsletterWorker.close(),
       optimizationWorker.close(),
-      ...queueRegistry.map((q) => q.close()),
     ]);
-    await redis.quit();
+    await Promise.all(queueRegistry.map((q) => q.close()));
+    await Promise.allSettled([initialUsageSync, initialRetention]);
+    await redis?.quit();
+    await db.$disconnect();
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  if (once) {
+    await Promise.all([initialUsageSync, initialRetention]);
+    const deadline = Date.now() + budgetMs;
+    await Promise.all([worker, snapshotWorker, audienceWorker, catalogWorker, newsletterWorker, optimizationWorker]
+      .map((worker) => (worker as DatabaseWorker).run(deadline, true)));
+    await shutdown();
+  }
 }
 
 start().catch((err) => {

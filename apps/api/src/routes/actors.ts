@@ -1250,7 +1250,7 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
             "snapshots",
             { actorId: actor.id, bootstrapInsights: storedInsightSnapshots.length === 0 },
             {
-              jobId: `actor-detail-refresh:${actor.id}:${Math.floor(Date.now() / ACTOR_DETAIL_REFRESH_MS)}`,
+              jobId: `actor-detail-refresh-${actor.id}-${Math.floor(Date.now() / ACTOR_DETAIL_REFRESH_MS)}`,
             },
           ),
         )
@@ -1486,7 +1486,7 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         ),
       );
     }
-    trackEvent("actors.synced", { userId: session.userId, properties: { count: upserts.length } });
+    trackEvent("actors.synced", { userId: session.userId, businessProfileId: session.businessProfileId, properties: { count: upserts.length } });
     await recordUserAudit(c, session, "actors.sync", "actors", { count: upserts.length });
     return c.json({
       ok: true,
@@ -2095,6 +2095,10 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
     const limit = limitQuery(c.req.query("limit"), 50, 200);
     const name = stringQuery(c.req.query("name"), "name", 100);
     const where: any = { userId: session.userId };
+    if (session.authMethod === "api-key") {
+      if (!session.businessProfileId) throw new AppError("workspace_required", "Select a workspace first", 403);
+      where.businessProfileId = session.businessProfileId;
+    }
     if (name) where.name = name;
     const items = await db.analyticsEvent.findMany({
       where,

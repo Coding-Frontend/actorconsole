@@ -18,6 +18,7 @@ interface ReadinessReport {
     checks: {
       db: CheckResult;
       redis: CheckResult;
+      proxy: CheckResult;
     };
   };
 }
@@ -69,8 +70,8 @@ export const healthRoutes = new Hono<AppEnv>()
     }),
   )
   /**
-   * Readiness probe. Pings Postgres and Redis with short timeouts
-   * and returns 200 if both are healthy, 503 otherwise. Designed
+   * Readiness probe. Pings MySQL and, when enabled, Redis with short timeouts
+   * and returns 200 if configured dependencies are healthy, 503 otherwise. Designed
    * for k8s liveness/readiness, AWS ELB, and uptime monitors.
    */
   .get("/ready", async (c) => {
@@ -90,13 +91,15 @@ export const healthRoutes = new Hono<AppEnv>()
         : Promise.resolve<CheckResult>({ status: "skipped" }),
     ]);
 
-    const ready = dbCheck.status === "ok" && redisCheck.status !== "fail";
+    const proxyCheck: CheckResult = process.env.NODE_ENV === "production" && !process.env.TRUSTED_PROXY_IPS?.trim()
+      ? { status: "fail", error: "proxy_identity_not_configured" } : { status: "ok" };
+    const ready = dbCheck.status === "ok" && redisCheck.status !== "fail" && proxyCheck.status === "ok";
     const report: ReadinessReport = {
       ok: ready,
       data: {
         ready,
         timestamp: new Date().toISOString(),
-        checks: { db: dbCheck, redis: redisCheck },
+        checks: { db: dbCheck, redis: redisCheck, proxy: proxyCheck },
       },
     };
 

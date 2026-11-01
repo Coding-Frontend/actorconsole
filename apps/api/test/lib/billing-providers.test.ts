@@ -11,6 +11,9 @@ const {
   mockProductRetrieve,
   mockProductList,
   mockCheckoutPreview,
+  mockRazorSubscription,
+  mockRazorInvoices,
+  mockRazorPayment,
 } = vi.hoisted(() => ({
   mockFindMany: vi.fn(),
   mockGetIntegration: vi.fn(),
@@ -22,6 +25,9 @@ const {
   mockProductRetrieve: vi.fn(),
   mockProductList: vi.fn(),
   mockCheckoutPreview: vi.fn(),
+  mockRazorSubscription: vi.fn(),
+  mockRazorInvoices: vi.fn(),
+  mockRazorPayment: vi.fn(),
 }));
 
 vi.mock("dodopayments", () => ({
@@ -46,7 +52,9 @@ vi.mock("stripe", () => ({
 }));
 vi.mock("razorpay", () => ({
   default: class {
-    subscriptions = { create: mockCheckoutCreate };
+    subscriptions = { create: mockCheckoutCreate, fetch: mockRazorSubscription };
+    invoices = { all: mockRazorInvoices };
+    payments = { fetch: mockRazorPayment };
     plans = { create: mockProductCreate, fetch: mockProductRetrieve };
   },
 }));
@@ -72,7 +80,40 @@ import {
   importDodoProduct,
   importProviderProduct,
   testGatewayConnection,
+  retrieveProviderSubscription,
 } from "../../src/lib/billing-providers.js";
+
+describe("Razorpay captured subscription periods", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIntegration.mockImplementation(async (key) => ({ razorpay_key_id: "rzp_test_fixture", razorpay_key_secret: "fixture-secret" })[key as "razorpay_key_id"] ?? null);
+    mockFindMany.mockResolvedValue([]);
+    mockRazorSubscription.mockResolvedValue({ id: "sub1", status: "active", paid_count: 1, current_end: Math.floor(Date.now() / 1000) + 86400 });
+    mockRazorInvoices.mockResolvedValue({ items: [{ id: "inv1", subscription_id: "sub1", status: "paid", payment_id: "pay1",
+      billing_end: Math.floor(Date.now() / 1000) + 86400, amount_paid: 1000, amount_due: 0, currency: "INR" }] });
+    mockRazorPayment.mockResolvedValue({ status: "captured", invoice_id: "inv1", amount: 1000, currency: "INR", amount_refunded: 0 });
+  });
+  const retrieve = () => retrieveProviderSubscription({ gateway: "razorpay", mode: "test", legacyFallback: true }, "sub1");
+  it("uses the paid invoice period only after matching a captured payment", async () => {
+    expect(await retrieve()).toMatchObject({ paymentBacked: true, periodEnd: expect.any(Date) });
+    expect(mockRazorInvoices).toHaveBeenCalledWith({ subscription_id: "sub1", count: 100 });
+  });
+  it.each(["created", "authenticated"])("never treats %s as paid even if paid_count is supplied", async (status) => {
+    mockRazorSubscription.mockResolvedValue({ id: "sub1", status, paid_count: 1 });
+    expect(await retrieve()).toMatchObject({ paymentBacked: false, periodEnd: null });
+    expect(mockRazorInvoices).not.toHaveBeenCalled();
+  });
+  it("does not extend access into an unpaid renewal period based on historical payments", async () => {
+    mockRazorInvoices.mockResolvedValue({ items: [{ status: "paid", subscription_id: "sub1", payment_id: "past", billing_end: 1, amount_paid: 1000, amount_due: 0 }] });
+    expect(await retrieve()).toMatchObject({ paymentBacked: false, periodEnd: null });
+  });
+  it.each([
+    { status: "authorized" }, { invoice_id: "another" }, { amount_refunded: 1000 }, { currency: "USD" },
+  ])("rejects unbacked or mismatched payment evidence %j", async (override) => {
+    mockRazorPayment.mockResolvedValue({ status: "captured", invoice_id: "inv1", amount: 1000, currency: "INR", amount_refunded: 0, ...override });
+    expect(await retrieve()).toMatchObject({ paymentBacked: false, periodEnd: null });
+  });
+});
 
 describe("Dodo gateway readiness", () => {
   afterEach(() => {

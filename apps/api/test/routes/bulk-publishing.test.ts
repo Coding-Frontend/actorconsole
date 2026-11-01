@@ -24,6 +24,7 @@ const { mockDb, mockApify, mockEnqueue, mockGetQueuedJob, mockAudit, mockAssertP
       bulkPublishScheduleRun: {
         findFirst: vi.fn(),
       },
+      bulkPublishManualRun: { create: vi.fn(), upsert: vi.fn() },
       apifyToken: {
         findUnique: vi.fn(),
       },
@@ -84,7 +85,7 @@ const actor = {
   readinessSyncedAt: new Date("2026-08-11T00:00:00.000Z"),
 };
 
-function buildApp() {
+function buildApp(sessionOverrides: Record<string, unknown> = {}) {
   const app = new Hono();
   app.onError(onErrorHandler);
   app.use("/*", async (c: any, next) => {
@@ -93,6 +94,7 @@ function buildApp() {
       email: "owner@example.com",
       plan: "PRO",
       businessProfileId: "workspace_1",
+      ...sessionOverrides,
     });
     await next();
   });
@@ -118,6 +120,7 @@ describe("bulk publishing routes", () => {
     mockDb.bulkPublishSchedule.update.mockResolvedValue({});
     mockDb.bulkPublishScheduleActor.updateMany.mockResolvedValue({ count: 1 });
     mockDb.bulkPublishScheduleRun.findFirst.mockResolvedValue(null);
+    mockDb.bulkPublishManualRun.create.mockResolvedValue({ id: "grant_1", expiresAt: new Date(Date.now() + 60_000) });
     mockDb.apifyToken.findUnique.mockResolvedValue({
       encryptedToken: "encrypted-api-key",
       apiTokenStatus: "VALID",
@@ -506,10 +509,27 @@ describe("bulk publishing routes", () => {
       expect.objectContaining({ plan: "PRO" }),
       "publishing",
     );
+    expect(mockDb.bulkPublishManualRun.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      scheduleId: "bulk_1", userId: "user_1", businessProfileId: "workspace_1", expiresAt: expect.any(Date),
+    }) });
     expect(mockEnqueue).toHaveBeenCalledWith("schedules", {
       bulkPublishScheduleId: "bulk_1",
-      force: true,
+      manualRunAuthorizationId: "grant_1",
+    }, { jobId: "bulk-publish-manual-grant_1" });
+  });
+  it.each([
+    ["/schedules", "POST", { name: "Queue", actorIds: ["actor_1"], enabled: true }],
+    ["/schedules/bulk_1", "PATCH", { enabled: true }],
+    ["/schedules/bulk_1/resume", "POST", {}],
+  ])("denies a write-only key activating publication via %s", async (path, method, body) => {
+    const response = await buildApp({ authMethod: "api-key", apiKeyScopes: ["publishing:write"] }).request(path, {
+      method, headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     });
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("api_key_capability_denied");
+    expect(mockDb.bulkPublishSchedule.create).not.toHaveBeenCalled();
+    expect(mockDb.bulkPublishSchedule.update).not.toHaveBeenCalled();
+    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
   it("rejects another manual run while the same schedule is active", async () => {

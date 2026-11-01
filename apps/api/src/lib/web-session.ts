@@ -2,6 +2,7 @@ import { parse } from "hono/utils/cookie";
 import { db } from "@actorconsole/db";
 import type { WebSession } from "@actorconsole/shared/web-session";
 import { currentRequest } from "./http-context.js";
+import { hasImpersonationAuthority } from "./impersonation-authority.js";
 
 export async function readWebSession(request: Request): Promise<WebSession | null> {
   const cookies = parse(request.headers.get("cookie") ?? "");
@@ -19,6 +20,7 @@ export async function readWebSession(request: Request): Promise<WebSession | nul
   });
   if (!session || session.expires <= new Date() ||
       (session.impersonationExpiresAt && session.impersonationExpiresAt <= new Date())) return null;
+  if (session.impersonatedById && !(await hasImpersonationAuthority(session.impersonatedById))) return null;
   const { user } = session;
   return {
     expires: session.expires.toISOString(),

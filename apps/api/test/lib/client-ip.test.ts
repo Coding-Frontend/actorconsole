@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { canonicalAddress, resolveClientIp } from "../../src/lib/client-ip.js";
+import { canonicalAddress, resolveClientIp, hasUsableProxyIdentity } from "../../src/lib/client-ip.js";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -10,6 +10,16 @@ async function address(peer: string | undefined, headers: Record<string, string>
 }
 
 describe("verified requester address", () => {
+  it.each([
+    ["127.0.0.1", "", false],
+    ["127.0.0.1", "192.0.2.80", true],
+    ["10.0.0.3", "192.0.2.80", false],
+  ])("fails closed on an unusable proxied authentication identity (%s, %s)", async (peer, chain, usable) => {
+    vi.stubEnv("TRUSTED_PROXY_IPS", "127.0.0.1");
+    const app = new Hono().get("/", (c) => c.json({ usable: hasUsableProxyIdentity(c) }));
+    const response = await app.request("/", { headers: chain ? { "x-forwarded-for": chain } : {} }, { incoming: { socket: { remoteAddress: peer } } });
+    expect((await response.json()).usable).toBe(usable);
+  });
   it("ignores every forwarding header from an untrusted socket peer", async () => {
     vi.stubEnv("TRUSTED_PROXY_IPS", "");
     expect(await address("::ffff:192.0.2.10", {

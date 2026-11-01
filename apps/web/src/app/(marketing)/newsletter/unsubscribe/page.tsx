@@ -1,13 +1,16 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Container, Section } from "@/components/ui/layout";
 import { UnsubscribeClient } from "./unsubscribe-client";
 import { PageHero } from "@/components/marketing/page-hero";
 
-export const metadata: Metadata = {
-  title: "Unsubscribe — ActorConsole Newsletter",
-  description: "Unsubscribe from the ActorConsole newsletter.",
-  robots: { index: false, follow: false },
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "Newsletter Preferences",
+  description: "Update your ActorConsole newsletter subscription preferences.",
+  path: "/newsletter/unsubscribe",
+  image: "home",
+  noIndex: true,
+});
 
 export default function UnsubscribePage() {
   return (

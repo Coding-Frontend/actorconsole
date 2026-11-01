@@ -1,4 +1,5 @@
-import { UnrecoverableError, type Job } from "bullmq";
+import { UnrecoverableError } from "bullmq";
+import type { QueueJob as Job } from "@actorconsole/shared";
 import { db, Prisma } from "@actorconsole/db";
 import { getUserApifyClient } from "@actorconsole/apify";
 import { auditActorListing, AiProviderUnavailableError } from "@actorconsole/ai";

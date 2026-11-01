@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -7,11 +8,13 @@ import { PricingCards } from "@/components/marketing/pricing-cards";
 import { Button } from "@/components/ui/button";
 import { HomeGridCell, HomeGridRow, HomeGridSection } from "@/components/marketing/home-grid";
 
-export const metadata: Metadata = {
-  title: "Plans — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "Pricing & Plans",
   description:
-    "Start free with up to 50 actors and 500 monthly users. Upgrade to Pro when your portfolio or audience grows.",
-};
+    "Start with ActorConsole Free for up to 50 Actors and 500 monthly users. Compare plans and upgrade to Pro as your Apify portfolio grows.",
+  path: "/pricing",
+  image: "pricing",
+});
 
 // Pricing copy is admin-managed and must update without a redeploy.
 export const dynamic = "force-dynamic";

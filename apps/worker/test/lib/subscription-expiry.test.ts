@@ -17,6 +17,8 @@ describe("terminal subscription expiry", () => {
     ["dodo", "failed"],
     ["dodo", "expired"],
     ["dodo", "cancelled"],
+    ["razorpay", "active"],
+    ["razorpay", "pending"],
   ])("removes expired %s %s entitlement", async (provider, status) => {
     let plan = "PRO";
     const row = {
@@ -31,7 +33,7 @@ describe("terminal subscription expiry", () => {
         row.currentPeriodEnd <= where.currentPeriodEnd.lte &&
         where.OR.some((condition: any) =>
           condition.provider
-            ? condition.provider === row.provider && condition.status === row.status
+            ? condition.provider === row.provider && (typeof condition.status === "string" ? condition.status === row.status : condition.status.in.includes(row.status))
             : condition.status.in.includes(row.status),
         );
       return matches ? [row] : [];

@@ -16,6 +16,7 @@ export function providerSubscriptionPlan(
   status: string,
   periodEnd: Date | null,
   now = new Date(),
+  paymentBacked = false,
 ): "PRO" | "FREE" | null {
   const future = !!periodEnd && periodEnd > now;
   if (provider === "stripe") {
@@ -31,12 +32,9 @@ export function providerSubscriptionPlan(
       : "FREE";
   }
   if (provider === "razorpay") {
-    if (["created", "authenticated", "active"].includes(status)) return "PRO";
-    if (status === "halted") return "FREE";
-    if (status === "cancelled") return future ? "PRO" : "FREE";
-    // A completed subscription with no recorded period did not previously
-    // establish when access ends. Leave that case for explicit reconciliation.
-    if (status === "completed" && periodEnd) return future ? "PRO" : "FREE";
+    // Mandate authorization and checkout creation are not subscription payments.
+    return paymentBacked && future && ["active", "pending", "cancelled", "completed"].includes(status)
+      ? "PRO" : "FREE";
   }
   return null;
 }

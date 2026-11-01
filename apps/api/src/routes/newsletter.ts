@@ -10,7 +10,10 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { db } from "@actorconsole/db";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { getAppBaseUrl } from "@actorconsole/shared";
+import { sendEmail, escapeHtml } from "../lib/email.js";
+import { resolveClientIp } from "../lib/client-ip.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import type { AppEnv } from "../app.js";
 import { stringQuery } from "../lib/query.js";
@@ -21,7 +24,7 @@ function generateUnsubscribeToken(): string {
 }
 
 const subscribeSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email().max(320),
   name: z.string().max(100).optional(),
 });
 
@@ -30,6 +33,8 @@ export const newsletterRoutes = new Hono<AppEnv>()
   // ---- Public: Subscribe ----
   .post("/subscribe", zValidator("json", subscribeSchema), async (c) => {
     const body = c.req.valid("json");
+    const requester = await checkRateLimit(`newsletter:requester:${resolveClientIp(c)}`, { windowMs: 3600000, max: 10 });
+    if (!requester.allowed) return c.json({ ok: false, error: { code: "rate_limited" } }, 429);
 
     // Rate limit: 3 subscribes per email per hour
     const rate = await checkRateLimit(`newsletter:sub:${body.email}`, {
@@ -52,33 +57,57 @@ export const newsletterRoutes = new Hono<AppEnv>()
       where: { email: body.email },
     });
 
-    if (existing?.status === "ACTIVE") {
-      return c.json({ ok: true, message: "Already subscribed!" });
-    }
-
-    if (existing?.status === "UNSUBSCRIBED") {
-      // Re-subscribe
-      await db.newsletterSubscriber.update({
-        where: { id: existing.id },
-        data: {
-          status: "ACTIVE",
-          name: body.name ?? existing.name,
-          unsubscribedAt: null,
-        },
+    const response = () => c.json({ ok: true, message: "Check your inbox to confirm your subscription, if eligible." });
+    if (existing?.status === "ACTIVE" || existing?.status === "BOUNCED") return response();
+    const confirmationToken = randomBytes(32).toString("hex");
+    const confirmation = {
+      confirmationTokenHash: createHash("sha256").update(confirmationToken).digest("hex"),
+      confirmationExpiresAt: new Date(Date.now() + 30 * 60_000),
+    };
+    if (existing) {
+      // Keep durable opt-out intact until the mailbox owner redeems this grant.
+      const claim = await db.newsletterSubscriber.updateMany({
+        where: { id: existing.id, status: { in: ["UNSUBSCRIBED", "PENDING"] } },
+        data: confirmation,
       });
-      return c.json({ ok: true, message: "Welcome back! You've been re-subscribed." });
+      if (!claim.count) return response();
+    } else {
+      try {
+        await db.newsletterSubscriber.create({ data: {
+          email: body.email, name: body.name, status: "PENDING",
+          token: generateUnsubscribeToken(), ...confirmation,
+        } });
+      } catch (error) {
+        if ((error as { code?: string }).code === "P2002") return response();
+        throw error;
+      }
     }
-
-    // Create new subscriber
-    await db.newsletterSubscriber.create({
-      data: {
-        email: body.email,
-        name: body.name,
-        token: generateUnsubscribeToken(),
-      },
+    const link = `${getAppBaseUrl()}/api/newsletter/confirm?token=${confirmationToken}`;
+    await sendEmail({ to: body.email, subject: "Confirm your ActorConsole newsletter subscription",
+      html: `<p>Confirm that you want to receive the ActorConsole newsletter.</p><p><a href="${escapeHtml(link)}">Confirm subscription</a></p><p>This link expires in 30 minutes. If you did not request it, you can ignore this email.</p>`,
     });
+    return response();
+  })
 
-    return c.json({ ok: true, message: "Subscribed! Check your inbox for a welcome email." }, 201);
+  // A GET only displays a confirmation; email scanners cannot subscribe anyone.
+  .get("/confirm", (c) => {
+    if (!/^[a-f0-9]{64}$/.test(c.req.query("token") ?? "")) return c.text("Invalid confirmation link", 400);
+    c.header("cache-control", "no-store");
+    c.header("referrer-policy", "no-referrer");
+    c.header("content-security-policy", "default-src 'none'; form-action 'self'; frame-ancestors 'none'");
+    return c.html('<!doctype html><html lang="en"><meta charset="utf-8"><title>Confirm newsletter subscription</title><h1>ActorConsole newsletter</h1><p>Confirm that you want to receive our newsletter.</p><form method="post"><button type="submit">Confirm subscription</button></form></html>');
+  })
+  .post("/confirm", async (c) => {
+    c.header("cache-control", "no-store");
+    const token = c.req.query("token") ?? "";
+    if (!/^[a-f0-9]{64}$/.test(token)) return c.text("Invalid confirmation link", 400);
+    const result = await db.newsletterSubscriber.updateMany({
+      where: { confirmationTokenHash: createHash("sha256").update(token).digest("hex"),
+        confirmationExpiresAt: { gt: new Date() }, status: { in: ["PENDING", "UNSUBSCRIBED"] } },
+      data: { status: "ACTIVE", subscribedAt: new Date(), unsubscribedAt: null,
+        confirmationTokenHash: null, confirmationExpiresAt: null },
+    });
+    return result.count ? c.text("Your newsletter subscription is confirmed.") : c.text("This confirmation link has expired or has already been used.", 400);
   })
 
   // ---- Public: Unsubscribe via token (GET, for email links) ----
@@ -103,6 +132,7 @@ export const newsletterRoutes = new Hono<AppEnv>()
     }
 
     if (subscriber.status === "UNSUBSCRIBED") {
+      await db.newsletterSubscriber.update({ where: { id: subscriber.id }, data: { confirmationTokenHash: null, confirmationExpiresAt: null } });
       return c.json({ ok: true, message: "Already unsubscribed." });
     }
 
@@ -111,6 +141,8 @@ export const newsletterRoutes = new Hono<AppEnv>()
       data: {
         status: "UNSUBSCRIBED",
         unsubscribedAt: new Date(),
+        confirmationTokenHash: null,
+        confirmationExpiresAt: null,
       },
     });
 
@@ -139,6 +171,8 @@ export const newsletterRoutes = new Hono<AppEnv>()
       data: {
         status: "UNSUBSCRIBED",
         unsubscribedAt: new Date(),
+        confirmationTokenHash: null,
+        confirmationExpiresAt: null,
       },
     });
 

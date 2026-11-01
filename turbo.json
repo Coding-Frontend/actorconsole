@@ -5,12 +5,15 @@
     ".env",
     ".env.development",
     ".env.production",
-    "scripts/check-web-boundary.mjs"
+    "scripts/check-web-boundary.mjs",
+    "scripts/fix-esm-imports.mjs"
   ],
   "globalEnv": [
     "NODE_ENV",
     "DATABASE_URL",
     "REDIS_URL",
+    "REDIS_ENABLED",
+    "WORKER_RUN_BUDGET_MS",
     "AUTH_SECRET",
     "AUTH_URL",
     "AUTH_TRUST_HOST",
@@ -71,7 +74,9 @@
     "SUPPORT_EMAIL",
     "API_HOST",
     "MCP_HOST",
-    "MCP_INTERNAL_URL"
+    "MCP_INTERNAL_URL",
+    "NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION",
+    "NEXT_PUBLIC_BING_SITE_VERIFICATION"
   ],
   "tasks": {
     "build": {

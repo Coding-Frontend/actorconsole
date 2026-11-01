@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/firebase";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
 import { notifySessionChanged } from "@/lib/session-events";
+import { trackEvent } from "@/lib/analytics-events";
 
 /** Firebase occasionally leaves a closed popup's promise pending. */
 function waitForSocialPopup<T>(openPopup: () => Promise<T>): Promise<T> {
@@ -67,6 +68,7 @@ export function SocialButtons({ callbackUrl = "/dashboard" }: { callbackUrl?: st
   const [loading, setLoading] = useState<"google" | "github" | "verify" | null>(null);
   const [twoFactorChallenge, setTwoFactorChallenge] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  const loginMethod = useRef<"google" | "github">("google");
 
   async function completeSession(
     input: { totpCode?: string; challengeToken?: string } = {},
@@ -83,11 +85,13 @@ export function SocialButtons({ callbackUrl = "/dashboard" }: { callbackUrl?: st
       return;
     }
     notifySessionChanged();
+    void trackEvent("login", { method: loginMethod.current });
     router.push(safeCallbackUrl(callbackUrl));
     router.refresh();
   }
 
   async function handleGoogleLogin() {
+    loginMethod.current = "google";
     setLoading("google");
     try {
       const credential = await waitForSocialPopup(signInWithGoogle);
@@ -108,6 +112,7 @@ export function SocialButtons({ callbackUrl = "/dashboard" }: { callbackUrl?: st
   }
 
   async function handleGitHubLogin() {
+    loginMethod.current = "github";
     setLoading("github");
     try {
       const credential = await waitForSocialPopup(signInWithGitHub);

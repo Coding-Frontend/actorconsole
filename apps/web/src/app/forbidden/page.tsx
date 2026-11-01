@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ShieldX, Home } from "lucide-react";
 
+export const metadata = { title: "Access denied", robots: { index: false, follow: false } };
+
 export default function ForbiddenPage() {
   return (
     <main className="bg-background text-foreground flex min-h-screen flex-col items-center justify-center p-6">

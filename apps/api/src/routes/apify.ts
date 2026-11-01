@@ -362,6 +362,7 @@ export const apifyRoutes = new Hono<AppEnv>()
       });
       trackEvent("apify.connect", {
         userId: session.userId,
+        businessProfileId: session.businessProfileId,
         properties: {
           apifyUserId: saved.apifyUserId,
           apiKeyConfigured: saved.apiKeyConfigured,

@@ -4,6 +4,7 @@ import {
   getPublicActor,
   type ApifyActorTextReview,
 } from "@actorconsole/apify";
+import { fetchPublicDocument } from "./public-document.js";
 
 export type PublicActorDocumentation = {
   readme: string | null;
@@ -20,49 +21,9 @@ export type PublicActorDocumentation = {
 export type PublicActorReviews = Pick<PublicActorDocumentation, "reviews" | "reviewError">;
 
 const APIFY_WEB_ORIGIN = "https://apify.com";
-const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function actorUrl(username: string, actorName: string, suffix = "") {
   return `${APIFY_WEB_ORIGIN}/${encodeURIComponent(username)}/${encodeURIComponent(actorName)}${suffix}`;
-}
-
-async function fetchPublicDocument(
-  url: string,
-  accept: string,
-  options: { attempts?: number; timeoutMs?: number } = {},
-) {
-  const attempts = Math.min(Math.max(options.attempts ?? 3, 1), 3);
-  const timeoutMs = Math.min(Math.max(options.timeoutMs ?? 4_000, 500), 8_000);
-  let lastError: Error | null = null;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      // `AbortSignal.timeout()` alone is not sufficient in every Next.js
-      // runtime: an upstream fetch can occasionally remain pending after the
-      // signal fires. Race both the response and body read so an optional
-      // Store document can never keep the public Actor page loading forever.
-      const response = await withTimeout(
-        fetch(url, {
-          // Actor HTML and Markdown can be megabytes per URL. Do not persist
-          // complete upstream responses in Next.js's on-disk fetch cache.
-          headers: { accept },
-          signal: AbortSignal.timeout(timeoutMs),
-        }),
-        timeoutMs + 250,
-        "Apify Store response",
-      );
-      if (response.ok) {
-        return withTimeout(response.text(), timeoutMs + 250, "Apify Store document");
-      }
-      lastError = new Error(`Apify Store returned HTTP ${response.status}`);
-      if (!RETRYABLE_STATUSES.has(response.status)) break;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-    }
-    if (attempt + 1 < attempts) {
-      await new Promise((resolve) => setTimeout(resolve, 300 * 2 ** attempt));
-    }
-  }
-  throw lastError ?? new Error("Apify Store content was unavailable");
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {

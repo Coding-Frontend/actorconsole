@@ -68,6 +68,10 @@ export default async function DashboardOverviewPage() {
 
 async function DashboardOverviewContent({ userName }: { userName: string | null | undefined }) {
   const response = await authenticatedServerFetch("/account/dashboard-summary");
+  if (response.status === 409) {
+    const body = await response.clone().json().catch(() => null);
+    if (body?.error?.code === "workspace_required") redirect("/dashboard/onboarding");
+  }
   if (!response.ok) throw new Error("Could not load dashboard summary from the API");
   const body = await response.json();
   const summary = body.data as DashboardSummary;

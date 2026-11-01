@@ -18,7 +18,7 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
       ? undefined
     : {
-        command: "PORT=8080 node apps/web/.next/standalone/apps/web/server.js",
+        command: "node scripts/start-web-e2e.mjs",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

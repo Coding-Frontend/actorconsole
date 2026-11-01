@@ -1,9 +1,12 @@
 import { Hono } from "hono";
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFindUnique = vi.fn();
 const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
+const mockUpdateMany = vi.fn();
+const mockSendEmail = vi.fn();
 const mockCheckRateLimit = vi.fn();
 
 vi.mock("@actorconsole/db", () => ({
@@ -12,6 +15,7 @@ vi.mock("@actorconsole/db", () => ({
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
       create: (...args: unknown[]) => mockCreate(...args),
       update: (...args: unknown[]) => mockUpdate(...args),
+      updateMany: (...args: unknown[]) => mockUpdateMany(...args),
     },
   },
 }));
@@ -31,7 +35,10 @@ vi.mock("../../src/middleware/auth.js", () => ({
   },
 }));
 
-vi.mock("@actorconsole/shared", () => ({
+vi.mock("../../src/lib/email.js", () => ({ sendEmail: (...args: unknown[]) => mockSendEmail(...args), escapeHtml: (value: string) => value }));
+vi.mock("@actorconsole/shared", async (original) => ({
+  ...await original<typeof import("@actorconsole/shared")>(),
+  getAppBaseUrl: () => "https://app.example.test",
   getLogger: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
 }));
 
@@ -51,6 +58,8 @@ describe("Newsletter routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckRateLimit.mockResolvedValue({ allowed: true });
+    mockSendEmail.mockResolvedValue({ ok: true });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
   });
 
   afterEach(() => {
@@ -58,7 +67,7 @@ describe("Newsletter routes", () => {
   });
 
   describe("POST /newsletter/subscribe", () => {
-    it("creates a new subscriber", async () => {
+    it("creates a pending subscriber and delivers an expiring mailbox confirmation", async () => {
       mockFindUnique.mockResolvedValueOnce(null);
       mockCreate.mockResolvedValueOnce({ id: "n1", email: "user@example.com", status: "ACTIVE" });
 
@@ -67,10 +76,15 @@ describe("Newsletter routes", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: "user@example.com" }),
       });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.ok).toBe(true);
-      expect(mockCreate).toHaveBeenCalled();
+      const data = mockCreate.mock.calls[0][0].data;
+      expect(data.status).toBe("PENDING");
+      const token = /token=([a-f0-9]{64})/.exec(mockSendEmail.mock.calls[0][0].html)![1];
+      expect(data.confirmationTokenHash).toBe(createHash("sha256").update(token).digest("hex"));
+      expect(data.confirmationExpiresAt.getTime()).toBeGreaterThan(Date.now());
+      expect(data.confirmationTokenHash).not.toBe(token);
     });
 
     it("returns success if already subscribed", async () => {
@@ -88,10 +102,11 @@ describe("Newsletter routes", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.ok).toBe(true);
-      expect(body.message).toContain("Already subscribed");
+      expect(body.message).toContain("Check your inbox");
+      expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
-    it("re-subscribes an unsubscribed user", async () => {
+    it("keeps an unsubscribed recipient opted out until mailbox confirmation", async () => {
       mockFindUnique.mockResolvedValueOnce({
         id: "n1",
         status: "UNSUBSCRIBED",
@@ -107,7 +122,11 @@ describe("Newsletter routes", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.ok).toBe(true);
-      expect(body.message).toContain("re-subscribed");
+      expect(body.message).toContain("Check your inbox");
+      expect(mockUpdateMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "n1" }), data: {
+        confirmationTokenHash: expect.any(String), confirmationExpiresAt: expect.any(Date),
+      } });
+      expect(mockUpdate).not.toHaveBeenCalled();
     });
 
     it("rejects invalid email", async () => {
@@ -127,6 +146,29 @@ describe("Newsletter routes", () => {
         body: JSON.stringify({ email: "user@example.com" }),
       });
       expect(res.status).toBe(429);
+    });
+  });
+
+  describe("mailbox confirmation", () => {
+    const token = "a".repeat(64);
+    it("does not activate subscriptions on a link-preview GET", async () => {
+      const response = await buildApp().request(`/newsletter/confirm?token=${token}`);
+      expect(response.status).toBe(200);
+      expect(mockUpdateMany).not.toHaveBeenCalled();
+    });
+    it("atomically redeems an address-bound, unexpired token exactly once", async () => {
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+      const confirm = () => buildApp().request(`/newsletter/confirm?token=${token}`, { method: "POST" });
+      expect((await confirm()).status).toBe(200);
+      expect((await confirm()).status).toBe(400);
+      expect(mockUpdateMany).toHaveBeenCalledWith({ where: {
+        confirmationTokenHash: createHash("sha256").update(token).digest("hex"),
+        confirmationExpiresAt: { gt: expect.any(Date) }, status: { in: ["PENDING", "UNSUBSCRIBED"] },
+      }, data: expect.objectContaining({ status: "ACTIVE", confirmationTokenHash: null, confirmationExpiresAt: null }) });
+    });
+    it("rejects expired or unknown confirmations without activating anything", async () => {
+      mockUpdateMany.mockResolvedValue({ count: 0 });
+      expect((await buildApp().request(`/newsletter/confirm?token=${token}`, { method: "POST" })).status).toBe(400);
     });
   });
 

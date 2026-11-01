@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -24,10 +25,13 @@ import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 const log = getLogger("web:builders");
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "Apify Builder Leaderboard",
-  description: "Rank Apify builders by estimated monthly creator revenue, Actors, users, and runs.",
-};
+  description:
+    "Explore Apify builders by estimated monthly creator revenue, Actor portfolios, users, and runs. Inspect public profiles and compare builders.",
+  path: "/builders",
+  image: "builders",
+});
 const compact = (value: number | null) =>
   value == null
     ? "—"

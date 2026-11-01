@@ -10,6 +10,11 @@ import { getServerWorkspaceAccess } from "@/lib/server-workspace-access";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+export const metadata = {
+  title: { default: "Dashboard · ActorConsole", template: "%s · ActorConsole" },
+  robots: { index: false, follow: false },
+};
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user?.id) {

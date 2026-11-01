@@ -63,14 +63,19 @@ function safeCodeEqual(actual: string, expected: string): boolean {
 }
 
 export function verifyTotpCode(secret: string, code: string, timestampMs = Date.now()): boolean {
+  return matchedTotpCounter(secret, code, timestampMs) !== null;
+}
+
+/** Return the time counter so callers can atomically prevent reuse per user. */
+export function matchedTotpCounter(secret: string, code: string, timestampMs = Date.now()): number | null {
   const normalized = code.replace(/\s/g, "");
-  if (!/^\d{6}$/.test(normalized)) return false;
-  for (const drift of [-1, 0, 1]) {
+  if (!/^\d{6}$/.test(normalized)) return null;
+  for (const drift of [1, 0, -1]) {
     if (safeCodeEqual(normalized, totpCode(secret, timestampMs + drift * PERIOD_SECONDS * 1000))) {
-      return true;
+      return Math.floor(timestampMs / 1000 / PERIOD_SECONDS) + drift;
     }
   }
-  return false;
+  return null;
 }
 
 export function totpUri(input: { secret: string; account: string; issuer?: string }): string {

@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 import { Container, Section } from "@/components/ui/layout";
@@ -11,11 +12,13 @@ import { ChromeExtensionLink } from "@/components/chrome-extension-link";
 export const dynamic = "force-dynamic";
 const log = getLogger("web:faq");
 
-export const metadata: Metadata = {
-  title: "FAQ — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "Frequently Asked Questions",
   description:
-    "Frequently asked questions about ActorConsole, pricing, Apify integration, and more.",
-};
+    "Find answers about ActorConsole accounts, pricing, Apify integration, publishing, and tools for managing your Actor portfolio.",
+  path: "/faq",
+  image: "faq",
+});
 
 interface FaqItem {
   id: string;

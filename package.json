@@ -9,13 +9,15 @@
     "dev:api": "dotenv -e .env -- turbo run dev --filter=@actorconsole/api",
     "dev:mcp": "turbo run dev --filter=@actorconsole/mcp",
     "dev:worker": "turbo run dev --filter=@actorconsole/worker",
-    "build": "turbo run build && node scripts/fix-esm-imports.mjs apps/api/dist apps/worker/dist apps/mcp/dist packages/shared/dist packages/db/dist packages/apify/dist packages/ai/dist",
+    "worker:once": "dotenv -e .env -- node apps/worker/dist/index.js --once",
+    "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "node scripts/test-coverage.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:launch": "node scripts/run-e2e.mjs",
     "db:generate": "dotenv -e .env -- pnpm --filter @actorconsole/db generate",
     "db:push": "dotenv -e .env -- pnpm --filter @actorconsole/db push",
     "db:studio": "dotenv -e .env -- pnpm --filter @actorconsole/db studio",
@@ -40,7 +42,16 @@
   "packageManager": "pnpm@9.15.0",
   "pnpm": {
     "overrides": {
-      "ioredis": "5.11.1"
+      "ioredis": "5.11.1",
+      "axios": "^1.20.0",
+      "follow-redirects": "^1.16.1",
+      "brace-expansion@^2.0.0": "^2.1.7",
+      "brace-expansion@^5.0.0": "^5.0.12",
+      "postcss@8.4.31": "^8.5.31",
+      "protobufjs@^7.0.0": "^7.6.5",
+      "@grpc/grpc-js": "^1.14.5",
+      "basic-ftp": "^6.2.3",
+      "@prisma/config>deepmerge-ts": "^8.0.2"
     }
   },
   "devDependencies": {

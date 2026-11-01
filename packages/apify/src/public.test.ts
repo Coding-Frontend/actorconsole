@@ -26,9 +26,26 @@ import {
   getLatestPublicRun,
   clearPublicCache,
   publicCacheSize,
+  PUBLIC_CACHE_MAX_ENTRIES,
 } from "./public.js";
 
 describe("@actorconsole/apify/public", () => {
+  it("bounds successful and negative entries even for unique arbitrary lookups", async () => {
+    mockGetActor.mockResolvedValue(null);
+    for (let index = 0; index < PUBLIC_CACHE_MAX_ENTRIES + 20; index++) await getPublicActor(`owner/actor-${index}`);
+    expect(publicCacheSize()).toBe(PUBLIC_CACHE_MAX_ENTRIES);
+  });
+  it("coalesces simultaneous lookups for the same canonical Actor", async () => {
+    mockGetActor.mockResolvedValue({ id: "one" });
+    const results = await Promise.all(Array.from({ length: 20 }, (_, index) => getPublicActor(index % 2 ? "owner/coalesced" : "owner~coalesced")));
+    expect(results.every((value) => value?.id === "one")).toBe(true);
+    expect(mockGetActor).toHaveBeenCalledOnce();
+  });
+  it.each(["owner/actor/extra", "../actor", "owner/" + "x".repeat(101), "owner/actor?param=1"])("rejects malformed identifiers before cache/network use: %s", async (value) => {
+    expect(await getPublicActor(value)).toBeNull();
+    expect(mockGetActor).not.toHaveBeenCalled();
+    expect(publicCacheSize()).toBe(0);
+  });
   beforeEach(() => {
     mockGetActor.mockReset();
     mockGetPublicUser.mockReset();

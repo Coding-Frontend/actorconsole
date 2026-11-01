@@ -47,7 +47,7 @@ export async function reconcileBillingSubscription(input: {
       previous.checkoutOperationId !== state.metadata.checkoutOperationId)
   )
     return null;
-  const plan = providerSubscriptionPlan(context.gateway, state.status, state.periodEnd);
+  const plan = providerSubscriptionPlan(context.gateway, state.status, state.periodEnd, new Date(), state.paymentBacked);
   // Preserve provisional checkout access where it existed, except when the
   // provider confirms a terminal status that has already exhausted its period.
   const terminal = [
@@ -61,7 +61,7 @@ export async function reconcileBillingSubscription(input: {
     "halted",
     "completed",
   ].includes(state.status);
-  const nextPlan = input.provisionalCheckout && !terminal ? "PRO" : plan;
+  const nextPlan = input.provisionalCheckout && context.gateway !== "razorpay" && !terminal ? "PRO" : plan;
   return db.$transaction(async (tx) => {
     await lockBillingWorkspace(tx, input.businessProfileId);
     const current = await tx.subscription.findUnique({
@@ -86,6 +86,7 @@ export async function reconcileBillingSubscription(input: {
       providerSubscriptionId: state.id,
       status: state.status,
       currentPeriodEnd: state.periodEnd,
+      paymentBacked: state.paymentBacked ?? false,
       cancelAtPeriodEnd: state.cancelAtPeriodEnd,
       providerCustomerId: state.customerId,
       providerProductId: state.productId,

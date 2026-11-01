@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 import { DocGuideContent } from "@/components/docs/doc-guide-content";
 import { DOC_GUIDES, findDocGuide } from "@/lib/documentation";
 
@@ -17,10 +18,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const guide = findDocGuide(slug);
 
-  return {
-    title: guide?.title ?? "Documentation",
-    description: guide?.summary,
-  };
+  if (!guide) return { title: "Guide not found", robots: { index: false } };
+  return createPageMetadata({
+    title: guide.title,
+    description: guide.summary,
+    path: `/docs/${encodeURIComponent(guide.id)}`,
+    image: "docs",
+  });
 }
 
 export default async function DocSlugPage({ params }: { params: Promise<{ slug: string }> }) {

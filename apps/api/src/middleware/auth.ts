@@ -1,6 +1,7 @@
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
 import { db } from "@actorconsole/db";
+import { hasImpersonationAuthority } from "../lib/impersonation-authority.js";
 import { createHash } from "node:crypto";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import { getLogger, isApiKeyScope, type ApiKeyScope, type UserSession } from "@actorconsole/shared";
@@ -219,12 +220,18 @@ export function requireAuth() {
       );
     }
 
+    if (session.impersonatedById && !(await hasImpersonationAuthority(session.impersonatedById))) {
+      await db.session.delete({ where: { id: session.id } }).catch(() => undefined);
+      return c.json({ ok: false, error: { code: "impersonation_revoked" } }, 401);
+    }
+
     c.set("session", {
       userId: session.user.id,
       email: session.user.email,
       plan: priorSession?.businessProfileId ? priorSession.plan : session.user.plan,
       businessProfileId: priorSession?.businessProfileId,
       authMethod: session.impersonatedById ? "impersonation" : "session",
+      authenticatedAt: session.createdAt?.toISOString(),
       impersonatedById: session.impersonatedById ?? undefined,
       impersonationExpiresAt: session.impersonationExpiresAt?.toISOString(),
     });

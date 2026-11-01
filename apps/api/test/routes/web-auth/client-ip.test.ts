@@ -76,4 +76,14 @@ describe("authentication uses the API owner's verified client-IP contract", () =
       data: expect.objectContaining({ userId: user.id, ip: "192.0.2.54", success: true }),
     });
   });
+  it("keeps separate authentication buckets for verified clients behind the same proxy", async () => {
+    vi.stubEnv("TRUSTED_PROXY_IPS", "127.0.0.1");
+    const attempt = (address: string, email: string) => app.request("/auth/local/forgot-password", {
+      method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": `203.0.113.99, ${address}` },
+      body: JSON.stringify({ email }),
+    }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
+    for (let index = 0; index < 30; index++) expect((await attempt("192.0.2.81", "first-bucket@example.test")).status).toBe(200);
+    expect((await attempt("192.0.2.81", "first-bucket@example.test")).status).toBe(429);
+    expect((await attempt("192.0.2.82", "second-bucket@example.test")).status).toBe(200);
+  });
 });
