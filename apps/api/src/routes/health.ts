@@ -69,8 +69,8 @@ export const healthRoutes = new Hono<AppEnv>()
     }),
   )
   /**
-   * Readiness probe. Pings Postgres and Redis with short timeouts
-   * and returns 200 if both are healthy, 503 otherwise. Designed
+   * Readiness probe. Pings MySQL and, when enabled, Redis with short timeouts
+   * and returns 200 if configured dependencies are healthy, 503 otherwise. Designed
    * for k8s liveness/readiness, AWS ELB, and uptime monitors.
    */
   .get("/ready", async (c) => {

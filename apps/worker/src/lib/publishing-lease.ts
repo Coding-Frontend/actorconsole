@@ -42,7 +42,7 @@ function boundedRedisCommand<T>(command: Promise<T>): Promise<T> {
 }
 
 export async function withPublishingLease<T>(
-  redis: IORedis,
+  redis: IORedis | null,
   scheduleId: string,
   work: (lease: PublishingLease) => Promise<T>,
 ): Promise<{ acquired: false } | { acquired: true; value: T }> {
@@ -112,7 +112,7 @@ export async function withPublishingLease<T>(
     await boundedRedisCommand(lock.release(redis)).catch(() => {
       log.warn(
         { scheduleId },
-        "Could not release publishing lease; its Redis TTL remains the fallback",
+        "Could not release publishing lease; its expiry remains the fallback",
       );
     });
   }

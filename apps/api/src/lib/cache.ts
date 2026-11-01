@@ -13,6 +13,7 @@
  */
 
 import { getRedis } from "./queue.js";
+import { BoundedTtlCache } from "@actorconsole/shared";
 
 const CACHE_COMMAND_TIMEOUT_MS = 750;
 
@@ -32,20 +33,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs = CACHE_COMMAND_TIMEOUT_M
   });
 }
 
-const memory = new Map<string, { value: unknown; expiresAt: number }>();
+const memory = new BoundedTtlCache<unknown>(1000);
 
 function memoryGet<T>(key: string): T | undefined {
-  const entry = memory.get(key);
-  if (!entry) return undefined;
-  if (entry.expiresAt < Date.now()) {
-    memory.delete(key);
-    return undefined;
-  }
-  return entry.value as T;
+  return memory.get(key) as T | undefined;
 }
 
 function memorySet<T>(key: string, value: T, ttlMs: number): void {
-  memory.set(key, { value, expiresAt: Date.now() + ttlMs });
+  memory.set(key, value, ttlMs);
 }
 
 /**
@@ -104,7 +99,8 @@ export async function cacheDelete(key: string): Promise<void> {
       // ignore
     }
   }
-  memory.delete(key);
+  // Expire immediately through the same bounded cache interface.
+  memory.set(key, undefined, 0);
 }
 
 /**

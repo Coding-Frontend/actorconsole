@@ -10,6 +10,62 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Durable queue infrastructure for REDIS_ENABLED=false. These tables are shared
+// by API producers and workers; application records remain the source of truth.
+model BackgroundJob {
+  id               String   @id @default(cuid())
+  queue            String   @db.VarChar(64)
+  jobId            String   @db.VarChar(191)
+  name             String   @db.VarChar(191)
+  data             Json
+  options          Json
+  state            String   @default("waiting") @db.VarChar(16)
+  deduplicationKey String?  @db.VarChar(64)
+  sortOrder        BigInt
+  availableAt      DateTime @default(now())
+  attemptsMade     Int      @default(0)
+  progress         Json
+  result           Json?
+  failedReason     String?  @db.Text
+  leaseToken       String?  @db.VarChar(64)
+  leaseExpiresAt   DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  @@unique([queue, jobId])
+  @@unique([queue, deduplicationKey])
+  @@index([queue, state, availableAt])
+  @@index([queue, state, leaseExpiresAt])
+  @@index([queue, state, finishedAt])
+}
+
+model BackgroundLease {
+  key       String   @id @db.VarChar(191)
+  token     String   @db.VarChar(64)
+  expiresAt DateTime
+}
+
+model BackgroundSchedule {
+  id        String   @id @db.VarChar(64)
+  queue     String   @db.VarChar(64)
+  name      String   @db.VarChar(191)
+  pattern   String   @db.VarChar(191)
+  timezone  String   @db.VarChar(64)
+  data      Json
+  options   Json
+  nextRunAt DateTime
+
+  @@index([nextRunAt])
+}
+
+model RateLimitBucket {
+  key        String   @id @db.VarChar(64)
+  timestamps Json
+  expiresAt  DateTime
+
+  @@index([expiresAt])
+}
+
 // =====================================================
 // Auth.js core tables
 // =====================================================

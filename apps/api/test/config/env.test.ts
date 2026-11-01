@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 beforeEach(() => {
   vi.resetModules();
+  vi.stubEnv("REDIS_ENABLED", "true");
   for (const [key, value] of Object.entries({
     NODE_ENV: "production",
     DATABASE_URL: "mysql://fixture@localhost:3306/fixture",
@@ -27,4 +28,18 @@ it("accepts an independent production installation with all core secrets", async
 it("rejects wildcard trust instead of accepting arbitrary client forwarding headers", async () => {
   vi.stubEnv("TRUSTED_PROXY_IPS", "*");
   await expect(import("../../src/config/env.js")).rejects.toThrow("TRUSTED_PROXY_IPS");
+});
+
+it("accepts production without Redis when explicitly disabled", async () => {
+  vi.stubEnv("REDIS_ENABLED", "false");
+  vi.stubEnv("REDIS_URL", "");
+  const { apiEnv } = await import("../../src/config/env.js");
+  expect(apiEnv.REDIS_ENABLED).toBe("false");
+});
+it("rejects a missing Redis URL in enabled mode and invalid flags", async () => {
+  vi.stubEnv("REDIS_URL", "");
+  await expect(import("../../src/config/env.js")).rejects.toThrow("REDIS_URL");
+  vi.resetModules();
+  vi.stubEnv("REDIS_ENABLED", "offf");
+  await expect(import("../../src/config/env.js")).rejects.toThrow("REDIS_ENABLED");
 });

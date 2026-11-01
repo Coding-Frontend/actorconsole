@@ -11,6 +11,8 @@
     "NODE_ENV",
     "DATABASE_URL",
     "REDIS_URL",
+    "REDIS_ENABLED",
+    "WORKER_RUN_BUDGET_MS",
     "AUTH_SECRET",
     "AUTH_URL",
     "AUTH_TRUST_HOST",

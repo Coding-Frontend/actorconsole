@@ -39,6 +39,42 @@ pnpm dev:worker
 
 Open [localhost:8080](http://localhost:8080); check [API health](http://localhost:4000/health). Optional MCP requires a workspace credential; see [its README](apps/mcp/README.md).
 
+## Running with or without Redis
+
+Set `REDIS_ENABLED=true` and `REDIS_URL` to use BullMQ queues, Redis locks,
+shared caching and rate limits. Set `REDIS_ENABLED=false` to run without a
+Redis server, even if `REDIS_URL` is still present. Use the same configuration
+for the API and worker (locally, `.env` and `apps/worker/.env`), and restart
+both after changing it. If the flag is
+unset, an existing `REDIS_URL` enables Redis for backwards compatibility.
+Production requires `REDIS_URL` unless Redis is explicitly disabled.
+
+Without Redis, MySQL/MariaDB stores durable jobs, progress, results, retry state,
+recurring schedules, publishing/leader leases and production rate limits.
+Caches stay in process; development rate limits also stay in process. Run
+`pnpm db:migrate` before starting this mode. The worker still processes all six
+queues; omitting Redis no longer discards jobs.
+
+Run `pnpm dev:worker` locally or the built worker normally on a server. For a
+host that permits scheduled commands instead of a continuously running worker,
+run this from the repository root with the production environment loaded:
+
+```bash
+node --env-file=.env.production apps/worker/dist/index.js --once
+```
+
+Schedule it every minute. `--once` requires `REDIS_ENABLED=false`, enqueues due
+recurring/publishing jobs, runs due maintenance and drains currently available
+jobs. Delayed retries and jobs queued after a queue is drained run on a later
+invocation. `WORKER_RUN_BUDGET_MS` (default `50000`) limits when it starts new
+jobs; running jobs finish before exit. Catalog crawls and other long jobs still
+need a host that permits their full execution time. Removing Redis alone does
+not guarantee compatibility with a web host's process/runtime limits.
+
+When changing backends, stop producers, drain the old queue, then stop its
+workers before restarting all processes in the new mode. Pending Redis jobs
+are not automatically copied into MySQL, or vice versa.
+
 ## Authentication
 
 The API owns email/password authentication, recovery codes and database sessions. Configure Resend or SMTP for verification/recovery email. Optional Google/GitHub sign-in uses your own Firebase project: enable providers, configure authorized domains and set matching backend `FIREBASE_PROJECT_ID` and frontend `NEXT_PUBLIC_FIREBASE_*` values.

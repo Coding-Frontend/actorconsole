@@ -4,6 +4,7 @@ declare namespace NodeJS {
     NODE_ENV?: "development" | "production" | "test";
     DATABASE_URL?: string;
     REDIS_URL?: string;
+    REDIS_ENABLED?: string;
     AUTH_SECRET?: string;
     AUTH_URL?: string;
     AUTH_TRUST_HOST?: string;

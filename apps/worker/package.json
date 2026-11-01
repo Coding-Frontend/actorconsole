@@ -9,6 +9,7 @@
     "dev": "node --env-file=.env --import=tsx --watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:once": "node dist/index.js --once",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo",

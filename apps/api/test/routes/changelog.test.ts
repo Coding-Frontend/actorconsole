@@ -23,7 +23,8 @@ vi.mock("../../src/lib/analytics.js", () => ({
   trackEvent: vi.fn(),
 }));
 
-vi.mock("@actorconsole/shared", () => ({
+vi.mock("@actorconsole/shared", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@actorconsole/shared")>(),
   getLogger: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
 }));
 

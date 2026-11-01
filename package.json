@@ -9,6 +9,7 @@
     "dev:api": "dotenv -e .env -- turbo run dev --filter=@actorconsole/api",
     "dev:mcp": "turbo run dev --filter=@actorconsole/mcp",
     "dev:worker": "turbo run dev --filter=@actorconsole/worker",
+    "worker:once": "dotenv -e .env -- node apps/worker/dist/index.js --once",
     "build": "turbo run build && node scripts/fix-esm-imports.mjs apps/api/dist apps/worker/dist apps/mcp/dist packages/shared/dist packages/db/dist packages/apify/dist packages/ai/dist",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

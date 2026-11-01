@@ -15,7 +15,7 @@
 
 import { createApifyClient, type ApifyClientWrapper } from "./client";
 import type { ApifyActorDetail, ApifyRun, ApifyUserProfile } from "./types";
-import { getLogger } from "@actorconsole/shared";
+import { getLogger, isRedisEnabled } from "@actorconsole/shared";
 import IORedis from "ioredis";
 
 let _anon: ApifyClientWrapper | null = null;
@@ -64,6 +64,7 @@ function cacheSet<T>(key: string, value: T, ttlMs: number): void {
 }
 
 function getRedisCache(): IORedis | null {
+  if (!isRedisEnabled()) return null;
   if (redisCache !== undefined) return redisCache;
   const url = process.env.REDIS_URL;
   if (!url) {

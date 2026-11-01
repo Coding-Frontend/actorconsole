@@ -1250,7 +1250,7 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
             "snapshots",
             { actorId: actor.id, bootstrapInsights: storedInsightSnapshots.length === 0 },
             {
-              jobId: `actor-detail-refresh:${actor.id}:${Math.floor(Date.now() / ACTOR_DETAIL_REFRESH_MS)}`,
+              jobId: `actor-detail-refresh-${actor.id}-${Math.floor(Date.now() / ACTOR_DETAIL_REFRESH_MS)}`,
             },
           ),
         )

@@ -80,7 +80,7 @@ describe("newsletter campaign queue", () => {
     expect(enqueue).toHaveBeenCalledWith(
       "newsletter",
       { campaignId: "campaign-1" },
-      { jobId: "newsletter:campaign-1" },
+      { jobId: "newsletter-campaign-1" },
     );
   });
 

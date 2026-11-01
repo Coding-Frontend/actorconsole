@@ -35,3 +35,6 @@ export * from "./mcp";
 export * from "./actor-intelligence";
 export * from "./watch-signals";
 export * from "./billing-entitlements";
+export * from "./queue/types";
+export * from "./redis-config";
+export * from "./bounded-cache";
