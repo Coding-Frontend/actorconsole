@@ -142,7 +142,7 @@ jobs:
 
       - name: Create disposable security regression database
         env:
-          DATABASE_URL: mysql://root:actorconsole@127.0.0.1:3306/mysql
+          DATABASE_URL: mysql://root:actorconsole@127.0.0.1:3306/actorconsole_test
         run: |
           pnpm --filter @actorconsole/db exec prisma db execute --url "$DATABASE_URL" --stdin <<'SQL'
           CREATE DATABASE actorconsole_billing_test;
