@@ -1,16 +1,14 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { FeaturesPageClient } from "./features-page-client";
 
-export const metadata: Metadata = {
-  title: "Features — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "Features for Apify Actor Builders",
   description:
-    "Apify Actor tools for Store research, AI listing review, publishing schedules, usage costs, and available creator revenue.",
-  openGraph: {
-    title: "ActorConsole Features",
-    description:
-      "Keyword watchlists, AI listing review, pricing, Actor publishing and status management, usage costs, and available revenue and profit reporting.",
-  },
-};
+    "Research Store demand, review AI-assisted listing changes, schedule Actor publishing, and track usage costs and available revenue.",
+  path: "/features",
+  image: "features",
+});
 
 export default function FeaturesPage() {
   return <FeaturesPageClient />;

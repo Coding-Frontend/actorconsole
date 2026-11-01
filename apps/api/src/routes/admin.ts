@@ -7,6 +7,7 @@ import {
   legacyGatewayMode,
 } from "../lib/payment-gateway-settings.js";
 import { Hono } from "hono";
+import { verifiedClientIp } from "../lib/client-ip.js";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -629,11 +630,15 @@ export const adminRoutes = new Hono<AppEnv>()
         },
       });
 
-      const revokeSessions = Boolean(body.suspendedAt);
+      const revokeSessions = Boolean(body.suspendedAt) || !!(body.role && body.role !== before.role);
       const updated = revokeSessions
         ? (await db.$transaction([
             update,
-            db.session.deleteMany({ where: { userId: id } }),
+            db.session.deleteMany({ where: { OR: [{ userId: id }, { impersonatedById: id }] } }),
+            db.impersonationSession.updateMany({
+              where: { OR: [{ adminId: id }, { targetUserId: id }], revokedAt: null },
+              data: { revokedAt: new Date() },
+            }),
           ]))[0]
         : await update;
 
@@ -653,8 +658,12 @@ export const adminRoutes = new Hono<AppEnv>()
     assertCanManageUserSuspension(admin.role, before.role);
     const suspendedAt = new Date();
     const [, updated] = await db.$transaction([
-      db.session.deleteMany({ where: { userId: id } }),
+      db.session.deleteMany({ where: { OR: [{ userId: id }, { impersonatedById: id }] } }),
       db.user.update({ where: { id }, data: { suspendedAt } }),
+      db.impersonationSession.updateMany({
+        where: { OR: [{ adminId: id }, { targetUserId: id }], revokedAt: null },
+        data: { revokedAt: suspendedAt },
+      }),
     ]);
     await recordAudit(c, "user.suspend", `user:${id}`, before, updated);
     return c.json({ ok: true, data: updated });
@@ -2227,7 +2236,7 @@ export async function recordAudit(
       resource,
       before: redactAuditValue(before) as any,
       after: redactAuditValue(after) as any,
-      ip: c.req.header("x-forwarded-for") ?? null,
+      ip: verifiedClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
       source: isApiKey ? "api-key" : "ui",
     },
@@ -3026,6 +3035,7 @@ adminRoutes
   // =====================================================
   .get("/newsletter", async (c) => {
     const status = enumQuery(c.req.query("status"), "status", [
+      "PENDING",
       "ACTIVE",
       "UNSUBSCRIBED",
       "BOUNCED",

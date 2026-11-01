@@ -7,8 +7,9 @@
   "main": "./dist/index.js",
   "scripts": {
     "dev": "node --env-file=.env --import=tsx --watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && node ../../scripts/fix-esm-imports.mjs dist",
     "start": "node dist/index.js",
+    "start:once": "node dist/index.js --once",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo",
@@ -21,18 +22,18 @@
     "@actorconsole/db": "workspace:*",
     "@actorconsole/logo-catalog": "workspace:*",
     "@actorconsole/shared": "workspace:*",
-    "@sentry/node": "^10.62.0",
+    "@sentry/node": "^10.76.2",
     "bullmq": "^5.79.2",
     "cron-parser": "^4.9.0",
     "ioredis": "^5.11.1",
-    "nodemailer": "7.0.7",
+    "nodemailer": "10.2.1",
     "octokit": "^5.0.5",
     "resend": "^6.34.1"
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",
     "@types/node": "^22.20.5",
-    "@types/nodemailer": "7.0.4",
+    "@types/nodemailer": "8.0.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^2.1.8"

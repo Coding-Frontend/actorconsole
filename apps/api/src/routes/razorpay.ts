@@ -32,6 +32,8 @@ import { recordPaymentCapture } from "../lib/billing-payment-state.js";
 import { providerAmount } from "../lib/billing-amount.js";
 import { isDefinitiveProviderRejection } from "../lib/billing-provider-errors.js";
 import type { AppEnv } from "../app.js";
+import { requireAdmin } from "../middleware/admin.js";
+import { checkRateLimit } from "../lib/rate-limit.js";
 
 /**
  * Razorpay payment routes.
@@ -190,6 +192,7 @@ export const razorpayRoutes = new Hono<AppEnv>()
 
       trackEvent("subscription.created", {
         userId: session.userId,
+        businessProfileId: session.businessProfileId,
         properties: { plan: body.plan, subscriptionId: sub.id },
       });
 
@@ -476,7 +479,9 @@ export const razorpayRoutes = new Hono<AppEnv>()
    * Admin-only — test that Razorpay credentials work.
    * Hits Razorpay's `payments` endpoint with limit=1 as a sanity check.
    */
-  .post("/test", async (c) => {
+  .post("/test", requireAdmin(), async (c) => {
+    const rate = await checkRateLimit("razorpay:credential-test", { windowMs: 60_000, max: 5 });
+    if (!rate.allowed) return c.json({ ok: false, error: { code: "rate_limited" } }, 429);
     const rz = await getRazorpayClient();
     if (!rz) {
       await recordIntegrationTest("razorpay_key_id", "error", "Credentials missing");

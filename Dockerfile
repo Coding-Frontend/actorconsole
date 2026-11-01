@@ -46,27 +46,22 @@ FROM install AS builder-api
 ENV NODE_ENV=production
 RUN pnpm turbo run build --filter=@actorconsole/api
 
-# Fix extensionless ESM imports — Node.js requires .js extensions in relative imports
-COPY scripts/fix-esm-imports.mjs /app/scripts/fix-esm-imports.mjs
-RUN node /app/scripts/fix-esm-imports.mjs
 
 FROM install AS builder-worker
 ENV NODE_ENV=production
 RUN pnpm turbo run build --filter=@actorconsole/worker
-COPY scripts/fix-esm-imports.mjs /app/scripts/fix-esm-imports.mjs
-RUN node /app/scripts/fix-esm-imports.mjs
 
 FROM install AS builder-mcp
 ENV NODE_ENV=production
 RUN pnpm turbo run build --filter=@actorconsole/mcp
-COPY scripts/fix-esm-imports.mjs /app/scripts/fix-esm-imports.mjs
-RUN node /app/scripts/fix-esm-imports.mjs
 
 FROM install AS builder-web
 ARG API_BASE_URL
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+ARG NEXT_PUBLIC_BING_SITE_VERIFICATION
 ARG NEXT_PUBLIC_APP_NAME=ActorConsole
 ARG NEXT_PUBLIC_CHROME_EXTENSION_URL
 ARG NEXT_PUBLIC_FIREBASE_API_KEY
@@ -80,6 +75,8 @@ ENV API_BASE_URL=$API_BASE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=$NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+ENV NEXT_PUBLIC_BING_SITE_VERIFICATION=$NEXT_PUBLIC_BING_SITE_VERIFICATION
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_CHROME_EXTENSION_URL=$NEXT_PUBLIC_CHROME_EXTENSION_URL
 ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
@@ -91,8 +88,6 @@ ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 ENV NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=$NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 ENV NODE_ENV=production
 RUN pnpm turbo run build --filter=@actorconsole/web
-COPY scripts/fix-esm-imports.mjs /app/scripts/fix-esm-imports.mjs
-RUN node /app/scripts/fix-esm-imports.mjs
 
 # =============================================================================
 # api — Hono REST API

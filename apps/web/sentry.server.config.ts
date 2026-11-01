@@ -1,5 +1,5 @@
 // Sentry server-side config for the Next.js app.
-// Loaded automatically by @sentry/nextjs when SENTRY_DSN is set.
+// Loaded by src/instrumentation.ts when SENTRY_DSN is set.
 import * as Sentry from "@sentry/nextjs";
 import { sentryDataCollection } from "./src/lib/sentry-privacy";
 

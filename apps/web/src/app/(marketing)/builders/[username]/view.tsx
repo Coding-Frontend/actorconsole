@@ -1,5 +1,6 @@
 import { EarningsBand } from "@/components/intelligence/earnings-summary";
 import type { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, ExternalLink, PlayCircle, Search, Star, Users } from "lucide-react";
@@ -35,10 +36,14 @@ export async function generateMetadata({
   const { username } = await params;
   const profile = await getBuilderProfile(username);
   return profile
-    ? {
+    ? createPageMetadata({
         title: `${profile.name ?? username} — Apify builder`,
-        description: profile.bio ?? `Explore ${username}'s public Apify Actor portfolio.`,
-      }
+        description:
+          profile.bio ||
+          `Explore ${username}'s public Apify Actor portfolio, usage trends, and estimated creator earnings.`,
+        path: `/builders/${encodeURIComponent(username)}`,
+        image: "builders",
+      })
     : { title: "Builder not found", robots: { index: false } };
 }
 

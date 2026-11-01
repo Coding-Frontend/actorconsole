@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -6,15 +7,13 @@ import { Container, Section } from "@/components/ui/layout";
 import { Panel, PanelDescription, PanelTitle } from "@/components/ui/panel";
 import { PageHero } from "@/components/marketing/page-hero";
 
-export const metadata: Metadata = {
-  title: "About — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "About",
   description:
-    "ActorConsole brings Apify Actor workspaces, Store content tools, publishing, costs, and available revenue into one place.",
-  openGraph: {
-    title: "About ActorConsole",
-    description: "A focused operations workspace for Apify Actor builders.",
-  },
-};
+    "ActorConsole brings Apify Actor workspaces, Store research, listing improvements, publishing, costs, and available revenue into one place.",
+  path: "/about",
+  image: "about",
+});
 
 const capabilities = [
   "Create and switch between separate Actor workspaces",

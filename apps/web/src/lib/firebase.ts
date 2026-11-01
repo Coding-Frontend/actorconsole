@@ -9,6 +9,8 @@ import {
   signOut as firebaseSignOut,
   type User as FirebaseUser,
 } from "firebase/auth";
+import { getConsent } from "@/components/cookie-consent";
+import { analyticsPath } from "@/lib/analytics-path";
 
 // Browser configuration is public. Each installation supplies its own project.
 const firebaseConfig = {
@@ -45,7 +47,6 @@ let _auth: ReturnType<typeof firebaseGetAuth> | null = null;
 let _analytics: import("firebase/analytics").Analytics | null = null;
 let _analyticsModule: typeof import("firebase/analytics") | null = null;
 let _analyticsPromise: Promise<import("firebase/analytics").Analytics | null> | null = null;
-let _analyticsCollectionEnabled = true;
 
 function getFirebaseApp() {
   return getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -69,8 +70,8 @@ async function getAnalyticsModule() {
  * after the cookie-consent component has confirmed an opt-in.
  */
 export async function getFirebaseAnalytics() {
-  if (typeof window === "undefined" || !firebaseConfig.measurementId) return null;
-  throwIfFirebaseIsNotConfigured();
+  if (typeof window === "undefined" || !firebaseConfig.measurementId ||
+      missingFirebaseConfig || getConsent() !== "all") return null;
   if (_analytics) return _analytics;
   if (_analyticsPromise) return _analyticsPromise;
 
@@ -78,8 +79,19 @@ export async function getFirebaseAnalytics() {
     try {
       const analyticsModule = await getAnalyticsModule();
       if (!(await analyticsModule.isSupported())) return null;
-      _analytics = analyticsModule.getAnalytics(getFirebaseApp());
-      analyticsModule.setAnalyticsCollectionEnabled(_analytics, _analyticsCollectionEnabled);
+      if (getConsent() !== "all") return null;
+      const path = analyticsPath(window.location.pathname);
+      _analytics = analyticsModule.initializeAnalytics(getFirebaseApp(), {
+        config: {
+          send_page_view: false,
+          page_location: `${window.location.origin}${path}`,
+          page_referrer: "",
+          page_title: "ActorConsole",
+          allow_google_signals: false,
+          allow_ad_personalization_signals: false,
+        },
+      });
+      analyticsModule.setAnalyticsCollectionEnabled(_analytics, getConsent() === "all");
       return _analytics;
     } catch {
       // Analytics is optional and unsupported browsers should not affect auth
@@ -95,28 +107,33 @@ export async function getFirebaseAnalytics() {
 
 /** Log a GA4 page view for client-side route transitions. */
 export async function logFirebasePageView(pathname: string) {
-  const analytics = await getFirebaseAnalytics();
-  if (!analytics) return;
-
-  const analyticsModule = await getAnalyticsModule();
-  analyticsModule.logEvent(analytics, "page_view", {
-    page_path: pathname,
-    page_location: window.location.href,
-    page_title: document.title,
+  const path = analyticsPath(pathname);
+  await logFirebaseEvent("page_view", {
+    page_path: path,
+    page_location: `${window.location.origin}${path}`,
+    page_referrer: "",
+    page_title: "ActorConsole",
   });
 }
 
 /** Log an optional, consent-gated product event. */
 export async function logFirebaseEvent(
   eventName: string,
-  params: Record<string, string | number | boolean> = {},
+  params: Record<string, unknown> = {},
 ) {
   try {
+    if (getConsent() !== "all") return;
     const analytics = await getFirebaseAnalytics();
-    if (!analytics) return;
+    if (!analytics || getConsent() !== "all") return;
 
     const analyticsModule = await getAnalyticsModule();
-    analyticsModule.logEvent(analytics, eventName, params);
+    if (getConsent() !== "all") return;
+    analyticsModule.logEvent(analytics, eventName, {
+      page_location: `${window.location.origin}${analyticsPath(window.location.pathname)}`,
+      page_referrer: "",
+      page_title: "ActorConsole",
+      ...params,
+    });
   } catch {
     // Product analytics must never affect the user-facing workflow.
   }
@@ -124,10 +141,15 @@ export async function logFirebaseEvent(
 
 /** Stop collection when optional analytics consent is revoked. */
 export async function setFirebaseAnalyticsCollectionEnabled(enabled: boolean) {
-  _analyticsCollectionEnabled = enabled;
+  if (typeof window !== "undefined" && firebaseConfig.measurementId) {
+    // The Firebase helper waits for its internal initialization promise. Set
+    // the GA flag immediately as well so revocation takes effect during that wait.
+    (window as unknown as Record<string, unknown>)[`ga-disable-${firebaseConfig.measurementId}`] =
+      !(enabled && getConsent() === "all");
+  }
   if (!_analytics) return;
   const analyticsModule = await getAnalyticsModule();
-  analyticsModule.setAnalyticsCollectionEnabled(_analytics, enabled);
+  analyticsModule.setAnalyticsCollectionEnabled(_analytics, enabled && getConsent() === "all");
 }
 
 // Proxy-based `auth` export: property accesses are forwarded to the lazy singleton.

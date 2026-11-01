@@ -117,7 +117,7 @@ export function requirePublishingApiKeyCapability() {
     const capability: McpCapability =
       method === "GET" || method === "HEAD"
         ? "publishing:read"
-        : path.endsWith("/run")
+        : path.endsWith("/run") || path.endsWith("/resume")
           ? "publishing:run"
           : "publishing:write";
     assertApiKeyCapability(c.get("session"), capability);

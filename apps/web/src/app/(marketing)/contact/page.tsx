@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container, Section } from "@/components/ui/layout";
@@ -6,11 +7,13 @@ import { ContactForm } from "@/components/marketing/contact-form";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Mail, LifeBuoy, ArrowRight } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Contact — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "Contact & Support",
   description:
-    "Get in touch with the ActorConsole team. Reach out for support, partnerships, or general inquiries.",
-};
+    "Contact the ActorConsole team for product support, partnership inquiries, or help with your Apify Actor workspace.",
+  path: "/contact",
+  image: "contact",
+});
 
 export default function ContactPage() {
   return (

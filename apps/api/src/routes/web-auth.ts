@@ -1,8 +1,9 @@
 import { Hono } from "hono";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { apiEnv } from "../config/env.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
-import { resolveClientIp } from "../lib/client-ip.js";
+import { resolveClientIp, hasUsableProxyIdentity } from "../lib/client-ip.js";
 import { setAuthRequestIp } from "../lib/auth-request-ip.js";
 import { JsonResponse, withRequestContext } from "../lib/http-context.js";
 import { readWebSession } from "../lib/web-session.js";
@@ -60,8 +61,16 @@ for (const [path, handler, schema] of handlers) {
     try { body = JSON.parse(payload); } catch { return c.json({ ok: false, error: "Invalid JSON" }, 400); }
     if (!schema.safeParse(body).success) return c.json({ ok: false, error: "Invalid request" }, 400);
     const ip = resolveClientIp(c);
+    if (apiEnv.NODE_ENV === "production" && !hasUsableProxyIdentity(c))
+      return c.json({ ok: false, error: "Authentication ingress is not configured" }, 503);
     setAuthRequestIp(c.req.raw, ip);
-    const limit = await checkRateLimit(`authentication:${path}:${ip}`, { windowMs: 15 * 60_000, max: 30 });
+    // Account quotas contain credential attacks; the larger source breaker
+    // tolerates shared networks without giving them one 30-request budget.
+    const account = createHash("sha256").update(String((body as { email?: string }).email ?? "").trim().toLowerCase()).digest("hex");
+    const sourceLimit = await checkRateLimit(`authentication:${path}:${ip}`, { windowMs: 15 * 60_000, max: "email" in (body as object) ? 300 : 30 });
+    const limit = sourceLimit.allowed && "email" in (body as object)
+      ? await checkRateLimit(`authentication:${path}:account:${account}`, { windowMs: 15 * 60_000, max: 30 })
+      : sourceLimit;
     if (!limit.allowed) {
       c.header("retry-after", String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))));
       return c.json({ ok: false, error: "Too many attempts. Please try again later." }, 429);

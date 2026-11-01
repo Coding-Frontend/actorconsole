@@ -10,6 +10,62 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Durable queue infrastructure for REDIS_ENABLED=false. These tables are shared
+// by API producers and workers; application records remain the source of truth.
+model BackgroundJob {
+  id               String   @id @default(cuid())
+  queue            String   @db.VarChar(64)
+  jobId            String   @db.VarChar(191)
+  name             String   @db.VarChar(191)
+  data             Json
+  options          Json
+  state            String   @default("waiting") @db.VarChar(16)
+  deduplicationKey String?  @db.VarChar(64)
+  sortOrder        BigInt
+  availableAt      DateTime @default(now())
+  attemptsMade     Int      @default(0)
+  progress         Json
+  result           Json?
+  failedReason     String?  @db.Text
+  leaseToken       String?  @db.VarChar(64)
+  leaseExpiresAt   DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  @@unique([queue, jobId])
+  @@unique([queue, deduplicationKey])
+  @@index([queue, state, availableAt])
+  @@index([queue, state, leaseExpiresAt])
+  @@index([queue, state, finishedAt])
+}
+
+model BackgroundLease {
+  key       String   @id @db.VarChar(191)
+  token     String   @db.VarChar(64)
+  expiresAt DateTime
+}
+
+model BackgroundSchedule {
+  id        String   @id @db.VarChar(64)
+  queue     String   @db.VarChar(64)
+  name      String   @db.VarChar(191)
+  pattern   String   @db.VarChar(191)
+  timezone  String   @db.VarChar(64)
+  data      Json
+  options   Json
+  nextRunAt DateTime
+
+  @@index([nextRunAt])
+}
+
+model RateLimitBucket {
+  key        String   @id @db.VarChar(64)
+  timestamps Json
+  expiresAt  DateTime
+
+  @@index([expiresAt])
+}
+
 // =====================================================
 // Auth.js core tables
 // =====================================================
@@ -29,6 +85,7 @@ model User {
   totpEnabled           Boolean   @default(false)
   totpSecretEncrypted   String?   @db.Text
   totpRecoveryCodes     Json      @default("[]")
+  lastAcceptedTotpCounter Int?
   deletionRequestedAt   DateTime?
   deletionScheduledFor  DateTime?
   deletionOriginalEmail String?
@@ -189,6 +246,7 @@ model Session {
   user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([impersonatedById])
 }
 
 model VerificationToken {
@@ -256,6 +314,7 @@ model Subscription {
   razorpayPlanId         String?
   status                 String
   currentPeriodEnd       DateTime?
+  paymentBacked          Boolean   @default(false)
   cancelAtPeriodEnd      Boolean   @default(false)
   shortUrl               String?
   notes                  String?
@@ -701,7 +760,7 @@ model ActorOptimizationRun {
   approvedAt             DateTime?
   appliedAt              DateTime?
   approvalIdempotencyKey String?
-  approvalRequestHash    String?
+  approvalRequestHash    String?                @db.VarChar(64)
 
   user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessProfile BusinessProfile           @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
@@ -1085,6 +1144,7 @@ model BulkPublishSchedule {
   businessProfile BusinessProfile            @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
   actors          BulkPublishScheduleActor[]
   runs            BulkPublishScheduleRun[]
+  manualRunAuthorizations BulkPublishManualRun[]
 
   @@unique([businessProfileId, idempotencyKey])
   @@index([userId, businessProfileId])
@@ -1129,6 +1189,25 @@ model BulkPublishScheduleRun {
 
   @@index([scheduleId, createdAt])
   @@index([status, createdAt])
+}
+
+// The API issues these grants after workspace/capability authorization. Queue
+// payloads may name a grant, but cannot authorize a paused schedule themselves.
+model BulkPublishManualRun {
+  id                String    @id @default(cuid())
+  scheduleId        String
+  userId            String
+  businessProfileId String
+  apiKeyId          String?
+  idempotencyKey    String?
+  expiresAt         DateTime
+  consumedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  schedule BulkPublishSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, idempotencyKey])
+  @@index([expiresAt])
 }
 
 // Durable history for immediate Actor Store lifecycle changes. These records
@@ -1412,6 +1491,7 @@ model AppError {
 model AnalyticsEvent {
   id         String   @id @default(cuid())
   userId     String?
+  businessProfileId String?
   name       String
   properties Json?
   source     String
@@ -1420,6 +1500,7 @@ model AnalyticsEvent {
 
   @@index([name, createdAt])
   @@index([userId, createdAt])
+  @@index([businessProfileId, userId, createdAt])
 }
 
 // =====================================================
@@ -1910,7 +1991,9 @@ model NewsletterSubscriber {
   email          String           @unique
   name           String?
   userId         String? // linked if the subscriber has an account
-  status         NewsletterStatus @default(ACTIVE)
+  status         NewsletterStatus @default(PENDING)
+  confirmationTokenHash String? @unique @db.VarChar(64)
+  confirmationExpiresAt DateTime?
   token          String           @unique // unsubscribe token (random, unguessable)
   subscribedAt   DateTime         @default(now())
   unsubscribedAt DateTime?
@@ -1967,6 +2050,7 @@ model NewsletterDelivery {
 }
 
 enum NewsletterStatus {
+  PENDING
   ACTIVE
   UNSUBSCRIBED
   BOUNCED

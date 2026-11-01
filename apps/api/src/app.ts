@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { webAuthRoutes } from "./routes/web-auth.js";
 import { publicCatalogRoutes } from "./routes/public-catalog.js";
+import { sitemapRoutes } from "./routes/sitemap.js";
 import { cors } from "hono/cors";
 import { csrf } from "hono/csrf";
 import { routePath } from "hono/route";
@@ -160,6 +161,7 @@ app.use("*", (c, next) => (c.req.path === "/webhooks/resend" ? resendBodyLimit :
 // API-owned auth and public catalog routes precede protected actor/admin prefixes.
 app.route("/", webAuthRoutes);
 app.route("/", publicCatalogRoutes);
+app.route("/public/sitemap", sitemapRoutes);
 
 // --- public routes (no auth) ---
 app.route("/health", healthRoutes);

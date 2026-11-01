@@ -5,6 +5,7 @@ import { SessionProvider } from "@/lib/session-client";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CookieConsent } from "@/components/cookie-consent";
 import { FirebaseAnalytics } from "@/components/firebase-analytics";
+import { createPageMetadata, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 const sans = localFont({
@@ -42,13 +43,36 @@ const themeScript = `(() => {
 })();`;
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080"),
+  ...createPageMetadata({ title: SITE_TITLE, description: SITE_DESCRIPTION, path: "/" }),
+  metadataBase: new URL(SITE_URL),
+  // Canonicals are defined by public pages; account and utility routes have none.
+  alternates: { canonical: null },
   title: {
-    default: "ActorConsole — The DevOps platform for Apify Actor builders",
+    default: `${SITE_TITLE} · ${SITE_NAME}`,
     template: "%s · ActorConsole",
   },
-  description:
-    "Store optimization, scheduled actor tasks, publishing, and usage-cost reporting for Apify developers.",
+  applicationName: SITE_NAME,
+  category: "Developer Tools",
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  referrer: "strict-origin-when-cross-origin",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : undefined,
+  },
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
@@ -58,11 +82,6 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
-  openGraph: {
-    title: "ActorConsole",
-    description: "Manage, optimize, schedule, and review Apify actors.",
-    type: "website",
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

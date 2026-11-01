@@ -9,7 +9,7 @@ output="$plain_output"
 mkdir -p "$backup_dir"
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  IFS=$'\t' read -r url_host url_port url_user url_password url_database < <(
+  IFS=$'\x1f' read -r url_host url_port url_user url_password url_database < <(
     BACKUP_DATABASE_URL="$DATABASE_URL" node - <<'NODE'
 const value = process.env.BACKUP_DATABASE_URL;
 const url = new URL(value);
@@ -19,7 +19,7 @@ process.stdout.write([
   decodeURIComponent(url.username),
   decodeURIComponent(url.password),
   url.pathname.replace(/^\//, ""),
-  ].join("\t") + "\n");
+  ].join("\x1f") + "\n");
 NODE
   )
 fi

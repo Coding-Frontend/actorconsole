@@ -18,6 +18,9 @@ const { mockDb, mockRateLimit, mockTrackEvent, mockSession, mockGetApifyAccountI
       email: "t@a.com",
       plan: "PRO",
       businessProfileId: undefined as string | undefined,
+      authMethod: "session" as "session" | "impersonation" | "api-key",
+      authenticatedAt: new Date().toISOString(),
+      impersonatedById: undefined as string | undefined,
     },
     mockDb: {
       user: {
@@ -118,6 +121,35 @@ function buildApp() {
 }
 
 describe("account", () => {
+  describe("owner-only security operations", () => {
+    afterEach(() => {
+      mockSession.authMethod = "session";
+      mockSession.authenticatedAt = new Date().toISOString();
+      mockSession.impersonatedById = undefined;
+    });
+    it.each([
+      ["/", "DELETE"], ["/api-keys", "POST"], ["/api-keys/key", "PATCH"],
+      ["/api-keys/key", "DELETE"], ["/api-keys/key/rotate", "POST"],
+      ["/2fa/setup", "POST"], ["/2fa/confirm", "POST"], ["/2fa/disable", "POST"], ["/2fa/recovery-codes", "POST"],
+    ])("denies impersonation before %s %s can mutate owner state", async (path, method) => {
+      vi.clearAllMocks();
+      mockSession.authMethod = "impersonation";
+      mockSession.impersonatedById = "admin";
+      const response = await buildApp().request(path, { method, headers: { "content-type": "application/json" }, body: "{}" });
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe("owner_session_required");
+      expect(mockDb.user.update).not.toHaveBeenCalled();
+      expect(mockDb.user.updateMany).not.toHaveBeenCalled();
+      expect(mockDb.apiKey.create).not.toHaveBeenCalled();
+      expect(mockDb.apiKey.updateMany).not.toHaveBeenCalled();
+    });
+    it("requires a fresh owner sign-in before enrolling a factor", async () => {
+      mockSession.authenticatedAt = new Date(Date.now() - 16 * 60_000).toISOString();
+      const response = await buildApp().request("/2fa/setup", { method: "POST" });
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe("reauthentication_required");
+    });
+  });
   describe("two-factor credential races", () => {
     const passphrase = "local-account-two-factor-fixture";
     const secret = "JBSWY3DPEHPK3PXP";

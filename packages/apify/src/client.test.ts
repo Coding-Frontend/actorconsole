@@ -5,6 +5,7 @@ const actorUpdate = vi.fn();
 const userGet = vi.fn();
 const actorsList = vi.fn();
 const storeList = vi.fn();
+const clientOptions = vi.hoisted(() => vi.fn());
 const { socketIo, publication } = vi.hoisted(() => ({
   socketIo: vi.fn(),
   publication: { response: null as unknown },
@@ -15,8 +16,10 @@ vi.mock("apify-client", () => ({
     token?: string;
     baseUrl = "https://api.apify.com/v2";
 
-    constructor(options: { token?: string }) {
+    constructor(options: { token?: string; baseUrl?: string }) {
+      clientOptions(options);
       this.token = options.token;
+      if (options.baseUrl) this.baseUrl = `${options.baseUrl}/v2`;
     }
 
     actor() {
@@ -47,6 +50,24 @@ vi.mock("socket.io-client", () => ({ io: socketIo }));
 
 import { createApifyClient } from "./client.js";
 import { analyzeActorPublishReadiness } from "@actorconsole/shared";
+
+describe("configured Apify API origin", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("accepts the documented /v2 environment value without doubling the API prefix", () => {
+    vi.stubEnv("APIFY_API_BASE_URL", "http://127.0.0.1:4009/v2");
+    createApifyClient({ token: "fixture" });
+    expect(clientOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ baseUrl: "http://127.0.0.1:4009" }),
+    );
+  });
+  it("preserves an explicit client origin over the environment", () => {
+    vi.stubEnv("APIFY_API_BASE_URL", "http://127.0.0.1:4009/v2");
+    createApifyClient({ token: "fixture", baseUrl: "http://127.0.0.1:4010" });
+    expect(clientOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ baseUrl: "http://127.0.0.1:4010" }),
+    );
+  });
+});
 
 function actor(overrides: Record<string, unknown> = {}) {
   return {

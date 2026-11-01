@@ -1,5 +1,6 @@
 import { EarningsBand } from "@/components/intelligence/earnings-summary";
 import type { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
@@ -54,12 +55,14 @@ export async function generateMetadata({
   const { username, actorName } = await params;
   const actor = await getBuilderActorDetail(username, actorName);
   return actor
-    ? {
+    ? createPageMetadata({
         title: `${actor.title} — Actor details`,
         description:
-          actor.description ?? `Public Apify Actor details for ${username}/${actorName}.`,
-      }
-    : { title: "Actor not found" };
+          actor.description || `Public Apify Actor details for ${username}/${actorName}.`,
+        path: `/builders/${encodeURIComponent(username)}/actors/${encodeURIComponent(actorName)}`,
+        image: "actors",
+      })
+    : { title: "Actor not found", robots: { index: false } };
 }
 
 export default async function BuilderActorPage({

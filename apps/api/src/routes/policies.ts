@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { verifiedClientIp } from "../lib/client-ip.js";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { acceptPolicySchema, policySlugSchema, type PolicySlug } from "@actorconsole/shared";
@@ -69,8 +70,7 @@ export const policyRoutes = new Hono()
       }
 
       const session = c.get("session");
-      const ip =
-        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("x-real-ip") || null;
+      const ip = verifiedClientIp(c);
       const userAgent = c.req.header("user-agent") || null;
 
       await db.$transaction([

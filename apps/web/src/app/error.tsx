@@ -21,7 +21,7 @@ export default function Error({
         <h1 className="text-destructive mt-8 text-6xl font-bold tracking-tight">500</h1>
         <h2 className="mt-4 text-xl font-semibold">Something went wrong</h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          An unexpected error occurred. Our team has been notified.
+          An unexpected error occurred. Try again, or contact support if the problem continues.
         </p>
         {error.digest && (
           <p className="text-muted-foreground/60 mt-2 font-mono text-xs">

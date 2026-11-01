@@ -13,16 +13,16 @@ function fix(dir) {
       fix(fp);
     } else if (name.endsWith(".js")) {
       const base = dirname(fp);
-      let c = readFileSync(fp, "utf-8");
-      const n = c.replace(/from "(\.\.?\/[^"]+?)"/g, (m, p) => {
-        if (p.endsWith(".js") || p.endsWith(".mjs")) return m;
-        // p starts with './' or '../', strip the prefix to get a relative path
-        const stripped = p.replace(/^\.?\//, "");
-        const asFile = join(base, stripped + ".js");
-        const asDir = join(base, stripped, "index.js");
-        if (existsSync(asDir)) return `from "${p}/index.js"`;
-        return `from "${p}.js"`;
-      });
+      const c = readFileSync(fp, "utf-8");
+      const n = c.replace(
+        /(\bfrom\s+|\bimport\s*\(\s*|\bimport\s+)(["'])(\.\.?\/[^"']+)\2/g,
+        (match, prefix, quote, path) => {
+          if (/\.(?:js|mjs|cjs|json|node|wasm)$/.test(path)) return match;
+          if (existsSync(join(base, `${path}.js`))) return `${prefix}${quote}${path}.js${quote}`;
+          if (existsSync(join(base, path, "index.js"))) return `${prefix}${quote}${path}/index.js${quote}`;
+          return match;
+        },
+      );
       if (c !== n) writeFileSync(fp, n);
     }
   }

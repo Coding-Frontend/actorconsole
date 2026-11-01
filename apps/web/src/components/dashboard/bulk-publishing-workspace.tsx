@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 import { WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -537,6 +538,7 @@ export function BulkPublishingWorkspace() {
       if (!response.ok || !body?.ok || !body.data?.jobId) {
         throw new Error(body?.error?.message ?? "Could not queue Actor operation");
       }
+      void trackEvent("bulk_actor_operation_started", { actor_count: selectedActors.length });
       setOperation((current) =>
         current
           ? {

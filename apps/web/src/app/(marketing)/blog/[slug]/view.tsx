@@ -1,3 +1,4 @@
+import { createPageMetadata, absoluteUrl, serializeJsonLd, socialImageUrl } from "@/lib/seo";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -36,6 +37,20 @@ export function normalizePost(data: any): MarketingBlogPost {
   };
 }
 
+function postMetadata(post: MarketingBlogPost): Metadata {
+  return createPageMetadata({
+    title: post.seoTitle || post.title,
+    description: post.seoDescription || post.excerpt || post.title,
+    path: `/blog/${encodeURIComponent(post.slug)}`,
+    image: "blog",
+    coverImage: post.coverImage,
+    type: "article",
+    publishedTime: post.publishedAt ?? undefined,
+    tags: post.tags,
+    author: post.author?.name,
+  });
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -44,43 +59,20 @@ export async function generateMetadata({
   const { slug } = await params;
   const seededPost = process.env.NODE_ENV === "development" ? getSeededBlogPost(slug) : null;
   try {
-    const res = await fetch(`${API_BASE}/blog/${slug}`, {
+    const res = await fetch(`${API_BASE}/blog/${encodeURIComponent(slug)}`, {
       next: { revalidate: 60 },
       signal: AbortSignal.timeout(BLOG_FETCH_TIMEOUT_MS),
     });
-    if (!res.ok) {
-      return seededPost
-        ? { title: `${seededPost.title} — ActorConsole Blog`, description: seededPost.excerpt }
-        : { title: "Post not found" };
+    if (res.ok) {
+      const json = await res.json();
+      if (json.ok && json.data) return postMetadata(normalizePost(json.data));
     }
-    const json = await res.json();
-    if (!json.ok) {
-      return seededPost
-        ? { title: `${seededPost.title} — ActorConsole Blog`, description: seededPost.excerpt }
-        : { title: "Post not found" };
-    }
-    const post = normalizePost(json.data);
-    return {
-      title: `${post.seoTitle ?? post.title} — ActorConsole Blog`,
-      description: post.seoDescription ?? post.excerpt ?? post.title,
-      openGraph: {
-        title: post.title,
-        description: post.excerpt ?? undefined,
-        type: "article",
-        publishedTime: post.publishedAt ?? undefined,
-        tags: Array.isArray(post.tags)
-          ? post.tags
-          : typeof post.tags === "string"
-            ? [post.tags]
-            : undefined,
-      },
-    };
   } catch (error) {
     log.warn({ error, slug }, "Could not load blog metadata");
-    return seededPost
-      ? { title: `${seededPost.title} — ActorConsole Blog`, description: seededPost.excerpt }
-      : { title: "Blog — ActorConsole" };
   }
+  return seededPost
+    ? postMetadata(seededPost)
+    : { title: "Post unavailable", robots: { index: false, follow: false } };
 }
 
 export default async function BlogPostPage({
@@ -95,7 +87,7 @@ export default async function BlogPostPage({
   let post: MarketingBlogPost | null = initialData ?? null;
   if (initialData === undefined)
     try {
-      const res = await fetch(`${API_BASE}/blog/${slug}`, {
+      const res = await fetch(`${API_BASE}/blog/${encodeURIComponent(slug)}`, {
         next: { revalidate: 60 },
         signal: AbortSignal.timeout(BLOG_FETCH_TIMEOUT_MS),
       });
@@ -113,6 +105,33 @@ export default async function BlogPostPage({
 
   return (
     <main className="marketing-page flex-1">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd({
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            headline: post.title,
+            description: post.excerpt,
+            mainEntityOfPage: absoluteUrl(`/blog/${encodeURIComponent(post.slug)}`),
+            image: socialImageUrl("blog", post.coverImage),
+            ...(post.publishedAt ? { datePublished: post.publishedAt } : {}),
+            author: post.author?.name
+              ? { "@type": "Person", name: post.author.name }
+              : {
+                  "@id": absoluteUrl("/#organization"),
+                  "@type": "Organization",
+                  name: "ActorConsole",
+                },
+            publisher: {
+              "@id": absoluteUrl("/#organization"),
+              "@type": "Organization",
+              name: "ActorConsole",
+              logo: { "@type": "ImageObject", url: absoluteUrl("/web-app-manifest-512x512.png") },
+            },
+          }),
+        }}
+      />
       <PageHero
         tone="ink"
         kicker="Product blog / field note"

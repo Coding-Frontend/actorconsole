@@ -2,6 +2,21 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context } from "hono";
 import { isIP } from "node:net";
 
+const clientAddresses = new WeakMap<Request, string>();
+
+export function verifiedClientIp(c: Context): string | null {
+  const address = resolveClientIp(c);
+  return address === "unknown" ? null : address;
+}
+
+export function hasUsableProxyIdentity(c: Context): boolean {
+  const peer = (() => { try { return canonicalAddress(getConnInfo(c).remote.address ?? ""); } catch { return null; } })();
+  const trusted = new Set((process.env.TRUSTED_PROXY_IPS ?? "").split(",").map(canonicalAddress).filter(Boolean));
+  const client = resolveClientIp(c);
+  return !!peer && client !== "unknown" && !trusted.has(client) &&
+    (!c.req.header("x-forwarded-for") || trusted.has(peer));
+}
+
 export function canonicalAddress(value: string): string | null {
   const address = value.trim();
   const family = isIP(address);
@@ -21,6 +36,14 @@ export function canonicalAddress(value: string): string | null {
  * CF-Connecting-IP and X-Real-IP are never independent proof of caller identity.
  */
 export function resolveClientIp(c: Context): string {
+  const cached = clientAddresses.get(c.req.raw);
+  if (cached) return cached;
+  const address = resolveAddress(c);
+  clientAddresses.set(c.req.raw, address);
+  return address;
+}
+
+function resolveAddress(c: Context): string {
   let peer: string | null;
   try {
     peer = canonicalAddress(getConnInfo(c).remote.address ?? "");

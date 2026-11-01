@@ -12,6 +12,7 @@ export function trackEvent(
   name: string,
   opts: {
     userId?: string | null;
+    businessProfileId?: string | null;
     properties?: Record<string, unknown>;
     source?: string;
     sessionId?: string | null;
@@ -22,6 +23,7 @@ export function trackEvent(
       data: {
         name,
         userId: opts.userId ?? null,
+        businessProfileId: opts.businessProfileId ?? null,
         properties: (opts.properties ?? undefined) as any,
         source: opts.source ?? "api",
         sessionId: opts.sessionId ?? null,

@@ -6,12 +6,16 @@ const mockFindUniqueApiKey = vi.fn();
 const mockUpdateApiKey = vi.fn();
 const mockUpsertUsageRecord = vi.fn();
 const mockCreateAuditLog = vi.fn();
+const mockFindAdmin = vi.fn();
+const mockDeleteSession = vi.fn();
 
 vi.mock("@actorconsole/db", () => ({
   db: {
     session: {
       findUnique: (...args: unknown[]) => mockFindUniqueSession(...args),
+      delete: (...args: unknown[]) => mockDeleteSession(...args),
     },
+    user: { findUnique: (...args: unknown[]) => mockFindAdmin(...args) },
     apiKey: {
       findUnique: (...args: unknown[]) => mockFindUniqueApiKey(...args),
       update: (...args: unknown[]) => mockUpdateApiKey(...args),
@@ -59,6 +63,7 @@ describe("requireAuth middleware", () => {
     vi.clearAllMocks();
     mockUpsertUsageRecord.mockResolvedValue({});
     mockCreateAuditLog.mockResolvedValue({});
+    mockDeleteSession.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -71,6 +76,24 @@ describe("requireAuth middleware", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error.code).toBe("unauthenticated");
+  });
+  it.each([null, { role: "USER" }, { role: "ADMIN", suspendedAt: new Date() },
+    { role: "SUPER_ADMIN", deletionScheduledFor: new Date() }])("revalidates the live initiator before using an impersonated session (%j)", async (admin) => {
+    mockFindUniqueSession.mockResolvedValueOnce({ id: "derived", expires: new Date(Date.now() + 60_000),
+      impersonatedById: "admin", impersonationExpiresAt: new Date(Date.now() + 60_000),
+      user: { id: "victim", email: "owner@example.test", plan: "PRO" } });
+    mockFindAdmin.mockResolvedValueOnce(admin);
+    const response = await buildApp().request("/protected", { headers: { cookie: "authjs.session-token=derived-token" } });
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe("impersonation_revoked");
+    expect(mockDeleteSession).toHaveBeenCalledWith({ where: { id: "derived" } });
+  });
+  it("allows an unexpired derived session while its initiator is still an active administrator", async () => {
+    mockFindUniqueSession.mockResolvedValueOnce({ expires: new Date(Date.now() + 60_000),
+      impersonatedById: "admin", impersonationExpiresAt: new Date(Date.now() + 60_000),
+      user: { id: "victim", email: "owner@example.test", plan: "PRO" } });
+    mockFindAdmin.mockResolvedValueOnce({ role: "ADMIN", suspendedAt: null, deletionScheduledFor: null });
+    expect((await buildApp().request("/protected", { headers: { cookie: "authjs.session-token=derived-token" } })).status).toBe(200);
   });
 
   it("returns 401 when session token is invalid (no session in DB)", async () => {

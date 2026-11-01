@@ -52,6 +52,8 @@ export async function proxyApiRequest(request: Request, path: string[]) {
     // Public CDN entries must never depend on a caller's workspace or identity.
     for (const name of [...upstreamHeaders.keys()]) upstreamHeaders.delete(name);
     upstreamHeaders.set("accept", "application/json");
+    const forwarded = request.headers.get("x-forwarded-for");
+    if (forwarded) upstreamHeaders.set("x-forwarded-for", forwarded);
   }
 
   try {

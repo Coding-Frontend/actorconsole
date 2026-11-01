@@ -199,6 +199,7 @@ export const billingRoutes = new Hono<AppEnv>()
     await completeBillingCheckout(operationId, checkout);
     trackEvent("subscription.checkout_created", {
       userId: session.userId,
+      businessProfileId: session.businessProfileId,
       properties: { gateway, plan, interval, checkoutId: checkout.checkoutId },
     });
     return c.json({ ok: true, data: checkout });

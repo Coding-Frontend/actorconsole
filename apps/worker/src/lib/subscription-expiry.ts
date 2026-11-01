@@ -8,6 +8,7 @@ export async function reconcileExpiredSubscriptions(now = new Date()) {
       businessProfileId: { not: null },
       OR: [
         { provider: "manual", status: "active" },
+        { provider: "razorpay", status: { in: ["active", "pending"] } },
         { status: { in: [...EXPIRING_SUBSCRIPTION_STATUSES] } },
       ],
     },
@@ -22,6 +23,7 @@ export async function reconcileExpiredSubscriptions(now = new Date()) {
         subscription.status,
         subscription.currentPeriodEnd,
         now,
+        subscription.paymentBacked,
       ) !== "FREE"
     )
       continue;

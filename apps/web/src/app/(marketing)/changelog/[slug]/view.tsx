@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -17,19 +18,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getArticle((await params).slug);
   if (!data) return { title: "Update not found — ActorConsole", robots: { index: false } };
   const { entry } = data;
-  return {
-    title: `${entry.title} — ActorConsole Changelog`,
+  return createPageMetadata({
+    title: entry.title,
     description: entry.text.slice(0, 200),
-    alternates: { canonical: articleHref(entry.slug) },
-    openGraph: {
-      title: entry.title,
-      description: entry.text.slice(0, 200),
-      type: "article",
-      publishedTime: `${entry.releaseDate}T00:00:00Z`,
-      tags: entry.tags,
-    },
-    twitter: { card: "summary", title: entry.title, description: entry.text.slice(0, 200) },
-  };
+    path: articleHref(entry.slug),
+    image: "changelog",
+    type: "article",
+    publishedTime: `${entry.releaseDate}T00:00:00Z`,
+    tags: entry.tags,
+  });
 }
 
 export default async function ChangelogArticlePage({

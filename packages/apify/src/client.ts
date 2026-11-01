@@ -146,9 +146,11 @@ export class ApifyClientWrapper {
         60_000,
       ),
     };
+    // The SDK adds /v2 itself; the documented environment value may include it.
+    const baseUrl = opts.baseUrl ?? process.env.APIFY_API_BASE_URL?.replace(/\/v2\/?$/, "");
     this.raw = new ApifyClient({
       token: opts.token,
-      ...(opts.baseUrl ? { baseUrl: opts.baseUrl } : {}),
+      ...(baseUrl ? { baseUrl } : {}),
       maxRetries,
       minDelayBetweenRetriesMillis: minDelayMs,
     });

@@ -24,7 +24,6 @@ docker compose -f docker-compose.dev.yml up -d --wait
 pnpm db:generate
 pnpm db:migrate
 pnpm build:backend
-node scripts/fix-esm-imports.mjs apps/api/dist apps/worker/dist packages/shared/dist packages/db/dist packages/apify/dist packages/ai/dist
 ```
 
 `setup:local` generates independent random authentication, admin, encryption and database credentials when creating `.env`. It creates application-specific environment files and preserves existing files. Complete missing settings in existing files yourself. Refresh `apps/worker/.env` from the root `.env` after backend changes.
@@ -39,6 +38,42 @@ pnpm dev:worker
 
 Open [localhost:8080](http://localhost:8080); check [API health](http://localhost:4000/health). Optional MCP requires a workspace credential; see [its README](apps/mcp/README.md).
 
+## Running with or without Redis
+
+Set `REDIS_ENABLED=true` and `REDIS_URL` to use BullMQ queues, Redis locks,
+shared caching and rate limits. Set `REDIS_ENABLED=false` to run without a
+Redis server, even if `REDIS_URL` is still present. Use the same configuration
+for the API and worker (locally, `.env` and `apps/worker/.env`), and restart
+both after changing it. If the flag is
+unset, an existing `REDIS_URL` enables Redis for backwards compatibility.
+Production requires `REDIS_URL` unless Redis is explicitly disabled.
+
+Without Redis, MySQL/MariaDB stores durable jobs, progress, results, retry state,
+recurring schedules, publishing/leader leases and production rate limits.
+Caches stay in process; development rate limits also stay in process. Run
+`pnpm db:migrate` before starting this mode. The worker still processes all six
+queues; omitting Redis no longer discards jobs.
+
+Run `pnpm dev:worker` locally or the built worker normally on a server. For a
+host that permits scheduled commands instead of a continuously running worker,
+run this from the repository root with the production environment loaded:
+
+```bash
+node --env-file=.env.production apps/worker/dist/index.js --once
+```
+
+Schedule it every minute. `--once` requires `REDIS_ENABLED=false`, enqueues due
+recurring/publishing jobs, runs due maintenance and drains currently available
+jobs. Delayed retries and jobs queued after a queue is drained run on a later
+invocation. `WORKER_RUN_BUDGET_MS` (default `50000`) limits when it starts new
+jobs; running jobs finish before exit. Catalog crawls and other long jobs still
+need a host that permits their full execution time. Removing Redis alone does
+not guarantee compatibility with a web host's process/runtime limits.
+
+When changing backends, stop producers, drain the old queue, then stop its
+workers before restarting all processes in the new mode. Pending Redis jobs
+are not automatically copied into MySQL, or vice versa.
+
 ## Authentication
 
 The API owns email/password authentication, recovery codes and database sessions. Configure Resend or SMTP for verification/recovery email. Optional Google/GitHub sign-in uses your own Firebase project: enable providers, configure authorized domains and set matching backend `FIREBASE_PROJECT_ID` and frontend `NEXT_PUBLIC_FIREBASE_*` values.
@@ -51,6 +86,16 @@ pnpm db:seed:content
 ```
 
 `ADMIN_SEED_PASSWORD` optionally creates an admin password; clear it afterward. Content seeds create unpublished policy drafts. Review and publish your policies in Admin. Development FAQ/blog fixtures are excluded in production. Connect providers using your installation's credentials.
+
+## Google Analytics
+
+The web app can send consent-based GA4 events through its Firebase web app. Link the Firebase project to a GA4 property, enable Analytics for the web app, and set the matching `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, and `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` values from Firebase's web configuration. Set these in `apps/web/.env.local` locally and in the production web build environment; `NEXT_PUBLIC_*` settings are embedded at build time, so rebuild after changing them. The production deployment workflow reads the corresponding GitHub Actions variables. An unconfigured installation continues to work without analytics.
+
+In the GA4 web data stream, **disable enhanced measurement**. The app sends its own page views, and GA's automatic history, form, search, and outbound-click measurements can duplicate page views or collect URLs and text outside the app's redaction. Keep other independently installed Google tags or tag managers disabled unless they implement the same consent and redaction rules. Google Analytics loads only after a visitor accepts optional analytics. The app excludes query strings and dynamic route values from its events; it does not send account details, credentials, form contents, or Actor identifiers.
+
+Events include `page_view`, `login` (email, Google, GitHub), `sign_up` (email registration), `generate_lead` (successful contact form), `begin_checkout`, `workspace_created`, `onboarding_completed`, `apify_connected`, `actor_optimization_started`, `actor_optimization_approved`, `actor_copy_generated`, `actor_copy_applied`, `publishing_schedule_created`, `bulk_actor_operation_started`, and `financial_sync_started`. Queued events indicate that a job was accepted, not that it finished. Social sign-ins are recorded as `login`; the app does not currently distinguish new social accounts. Checkout initiation is not a confirmed purchase, so no `purchase` event is emitted.
+
+To verify, accept the cookie banner, navigate and perform a test action, then check GA4 Realtime or DebugView. Confirm that visits with essential-only consent produce no events. See [Google's recommended events](https://developers.google.com/analytics/devguides/collection/ga4/reference/events) and [page-view settings](https://developers.google.com/analytics/devguides/collection/ga4/views) for GA4 configuration details. Route templates used for privacy are maintained in `apps/web/src/lib/analytics-path.ts`; update them when adding pages.
 
 ## Environment templates
 
@@ -67,6 +112,24 @@ Real environment files are ignored by Git and Docker. `NEXT_PUBLIC_*` values are
 
 ## Checks and deployment
 
+Public pages include canonical URLs, Open Graph metadata, X/Twitter large image cards, and
+branded 1200×630 sharing images. Blog posts use their published cover when available.
+The home page includes website/organization JSON-LD; blog articles include BlogPosting data.
+Account, dashboard, admin, and utility pages are excluded from search indexing.
+
+Set `NEXT_PUBLIC_SITE_URL` to your production HTTPS origin. Optional
+`NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` and `NEXT_PUBLIC_BING_SITE_VERIFICATION` accept the
+verification token (the meta tag's `content` value) from the respective webmaster tools.
+For GitHub releases, configure these as repository variables before building the web image.
+Submit `/sitemap.xml` in Google Search Console or Bing Webmaster Tools after deploying.
+
+Regenerate the checked-in social images after changing their design or copy:
+
+```bash
+pnpm exec playwright install chromium
+node scripts/generate-social-images.mjs
+```
+
 ```bash
 pnpm typecheck
 pnpm lint
@@ -75,7 +138,10 @@ pnpm test:scripts
 pnpm secrets:check
 ```
 
-Secret scanning requires [Gitleaks](https://github.com/gitleaks/gitleaks); CI installs a checksum-verified copy. Browser tests use `E2E_BASE_URL` for staging.
+Secret scanning requires [Gitleaks](https://github.com/gitleaks/gitleaks); CI installs a checksum-verified copy.
+Run `pnpm test:e2e:launch --workers=2` with a dedicated `E2E_DATABASE_URL` and `E2E_REDIS_URL`
+for authenticated browser checks. See [launch readiness](docs/LAUNCH_READINESS.md) for setup,
+coverage, staging smoke checks, and production-only verification.
 
 See [deployment](deployment.instructions.md), [runbook](docs/RUNBOOK.md), [contributing](CONTRIBUTING.md) and [security](SECURITY.md).
 

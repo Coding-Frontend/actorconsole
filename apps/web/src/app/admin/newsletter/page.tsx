@@ -33,7 +33,7 @@ interface Subscriber {
   id: string;
   email: string;
   name: string | null;
-  status: "ACTIVE" | "UNSUBSCRIBED" | "BOUNCED";
+  status: "PENDING" | "ACTIVE" | "UNSUBSCRIBED" | "BOUNCED";
   subscribedAt: string;
   unsubscribedAt: string | null;
 }
@@ -66,6 +66,7 @@ interface Campaign {
 }
 
 const statusStyles: Record<string, string> = {
+  PENDING: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
   ACTIVE: "bg-signal-green/10 text-signal-green",
   UNSUBSCRIBED: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
   BOUNCED: "bg-destructive/10 text-destructive",
@@ -409,6 +410,7 @@ export default function AdminNewsletterPage() {
             className="border-input bg-background h-9 rounded-md border px-3 text-sm"
           >
             <option value="">All statuses</option>
+            <option value="PENDING">Pending confirmation</option>
             <option value="ACTIVE">Active</option>
             <option value="UNSUBSCRIBED">Unsubscribed</option>
             <option value="BOUNCED">Bounced</option>

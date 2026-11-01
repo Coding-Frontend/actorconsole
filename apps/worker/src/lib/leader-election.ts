@@ -1,7 +1,7 @@
 import type IORedis from "ioredis";
 
 /**
- * Distributed lock primitive using Redis `SET key value NX EX ttl`.
+ * Distributed lock using Redis SET NX EX or an atomic database lease.
  *
  * Use for periodic leader-elected tasks (e.g. cron tick, daily snapshot).
  * Only one worker replica acquires the lock per TTL window; the others
@@ -13,20 +13,22 @@ import type IORedis from "ioredis";
  */
 export interface LeaderLock {
   /** Acquire the lock. Returns true if this caller holds it. */
-  tryAcquire(redis: IORedis): Promise<boolean>;
+  tryAcquire(redis: IORedis | null): Promise<boolean>;
   /** Extend the TTL only while this instance still owns the same Redis token. */
-  renew(redis: IORedis): Promise<boolean>;
+  renew(redis: IORedis | null): Promise<boolean>;
   /** Release the lock IFF this caller still holds it. */
-  release(redis: IORedis): Promise<boolean>;
+  release(redis: IORedis | null): Promise<boolean>;
 }
 
 export function createLeaderLock(key: string, ttlSeconds: number): LeaderLock {
   let currentToken: string | null = null;
 
   return {
-    async tryAcquire(redis: IORedis): Promise<boolean> {
+    async tryAcquire(redis: IORedis | null): Promise<boolean> {
       const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const result = await redis.set(key, token, "EX", ttlSeconds, "NX");
+      const result = redis ? await redis.set(key, token, "EX", ttlSeconds, "NX") :
+        await import("@actorconsole/db").then(async ({ acquireDatabaseLease }) =>
+          await acquireDatabaseLease(key, token, ttlSeconds) ? "OK" : null);
       if (result === "OK") {
         currentToken = token;
         return true;
@@ -35,7 +37,7 @@ export function createLeaderLock(key: string, ttlSeconds: number): LeaderLock {
       return false;
     },
 
-    async renew(redis: IORedis): Promise<boolean> {
+    async renew(redis: IORedis | null): Promise<boolean> {
       const token = currentToken;
       if (!token) return false;
       const script = `
@@ -45,13 +47,15 @@ export function createLeaderLock(key: string, ttlSeconds: number): LeaderLock {
           return 0
         end
       `;
-      const result = (await redis.eval(script, 1, key, token, ttlSeconds)) as number;
+      const result = redis ? (await redis.eval(script, 1, key, token, ttlSeconds)) as number :
+        await import("@actorconsole/db").then(async ({ renewDatabaseLease }) =>
+          await renewDatabaseLease(key, token, ttlSeconds) ? 1 : 0);
       if (currentToken !== token) return false;
       if (result !== 1) currentToken = null;
       return result === 1;
     },
 
-    async release(redis: IORedis): Promise<boolean> {
+    async release(redis: IORedis | null): Promise<boolean> {
       if (!currentToken) return false;
       // Lua: only delete if the value still matches our token.
       const script = `
@@ -61,7 +65,9 @@ export function createLeaderLock(key: string, ttlSeconds: number): LeaderLock {
           return 0
         end
       `;
-      const result = (await redis.eval(script, 1, key, currentToken)) as number;
+      const result = redis ? (await redis.eval(script, 1, key, currentToken)) as number :
+        await import("@actorconsole/db").then(async ({ releaseDatabaseLease }) =>
+          await releaseDatabaseLease(key, currentToken!) ? 1 : 0);
       currentToken = null;
       return result === 1;
     },

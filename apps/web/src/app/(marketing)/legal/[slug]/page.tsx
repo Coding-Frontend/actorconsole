@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { createPageMetadata } from "@/lib/seo";
 import { POLICY_META, policyMetaBySlug } from "@actorconsole/shared";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 import { Container, Section } from "@/components/ui/layout";
@@ -8,7 +9,7 @@ import { policyHeadingId } from "@/components/marketing/policy-heading";
 import { PageHero } from "@/components/marketing/page-hero";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ReactNode } from "react";
+import { cache, type ReactNode } from "react";
 
 function headingText(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -18,6 +19,31 @@ function headingText(node: ReactNode): string {
   }
   return "";
 }
+
+const getPublishedPolicy = cache(async (slug: string) => {
+  // Published policies are fetched from the API; unavailable content stays unpublished.
+  let policy: { title: string; body: string; version: string; publishedAt: Date | null } | null =
+    null;
+  try {
+    const response = await fetch(SERVER_API_BASE_URL + "/policies/" + slug, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok && response.status !== 404) throw new Error("Policy API unavailable");
+    const row = response.ok ? (await response.json()).data : null;
+    if (row)
+      policy = {
+        title: row.title,
+        body: row.body,
+        version: row.version,
+        publishedAt: row.publishedAt ? new Date(row.publishedAt) : null,
+      };
+  } catch {
+    // The policy API is temporarily unavailable.
+  }
+
+  return policy;
+});
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +58,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug: raw } = await params;
   const meta = policyMetaBySlug(raw);
-  if (!meta) return { title: "Not found" };
-  return {
-    title: `${meta.title} — ActorConsole`,
+  if (!meta) return { title: "Not found", robots: { index: false } };
+  return createPageMetadata({
+    title: meta.title,
     description: meta.summary,
-    robots: { index: true, follow: true },
-  };
+    path: `/legal/${meta.slug.toLowerCase()}`,
+    image: "legal",
+    noIndex: !(await getPublishedPolicy(meta.slug)),
+  });
 }
 
 export default async function LegalPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -45,23 +73,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
   const meta = policyMetaBySlug(raw);
   if (!meta) notFound();
 
-  // Published policies are fetched from the API; unavailable content stays unpublished.
-  let policy: { title: string; body: string; version: string; publishedAt: Date | null } | null =
-    null;
-  try {
-    const response = await fetch(SERVER_API_BASE_URL + "/policies/" + meta.slug, { cache: "no-store", signal: AbortSignal.timeout(12_000) });
-    if (!response.ok && response.status !== 404) throw new Error("Policy API unavailable");
-    const row = response.ok ? (await response.json()).data : null;
-    if (row)
-      policy = {
-        title: row.title,
-        body: row.body,
-        version: row.version,
-        publishedAt: row.publishedAt ? new Date(row.publishedAt) : null,
-      };
-  } catch {
-    // The policy API is temporarily unavailable.
-  }
+  const policy = await getPublishedPolicy(meta.slug);
 
   if (!policy) {
     return (

@@ -101,20 +101,37 @@ export async function issueAuthCode(
 
   const code = String(randomInt(100_000, 1_000_000));
   const expiresAt = new Date(Date.now() + AUTH_CODE_TTL_MS);
-  await db.$transaction([
-    db.authCode.updateMany({
-      where: { userId, purpose, usedAt: null },
-      data: { usedAt: new Date() },
-    }),
-    db.authCode.create({
-      data: {
-        userId,
-        purpose,
-        tokenHash: hashAuthCode(userId, purpose, code),
-        expiresAt,
-      },
-    }),
-  ]);
+  // Concurrent first-time registrations can deadlock on an empty AuthCode
+  // index range in InnoDB. Retry rolled-back transactions with fresh queries.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await db.$transaction([
+        db.authCode.updateMany({
+          where: { userId, purpose, usedAt: null },
+          data: { usedAt: new Date() },
+        }),
+        db.authCode.create({
+          data: {
+            userId,
+            purpose,
+            tokenHash: hashAuthCode(userId, purpose, code),
+            expiresAt,
+          },
+        }),
+      ]);
+      break;
+    } catch (error) {
+      if (
+        attempt >= 4 ||
+        !error ||
+        typeof error !== "object" ||
+        !("code" in error) ||
+        error.code !== "P2034"
+      )
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+    }
+  }
   return { code, expiresAt };
 }
 

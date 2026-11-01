@@ -1,13 +1,17 @@
+import { createPageMetadata } from "@/lib/seo";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ToolNavigation } from "@/components/intelligence/tool-navigation";
 import { SeoTool } from "@/components/intelligence/research-tools";
 import { PublicGridSection } from "@/components/marketing/public-grid-section";
 import { ToolContentSkeleton } from "@/components/marketing/public-data-skeleton";
-export const metadata: Metadata = {
-  title: "Actor listing SEO audit",
-  description: "Audit a public Apify Actor's search metadata and documentation.",
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "Apify Actor Listing SEO Audit",
+  description:
+    "Audit a public Apify Actor listing for search metadata, documentation, and clarity. Find improvements before publishing Store updates.",
+  path: "/tools/seo",
+  image: "seo",
+});
 export default function Page() {
   return (
     <main>

@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 import type { Metadata } from "next";
 import { Container, Section } from "@/components/ui/layout";
@@ -6,15 +7,13 @@ import { PageHero } from "@/components/marketing/page-hero";
 import { BlogIndexClient } from "@/components/marketing/blog-index-client";
 import { SEEDED_BLOG_POSTS, type MarketingBlogPost } from "@/lib/blog-posts";
 
-export const metadata: Metadata = {
-  title: "Blog — ActorConsole",
+export const metadata: Metadata = createPageMetadata({
+  title: "Blog & Apify Development Guides",
   description:
-    "Product updates, Apify actor development guides, Store optimization tips, and behind-the-scenes from the ActorConsole team.",
-  openGraph: {
-    title: "ActorConsole Blog",
-    description: "Product updates and practical Apify Actor workflow guides.",
-  },
-};
+    "Read product updates, practical Apify Actor development guides, Store optimization tips, and workflow ideas from ActorConsole.",
+  path: "/blog",
+  image: "blog",
+});
 
 export const revalidate = 60;
 

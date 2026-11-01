@@ -2,7 +2,7 @@ import { requestCookies } from "./http-context.js";
 import { JsonResponse } from "./http-context.js";
 import { createHash, randomBytes } from "node:crypto";
 import { db, Prisma } from "@actorconsole/db";
-import { decrypt, getLogger, hashRecoveryCode, verifyTotpCode } from "@actorconsole/shared";
+import { decrypt, getLogger, hashRecoveryCode, matchedTotpCounter } from "@actorconsole/shared";
 import { getAuthSessionCookieName, getAuthSessionCookieOptions } from "./auth-session-cookie.js";
 import { consumeTwoFactorRecoveryCode } from "./two-factor-recovery.js";
 import { getAuthRequestIp } from "./auth-request-ip.js";
@@ -98,6 +98,7 @@ export async function completeUserLogin(
 
     const passphrase = process.env.APP_ENCRYPTION_KEY;
     let valid = false;
+    let counter: number | null = null;
     let recoveryHash: string | null = null;
     if (passphrase && user.totpSecretEncrypted) {
       try {
@@ -106,7 +107,8 @@ export async function completeUserLogin(
           passphrase,
           `${TOTP_KEY_PREFIX}${user.id}`,
         );
-        valid = verifyTotpCode(secret, input.totpCode);
+        counter = matchedTotpCounter(secret, input.totpCode);
+        valid = counter !== null;
       } catch (error) {
         log.error({ error, userId: user.id }, "Two-factor secret could not be decrypted");
       }
@@ -145,11 +147,22 @@ export async function completeUserLogin(
       }
       log.info({ userId: user.id }, "A recovery code was used for sign-in");
     } else {
-      const claim = await db.twoFactorChallenge.updateMany({
-        where: { id: challenge.id, usedAt: null, attempts: challenge.attempts },
-        data: { usedAt: new Date() },
+      const consumed = await db.$transaction(async (tx) => {
+        const claim = await tx.twoFactorChallenge.updateMany({
+          where: { id: challenge.id, usedAt: null, attempts: challenge.attempts },
+          data: { usedAt: new Date() },
+        });
+        if (claim.count !== 1) return false;
+        const factor = await tx.user.updateMany({
+          where: {
+            id: user.id, totpEnabled: true, totpSecretEncrypted: user.totpSecretEncrypted,
+            OR: [{ lastAcceptedTotpCounter: null }, { lastAcceptedTotpCounter: { lt: counter! } }],
+          },
+          data: { lastAcceptedTotpCounter: counter },
+        });
+        return factor.count === 1;
       });
-      if (claim.count !== 1) {
+      if (!consumed) {
         return JsonResponse.json(
           { ok: false, error: "The two-factor challenge has expired" },
           { status: 401 },

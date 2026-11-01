@@ -2,60 +2,50 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import {
-  CONSENT_CHANGE_EVENT,
-  getConsent,
-} from "@/components/cookie-consent";
+import { CONSENT_CHANGE_EVENT, getConsent } from "@/components/cookie-consent";
 import {
   getFirebaseAnalytics,
   logFirebasePageView,
   setFirebaseAnalyticsCollectionEnabled,
 } from "@/lib/firebase";
 
-/**
- * Initializes GA4 only after the visitor opts into optional analytics. The
- * Firebase SDK sends the initial page view during initialization; subsequent
- * App Router navigations are logged explicitly.
- */
+/** Collect one page view per navigation, including the page on which consent is granted. */
 export function FirebaseAnalytics() {
   const pathname = usePathname();
-  const previousPathname = useRef<string | null>(null);
+  const lastPage = useRef<string | null>(null);
 
   useEffect(() => {
     if (!pathname) return;
+    let active = true;
 
-    const isRouteChange =
-      previousPathname.current !== null && previousPathname.current !== pathname;
-    previousPathname.current = pathname;
-    let cancelled = false;
-
-    async function initializeAnalytics() {
+    async function recordPage() {
       if (getConsent() !== "all") return;
       const analytics = await getFirebaseAnalytics();
-      if (!analytics || cancelled) return;
-      if (getConsent() !== "all") return;
-      if (isRouteChange) await logFirebasePageView(pathname);
+      if (!active || !analytics || getConsent() !== "all" || lastPage.current === pathname) return;
+      lastPage.current = pathname;
+      await logFirebasePageView(pathname);
     }
 
-    void initializeAnalytics();
+    function consentChanged() {
+      const enabled = getConsent() === "all";
+      if (!enabled) lastPage.current = null;
+      void setFirebaseAnalyticsCollectionEnabled(enabled);
+      if (enabled) void recordPage();
+    }
+
+    function storageChanged(event: StorageEvent) {
+      if (event.key === "actorconsole.cookie-consent" || event.key === null) consentChanged();
+    }
+
+    void recordPage();
+    window.addEventListener(CONSENT_CHANGE_EVENT, consentChanged);
+    window.addEventListener("storage", storageChanged);
     return () => {
-      cancelled = true;
+      active = false;
+      window.removeEventListener(CONSENT_CHANGE_EVENT, consentChanged);
+      window.removeEventListener("storage", storageChanged);
     };
   }, [pathname]);
-
-  useEffect(() => {
-    async function handleConsentChange() {
-      if (getConsent() === "all") {
-        await getFirebaseAnalytics();
-        await setFirebaseAnalyticsCollectionEnabled(true);
-      } else {
-        await setFirebaseAnalyticsCollectionEnabled(false);
-      }
-    }
-
-    window.addEventListener(CONSENT_CHANGE_EVENT, handleConsentChange);
-    return () => window.removeEventListener(CONSENT_CHANGE_EVENT, handleConsentChange);
-  }, []);
 
   return null;
 }

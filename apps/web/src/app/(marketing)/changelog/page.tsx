@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 import { getLogger } from "@actorconsole/shared";
@@ -10,10 +11,13 @@ import { getChangelogListing } from "@/services/changelog";
 import { changelogQuery } from "@/lib/changelog";
 
 export const metadata: Metadata = {
-  title: "Changelog — ActorConsole",
-
-  description: "Latest updates, features, and improvements to ActorConsole.",
-
+  ...createPageMetadata({
+    title: "Changelog & Product Updates",
+    description:
+      "Follow the latest ActorConsole releases, new features, fixes, and improvements for Apify Actor builders.",
+    path: "/changelog",
+    image: "changelog",
+  }),
   alternates: { canonical: "/changelog", types: { "application/rss+xml": "/changelog/feed" } },
 };
 

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { verifiedClientIp } from "../lib/client-ip.js";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import {
@@ -102,7 +103,7 @@ async function audit(c: any, action: string, resource: string, after: unknown) {
       resource,
       before: undefined,
       after: after as any,
-      ip: c.req.header("x-forwarded-for") ?? null,
+      ip: verifiedClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
       source: admin.viaApiKey ? "api-key" : "ui",
     },

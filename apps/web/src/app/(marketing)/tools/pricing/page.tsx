@@ -1,11 +1,15 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { ToolNavigation } from "@/components/intelligence/tool-navigation";
 import { PricingTool } from "@/components/intelligence/research-tools";
 import { PublicGridSection } from "@/components/marketing/public-grid-section";
-export const metadata: Metadata = {
-  title: "Actor pricing calculator",
-  description: "Model per-result prices, external costs, break-even, and profit margins.",
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "Apify Actor Pricing Calculator",
+  description:
+    "Model per-result prices, external service costs, break-even points, and profit margins before publishing your Apify Actor.",
+  path: "/tools/pricing",
+  image: "calculator",
+});
 export default function Page() {
   return (
     <main>

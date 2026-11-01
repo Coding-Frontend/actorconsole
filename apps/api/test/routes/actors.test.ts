@@ -38,6 +38,7 @@ const {
   mockAdmitWorkspaceActors,
   mockFindFirstBusinessProfile,
   mockFindUniqueRunSnapshot,
+  mockAnalyticsEvents,
 } = vi.hoisted(() => ({
   mockFindManyActors: vi.fn(),
   mockFindFirstActor: vi.fn(),
@@ -72,11 +73,13 @@ const {
   mockAdmitWorkspaceActors: vi.fn(),
   mockFindFirstBusinessProfile: vi.fn(),
   mockFindUniqueRunSnapshot: vi.fn(),
+  mockAnalyticsEvents: vi.fn(),
 }));
 
 vi.mock("@actorconsole/db", () => ({
   admitWorkspaceActors: (...args: unknown[]) => mockAdmitWorkspaceActors(...args),
   db: {
+    analyticsEvent: { findMany: mockAnalyticsEvents },
     businessProfile: { findFirst: (...args: unknown[]) => mockFindFirstBusinessProfile(...args) },
     actor: {
       findMany: (...args: unknown[]) => mockFindManyActors(...args),
@@ -165,7 +168,7 @@ vi.mock("../../src/middleware/auth.js", () => ({
 
 import { activePricingInfo, actorRoutes, priceFromInfo } from "../../src/routes/actors.js";
 
-function buildApp(plan: "FREE" | "PRO" = "PRO") {
+function buildApp(plan: "FREE" | "PRO" = "PRO", sessionOverrides: Record<string, unknown> = {}) {
   const app = new Hono();
   app.onError(onErrorHandler);
   // Inject session (mirrors requireAuth + enforcePlanLimits from app.ts)
@@ -175,6 +178,7 @@ function buildApp(plan: "FREE" | "PRO" = "PRO") {
       email: "test@test.com",
       plan,
       businessProfileId: "bp1",
+      ...sessionOverrides,
     });
     await next();
   });
@@ -183,6 +187,19 @@ function buildApp(plan: "FREE" | "PRO" = "PRO") {
 }
 
 describe("Actor routes", () => {
+  it("excludes other workspaces and global events from workspace-bound key analytics", async () => {
+    const events = [
+      { userId: "u1", businessProfileId: "bp1", name: "actors.synced" },
+      { userId: "u1", businessProfileId: "other", name: "actors.synced" },
+      { userId: "u1", businessProfileId: null, name: "account.security" },
+    ];
+    mockAnalyticsEvents.mockImplementation(async ({ where }) => events.filter((event) =>
+      event.userId === where.userId && (where.businessProfileId === undefined || event.businessProfileId === where.businessProfileId)));
+    const response = await buildApp("PRO", { authMethod: "api-key" }).request("/actors/analytics/events");
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toEqual([events[0]]);
+    expect(mockAnalyticsEvents).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1", businessProfileId: "bp1" } }));
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckRateLimit.mockResolvedValue({ allowed: true });

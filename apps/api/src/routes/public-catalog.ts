@@ -1,4 +1,6 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
+import { checkRateLimit } from "../lib/rate-limit.js";
+import { resolveClientIp } from "../lib/client-ip.js";
 import { z } from "zod";
 import * as builders from "../lib/builders.js";
 import { getActorResearch, getResearchCategories } from "../lib/actor-research.js";
@@ -48,7 +50,20 @@ const operations: Record<string, (input: unknown) => Promise<{ data: unknown } |
   })]), ([filters]) => getActorResearch(filters)),
   "plan-features": operation(z.tuple([]), () => getPlanMarketingFeatures()),
 };
+// This router is mounted at the API root. Scope its middleware to public reads
+// so the catalog quota cannot throttle authentication or dashboard requests.
+const catalogRateLimit: MiddlewareHandler = async (c, next) => {
+    const limit = await checkRateLimit(`public-catalog:${resolveClientIp(c)}`, { windowMs: 60_000, max: 120 });
+    if (!limit.allowed) return c.json({ ok: false, error: "Too many public lookups" }, 429);
+    const match = /^\/(?:public\/builders|actors\/public)\/([^/]+)\/(?:actors\/)?([^/]+)/.exec(c.req.path);
+    if (match && (!identifier.safeParse(match[1]).success || !identifier.safeParse(match[2]).success))
+      return c.json({ ok: false, error: "Invalid Actor identifier" }, 400);
+    return next();
+  };
+
 export const publicCatalogRoutes = new Hono()
+  .use("/public/*", catalogRateLimit)
+  .use("/actors/public/*", catalogRateLimit)
   .get("/public/catalog/:operation", async (c) => {
     const name = c.req.param("operation");
     if (!Object.hasOwn(operations, name)) return c.json({ ok: false, error: "Unknown catalog operation" }, 404);

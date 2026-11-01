@@ -1,3 +1,4 @@
+import { createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
@@ -7,10 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container, Section } from "@/components/ui/layout";
 import { PageHero } from "@/components/marketing/page-hero";
 
-export const metadata: Metadata = {
-  title: "Status — ActorConsole",
-  description: "Current system status and incident history for ActorConsole.",
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "System Status",
+  description: "Check ActorConsole service availability, current incidents, and incident history.",
+  path: "/status",
+  image: "status",
+});
 
 const statusColors: Record<string, string> = {
   resolved: "bg-signal-green/10 text-signal-green",

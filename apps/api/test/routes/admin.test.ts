@@ -18,6 +18,7 @@ const {
       update: vi.fn(),
     },
     session: { deleteMany: vi.fn() },
+    impersonationSession: { updateMany: vi.fn() },
     subscription: {
       count: vi.fn(),
       findMany: vi.fn(),
