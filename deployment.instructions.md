@@ -8,6 +8,15 @@ Copy `.env.vps.example` to private server-side `.env.production` (`chmod 600` on
 
 Set `MCP_API_BASE_URL` to your public HTTPS API origin. Hosted MCP uses each caller's workspace credential. Keep database/Redis private. Compose publishes API/MCP on loopback; configure HTTPS, DNS and reverse proxy yourself. Nginx files in `.deploy/` use example domains.
 
+Set `TRUSTED_PROXY_IPS` before deploying. With the supplied Compose network and
+host nginx ingress, verify the bridge gateway `10.250.240.1` and the pinned
+Next.js address `10.250.240.10`, then set
+`TRUSTED_PROXY_IPS=10.250.240.1,10.250.240.10` in `shared/.env.production`.
+The web address is fixed so recreating containers cannot invalidate proxy trust.
+If you change the subnet or ingress topology, update and verify these peers as
+described in [the client IP contract](docs/CLIENT_IP_TRUST.md). Keep the required
+setting; a blank value intentionally blocks deployment and production startup.
+
 ```bash
 docker compose --env-file .env.production -f docker-compose.vps.yml build
 docker compose --env-file .env.production -f docker-compose.vps.yml run --rm api node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma
