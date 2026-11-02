@@ -177,7 +177,9 @@ services:
       api:
         condition: service_healthy
     networks:
-      - actorconsole-net
+      actorconsole-net:
+        # Keep the API's exact proxy trust valid across container replacements.
+        ipv4_address: 10.250.240.10
 
 networks:
   actorconsole-net:
