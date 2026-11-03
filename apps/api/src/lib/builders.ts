@@ -323,7 +323,7 @@ const getCachedBuilderCatalogSummary = publicCache(
     };
   },
   ["builder-catalog-summary-v3"],
-  { revalidate: 300 },
+  { revalidate: 300, staleWhileRevalidate: 300 },
 );
 
 export async function getBuilderCatalogSummary() {
@@ -618,12 +618,12 @@ async function getAggregatedBuilderValues(window: BuilderWindow) {
 
 // All public leaderboard variants derive from the same StoreActor aggregate.
 // Cache it briefly so generating a page and its metadata does not run the
-// large public-catalog group-by twice. The daily catalog sync remains the
-// source of truth and naturally refreshes this cache within five minutes.
+// large public-catalog group-by twice. Keep serving the last successful
+// aggregate while its refresh runs, with a bounded five-minute stale window.
 const getCachedAggregatedBuilderValues = publicCache(
   async (window: BuilderWindow) => getAggregatedBuilderValues(window),
   ["builder-aggregates-v4"],
-  { revalidate: 300 },
+  { revalidate: 300, staleWhileRevalidate: 300 },
 );
 
 async function getAggregatedBuilders(metric: BuilderMetric, window: BuilderWindow = 30) {

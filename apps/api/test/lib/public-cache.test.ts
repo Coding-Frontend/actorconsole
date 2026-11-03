@@ -95,4 +95,87 @@ describe("publicCache", () => {
     expect(await cached(0)).toBe(0);
     expect(load).toHaveBeenCalledTimes(258);
   });
+
+  it("serves successful stale data immediately while one refresh is pending", async () => {
+    let resolveRefresh!: (value: string) => void;
+    const refreshed = new Promise<string>((resolve) => { resolveRefresh = resolve; });
+    const load = vi.fn().mockResolvedValueOnce("saved").mockReturnValueOnce(refreshed);
+    const cached = publicCache(load, ["fixture"], { revalidate: 1, staleWhileRevalidate: 2 });
+    const original = cached("key");
+    await original;
+
+    vi.advanceTimersByTime(1_000);
+    expect(cached("key")).toBe(original);
+    expect(await cached("key")).toBe("saved");
+    expect(load).toHaveBeenCalledTimes(2);
+
+    resolveRefresh("updated");
+    await refreshed;
+    expect(await cached("key")).toBe("updated");
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits for the existing refresh after the maximum stale age", async () => {
+    let resolveRefresh!: (value: string) => void;
+    const refreshed = new Promise<string>((resolve) => { resolveRefresh = resolve; });
+    const load = vi.fn().mockResolvedValueOnce("saved").mockReturnValueOnce(refreshed);
+    const cached = publicCache(load, ["fixture"], { revalidate: 1, staleWhileRevalidate: 2 });
+    const original = cached();
+    await original;
+    vi.advanceTimersByTime(1_000);
+    expect(cached()).toBe(original);
+
+    vi.advanceTimersByTime(2_000);
+    const waiting = cached();
+    expect(waiting).not.toBe(original);
+    expect(cached()).toBe(waiting);
+    expect(load).toHaveBeenCalledTimes(2);
+    resolveRefresh("updated");
+    expect(await waiting).toBe("updated");
+  });
+
+  it("retains the successful value after a failed background refresh and retries", async () => {
+    const load = vi.fn()
+      .mockResolvedValueOnce("saved")
+      .mockRejectedValueOnce(new Error("Refresh unavailable"))
+      .mockResolvedValue("updated");
+    const cached = publicCache(load, ["fixture"], { revalidate: 1, staleWhileRevalidate: 2 });
+    await cached();
+    vi.advanceTimersByTime(1_000);
+
+    expect(await cached()).toBe("saved");
+    expect(await cached()).toBe("saved");
+    expect(await cached()).toBe("updated");
+    expect(load).toHaveBeenCalledTimes(3);
+  });
+
+  it("propagates a refresh failure to callers waiting beyond the stale budget", async () => {
+    let rejectRefresh!: (error: Error) => void;
+    const refreshed = new Promise<string>((_resolve, reject) => { rejectRefresh = reject; });
+    const load = vi.fn().mockResolvedValueOnce("saved").mockReturnValueOnce(refreshed);
+    const cached = publicCache(load, ["fixture"], { revalidate: 1, staleWhileRevalidate: 2 });
+    await cached();
+    vi.advanceTimersByTime(1_000);
+    expect(await cached()).toBe("saved");
+    vi.advanceTimersByTime(2_000);
+    const waiting = expect(cached()).rejects.toThrow("Refresh unavailable");
+    rejectRefresh(new Error("Refresh unavailable"));
+    await waiting;
+  });
+
+  it("starts the fresh TTL when a slow initial load completes", async () => {
+    let resolve!: (value: string) => void;
+    const load = vi.fn().mockImplementationOnce(() => new Promise<string>((done) => { resolve = done; }))
+      .mockResolvedValue("updated");
+    const cached = publicCache(load, ["fixture"], { revalidate: 1 });
+    const first = cached();
+    vi.advanceTimersByTime(900);
+    resolve("saved");
+    await first;
+    vi.advanceTimersByTime(999);
+    expect(await cached()).toBe("saved");
+    expect(load).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(await cached()).toBe("updated");
+  });
 });

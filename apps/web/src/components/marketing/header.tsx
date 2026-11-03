@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ActorMark } from "@/components/brand/actor-mark";
 import { NavigationDrawer } from "@/components/ui/navigation-drawer";
+import { useSession } from "@/lib/session-client";
 
 /**
  * ActorConsole header — a quiet instrument strip with an active rule.
@@ -27,8 +28,10 @@ function isNavLinkActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
+export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean }) {
   const pathname = usePathname();
+  const { status } = useSession();
+  const authenticated = isAuthenticated ?? status === "authenticated";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -89,7 +92,7 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
               aria-hidden={isScrolled}
               inert={isScrolled}
             >
-              {isAuthenticated ? (
+              {authenticated ? (
                 <Button size="sm" className="rounded-full" asChild>
                   <Link href="/dashboard">Go to console</Link>
                 </Button>
@@ -105,8 +108,8 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
               inert={!isScrolled}
             >
               <Button size="sm" className="rounded-full" asChild>
-                <Link href={isAuthenticated ? "/dashboard" : "/signup"}>
-                  {isAuthenticated ? "Go to console" : "Get started"}
+                <Link href={authenticated ? "/dashboard" : "/signup"}>
+                  {authenticated ? "Go to console" : "Get started"}
                 </Link>
               </Button>
             </div>
@@ -178,7 +181,7 @@ export function MarketingHeader({ isAuthenticated = false }: { isAuthenticated?:
             <div className="border-border/70 mt-auto border-t pt-5">
               <p className="text-muted-foreground type-kicker">Account</p>
               <div className="mt-3 grid gap-4">
-                {isAuthenticated ? (
+                {authenticated ? (
                   <Button size="lg" className="w-full" asChild>
                     <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
                       Go to console
