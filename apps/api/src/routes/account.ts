@@ -8,7 +8,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireOwnerSession } from "../middleware/owner-session.js";
 import { AppError } from "../middleware/error.js";
 import { trackEvent } from "../lib/analytics.js";
-import { assertPlanFeature, refreshWorkspacePlanUsage } from "../lib/plan-access.js";
+import { assertPlanFeature, getWorkspaceNavigationUsage } from "../lib/plan-access.js";
 import { recordUserAudit } from "../lib/user-audit.js";
 import { loadDefaultDashboard } from "../lib/default-dashboard.js";
 import { loadPublishingOverview } from "../lib/publishing-overview.js";
@@ -508,7 +508,7 @@ export const accountRoutes = new Hono<AppEnv>()
         ok: true,
         data: { workspaceId: null, plan: session.plan, restricted: false, usage: null },
       });
-    const usage = await refreshWorkspacePlanUsage(session);
+    const usage = await getWorkspaceNavigationUsage(session);
     return c.json({
       ok: true,
       data: {

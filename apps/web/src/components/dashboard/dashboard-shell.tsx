@@ -69,41 +69,52 @@ export function DashboardShell({
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)]);
+      const isCurrentRequest = () =>
+        !controller.signal.aborted && request === requestRef.current;
       if (includeAccess) setAccessLoading(true);
-      try {
-        const [statusResult, accessResult] = await Promise.allSettled([
-          fetch(`${API_BASE_URL}/account/navigation-status`, {
-            credentials: "include",
-            cache: "no-store",
-            signal: controller.signal,
-          }).then(async (response) => (response.ok ? (await response.json()).data : null)),
-          skipWorkspaceAccess || !includeAccess
-            ? Promise.resolve(null)
-            : fetch(`${API_BASE_URL}/account/workspace-access`, {
-                credentials: "include",
-                cache: "no-store",
-                signal: controller.signal,
-              }).then(async (response) => (response.ok ? (await response.json()).data : null)),
-        ]);
-        if (controller.signal.aborted || request !== requestRef.current) return;
-        if (statusResult.status === "fulfilled" && statusResult.value) {
-          const body = statusResult.value;
+
+      // Notification badges are optional. Commit access as soon as it arrives
+      // so a slow badge query cannot hide a newly selected workspace.
+      const statusRequest = fetch(`${API_BASE_URL}/account/navigation-status`, {
+        credentials: "include",
+        cache: "no-store",
+        signal,
+      })
+        .then(async (response) => (response.ok ? (await response.json()).data : null))
+        .then((body) => {
+          if (!isCurrentRequest() || !body) return;
           setNavigationStatus({
             unreadNotifications: body.unreadNotifications ?? 0,
             credentialIssue: body.credentialIssue ?? false,
             expiredApiKeys: body.expiredApiKeys ?? 0,
           });
-        }
-        if (accessResult.status === "fulfilled" && isWorkspaceAccess(accessResult.value)) {
-          const result = accessResult.value;
-          setAccess(result);
-          setActiveWorkspaceId(result.workspaceId);
-          setWorkspacePlan(result.plan);
-          setAccessError(false);
-        } else if (!skipWorkspaceAccess && includeAccess) setAccessError(true);
-      } finally {
-        if (request === requestRef.current && !controller.signal.aborted) setAccessLoading(false);
-      }
+        });
+      const accessRequest = (
+        skipWorkspaceAccess || !includeAccess
+          ? Promise.resolve(null)
+          : fetch(`${API_BASE_URL}/account/workspace-access`, {
+              credentials: "include",
+              cache: "no-store",
+              signal,
+            }).then(async (response) => (response.ok ? (await response.json()).data : null))
+      )
+        .then((result) => {
+          if (!isCurrentRequest()) return;
+          if (isWorkspaceAccess(result)) {
+            setAccess(result);
+            setActiveWorkspaceId(result.workspaceId);
+            setWorkspacePlan(result.plan);
+            setAccessError(false);
+          } else if (!skipWorkspaceAccess && includeAccess) setAccessError(true);
+        })
+        .catch(() => {
+          if (isCurrentRequest() && !skipWorkspaceAccess && includeAccess) setAccessError(true);
+        })
+        .finally(() => {
+          if (isCurrentRequest()) setAccessLoading(false);
+        });
+      await Promise.allSettled([statusRequest, accessRequest]);
     },
     [skipWorkspaceAccess],
   );

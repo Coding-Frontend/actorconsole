@@ -59,7 +59,7 @@ export const getResearchCategories = publicCache(
       .sort((a, b) => a.localeCompare(b));
   },
   ["actor-research-categories-v1"],
-  { revalidate: 300 },
+  { revalidate: 300, staleWhileRevalidate: 300 },
 );
 
 export async function getActorResearch(filters: ResearchFilters) {

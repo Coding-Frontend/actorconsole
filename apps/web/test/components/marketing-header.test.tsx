@@ -6,9 +6,13 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
+const { session } = vi.hoisted(() => ({ session: { status: "unauthenticated" } }));
+vi.mock("@/lib/session-client", () => ({ useSession: () => session }));
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  session.status = "unauthenticated";
 });
 
 describe("MarketingHeader", () => {
@@ -44,6 +48,17 @@ describe("MarketingHeader", () => {
     expect(consoleLinks).toHaveLength(1);
     expect(consoleLinks.every((link) => link.getAttribute("href") === "/dashboard")).toBe(true);
     expect(screen.queryByRole("link", { name: "Log in" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Get started" })).toBeNull();
+  });
+
+  it("uses the client session when public rendering has no server session dependency", () => {
+    session.status = "loading";
+    const { rerender } = render(<MarketingHeader />);
+    expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeTruthy();
+
+    session.status = "authenticated";
+    rerender(<MarketingHeader />);
+    expect(screen.getByRole("link", { name: "Go to console" }).getAttribute("href")).toBe("/dashboard");
     expect(screen.queryByRole("link", { name: "Get started" })).toBeNull();
   });
 });
