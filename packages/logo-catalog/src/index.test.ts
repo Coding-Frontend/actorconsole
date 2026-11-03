@@ -160,6 +160,7 @@ describe("logo catalog safety", () => {
   });
 
   it("downloads an explicit official brand logo before page icons", async () => {
+    const png = await sharp({ create: { width: 8, height: 8, channels: 4, background: "#ff0000" } }).png().toBuffer();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -169,7 +170,7 @@ describe("logo catalog safety", () => {
         ),
       )
       .mockResolvedValueOnce(
-        new Response(Buffer.from("official"), {
+        new Response(png, {
           status: 200,
           headers: { "content-type": "image/png" },
         }),
@@ -179,6 +180,18 @@ describe("logo catalog safety", () => {
       sourceKind: "OFFICIAL_BRAND",
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("tries another icon when the preferred image cannot be decoded", async () => {
+    const png = await sharp({ create: { width: 8, height: 8, channels: 4, background: "#ff0000" } }).png().toBuffer();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('<link rel="logo" href="/broken.png"><link rel="apple-touch-icon" href="/apple.png">', { headers: { "content-type": "text/html" } }))
+      .mockResolvedValueOnce(new Response(Buffer.from("not an image"), { headers: { "content-type": "image/png" } }))
+      .mockResolvedValueOnce(new Response(png, { headers: { "content-type": "image/png" } }));
+    await expect(discoverOfficialLogo("8.8.8.8", fetchMock)).resolves.toMatchObject({
+      finalUrl: "https://8.8.8.8/apple.png",
+      sourceKind: "APPLE_TOUCH_ICON",
+    });
   });
 
   it("rejects SVG files with external or executable content", async () => {
