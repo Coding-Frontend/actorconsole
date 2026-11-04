@@ -12,8 +12,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 // Provision the current Prisma schema in a disposable local database, then set
 // DATABASE_URL and IMAGE_FLOW_TEST_DATABASE_URL to that same database URL.
-// IMAGE_FLOW_BROWSER=1 also tests the real Next.js UI (requires free port 23808).
+// IMAGE_FLOW_BROWSER=1 also tests the real Next.js UI. Optionally choose its
+// loopback port with IMAGE_FLOW_BROWSER_PORT (defaults to 23808).
 const databaseUrl = process.env.IMAGE_FLOW_TEST_DATABASE_URL;
+const browserPort = Number(process.env.IMAGE_FLOW_BROWSER_PORT ?? 23808);
 let db: typeof import("@actorconsole/db").db;
 let reconcile: typeof import("@actorconsole/db").reconcileActorLogoRecommendations;
 let app: typeof import("../../src/app.js").app;
@@ -108,7 +110,7 @@ describe.skipIf(!databaseUrl)(
       vi.stubEnv("WEBSITE_LOGO_STORAGE_PATH", storageRoot);
       vi.stubEnv("APP_ENCRYPTION_KEY", randomBytes(32).toString("hex"));
       vi.stubEnv("REDIS_ENABLED", "false");
-      vi.stubEnv("CORS_ORIGINS", "http://127.0.0.1:23808,http://localhost:8080");
+      vi.stubEnv("CORS_ORIGINS", `http://127.0.0.1:${browserPort},http://localhost:8080`);
 
       upstream = createServer(async (req, res) => {
         const path = new URL(req.url!, "http://localhost").pathname;
@@ -433,6 +435,18 @@ describe.skipIf(!databaseUrl)(
         for (const item of (await response.json()).data.items) seen.add(item.actorId);
       }
       expect(seen.size).toBe(501);
+      const selected = new Set<string>();
+      let after: string | null = null;
+      do {
+        const response = await request(
+          `/actors/logo-recommendations/selection${after ? `?after=${after}` : ""}`,
+        );
+        expect(response.status).toBe(200);
+        const data = (await response.json()).data;
+        for (const item of data.items) selected.add(item.actor.id);
+        after = data.nextCursor;
+      } while (after);
+      expect(selected).toEqual(seen);
     });
 
     it("recommends an active logo immediately after importing a newly catalog-matched Actor", async () => {
@@ -620,15 +634,94 @@ describe.skipIf(!databaseUrl)(
       });
     });
 
+    it("scopes bulk review filters, status totals and cursor selection to the active workspace", async () => {
+      await upload();
+      await activate();
+      const response = await request(
+        `/actors/logo-recommendations?summary=true&q=Original%20Actor&websiteId=${websiteId}&thumbnail=missing`,
+      );
+      expect(response.status).toBe(200);
+      const page = (await response.json()).data;
+      expect(page).toMatchObject({
+        total: 2,
+        workspaceId,
+        summary: { counts: { PENDING: 2, APPLIED: 0, DISMISSED: 0 } },
+      });
+      expect(page.summary.websites).toHaveLength(1);
+      const selected: string[] = [];
+      let after: string | null = null;
+      do {
+        const result = await request(
+          `/actors/logo-recommendations/selection?limit=1&websiteId=${websiteId}${after ? `&after=${after}` : ""}`,
+        );
+        expect(result.status).toBe(200);
+        const body = (await result.json()).data;
+        expect(body.workspaceId).toBe(workspaceId);
+        selected.push(...body.items.map((item: { id: string }) => item.id));
+        after = body.nextCursor;
+      } while (after);
+      expect(new Set(selected)).toEqual(new Set(page.items.map((item: { id: string }) => item.id)));
+      const foreign = await request(
+        `/actors/logo-recommendations?summary=true&websiteId=${websiteId}`,
+        {},
+        otherWorkspaceId,
+      );
+      expect((await foreign.json()).data).toMatchObject({
+        total: 1,
+        workspaceId: otherWorkspaceId,
+        summary: { counts: { PENDING: 1 } },
+      });
+      expect(
+        (await request(`/actors/logo-recommendations/${selected[0]}/apply`, { method: "POST" }))
+          .status,
+      ).toBe(200);
+      const providerWrites = upstreamRequests.filter((item) => item.method === "PUT").length;
+      expect(
+        (await request(`/actors/logo-recommendations/${selected[1]}/dismiss`, { method: "POST" }))
+          .status,
+      ).toBe(200);
+      expect(upstreamRequests.filter((item) => item.method === "PUT")).toHaveLength(providerWrites);
+      const history = await request("/actors/logo-recommendations?summary=true&status=DISMISSED");
+      expect((await history.json()).data).toMatchObject({
+        total: 1,
+        summary: { counts: { PENDING: 0, APPLIED: 1, DISMISSED: 1 } },
+      });
+    });
+
     it.skipIf(!process.env.IMAGE_FLOW_BROWSER)(
-      "uploads, activates and applies through the real Next.js UI in Chromium",
+      "uploads, activates, bulk applies and bulk dismisses through the real Next.js UI in Chromium",
       async () => {
         const { serve } = await import("@hono/node-server");
         const { chromium, expect: browserExpect } = await import("@playwright/test");
         const check = browserExpect.configure({ timeout: 30_000 });
+        const template = [...remoteActors.values()][0];
+        for (let index = 3; index < 7; index += 1) {
+          const id = `bulk-browser-${randomUUID()}`;
+          const actor = {
+            ...template,
+            id,
+            name: `bulk-browser-${index}`,
+            title: `Bulk Browser Actor ${index}`,
+            pictureUrl: null,
+            isPublic: false,
+          };
+          remoteActors.set(id, actor);
+          await db.actor.create({
+            data: {
+              userId,
+              businessProfileId: workspaceId,
+              apifyActorId: id,
+              username: "image-builder",
+              actorName: actor.name,
+              title: actor.title,
+              websiteIdentityId: websiteId,
+            },
+          });
+        }
         const require = createRequire(import.meta.url);
         const workspaceRoot = fileURLToPath(new URL("../../../../", import.meta.url));
-        const webUrl = "http://127.0.0.1:23808";
+        const webUrl = `http://127.0.0.1:${browserPort}`;
+        const browserRevision = `bulk-logo-browser-${randomUUID()}`;
         const api = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" });
         if (!api.listening) await new Promise<void>((done) => api.once("listening", done));
         const apiUrl = `http://127.0.0.1:${(api.address() as { port: number }).port}`;
@@ -641,7 +734,7 @@ describe.skipIf(!databaseUrl)(
             "--hostname",
             "127.0.0.1",
             "--port",
-            "23808",
+            String(browserPort),
           ],
           {
             cwd: join(workspaceRoot, "apps", "web"),
@@ -655,6 +748,7 @@ describe.skipIf(!databaseUrl)(
               AUTH_URL: webUrl,
               SENTRY_AUTH_TOKEN: "",
               NEXT_TELEMETRY_DISABLED: "1",
+              GIT_SHA: browserRevision,
             },
             stdio: ["ignore", "pipe", "pipe"],
           },
@@ -667,11 +761,10 @@ describe.skipIf(!databaseUrl)(
           let ready = false;
           while (Date.now() < deadline && web.exitCode === null) {
             try {
-              ready = (
-                await originalFetch(`${webUrl}/api/health`, {
-                  signal: AbortSignal.timeout(5_000),
-                })
-              ).ok;
+              const health = await originalFetch(`${webUrl}/api/health`, {
+                signal: AbortSignal.timeout(5_000),
+              });
+              ready = health.ok && (await health.json()).revision === browserRevision;
             } catch {
               /* development server is compiling */
             }
@@ -684,18 +777,19 @@ describe.skipIf(!databaseUrl)(
           browser = await chromium.launch({ headless: true });
           const context = await browser.newContext({
             baseURL: webUrl,
-            viewport: { width: 1440, height: 1000 },
+            viewport: { width: 1600, height: 1100 },
           });
           await context.addCookies([
             { name: "authjs.session-token", value: cookie.split("=")[1], url: webUrl },
             { name: "actorconsole.business-profile", value: workspaceId, url: webUrl },
           ]);
-          await context.addInitScript(() =>
+          await context.addInitScript(() => {
             localStorage.setItem(
               "actorconsole.cookie-consent",
               JSON.stringify({ version: 1, choice: "essential", timestamp: Date.now() }),
-            ),
-          );
+            );
+            localStorage.setItem("ac-theme", "dark");
+          });
           const page = await context.newPage();
           page.setDefaultTimeout(30_000);
           const pageErrors: string[] = [];
@@ -738,34 +832,107 @@ describe.skipIf(!databaseUrl)(
           await check(
             page.locator('[data-picture-source="website"]:visible').first(),
           ).toBeVisible();
-          const item = (await recommendations()).items[0];
-          const applied = page.waitForResponse(
-            (response) =>
-              response.url().endsWith(`/logo-recommendations/${item.id}/apply`) &&
-              response.request().method() === "POST",
+          const all = (await recommendations()).items;
+          expect(all).toHaveLength(6);
+          const applyItems = all.slice(0, 2);
+          const dismissItems = all.slice(2, 4);
+          const untouched = all.slice(4);
+          await page.getByRole("link", { name: "Review logos", exact: true }).click();
+          await check(
+            page.getByRole("heading", { name: "Bulk logo review", exact: true }),
+          ).toBeVisible();
+          await check(page.locator("tr[data-recommendation-id]")).toHaveCount(6);
+          for (const item of applyItems)
+            await page
+              .locator(`[data-recommendation-id="${item.id}"] input[type="checkbox"]`)
+              .check();
+          await check(page.getByRole("region", { name: "Bulk logo actions" })).toBeInViewport();
+          await page.screenshot({
+            path: join(workspaceRoot, ".cache", "bulk-logo-review-desktop.png"),
+            fullPage: true,
+          });
+          await page.getByRole("button", { name: "Apply 2 logos to Apify", exact: true }).click();
+          await check(
+            page
+              .getByRole("dialog")
+              .getByRole("list", { name: "Actors in this bulk action" })
+              .getByRole("listitem"),
+          ).toHaveCount(2);
+          await page
+            .getByRole("dialog")
+            .getByRole("button", { name: "Apply 2 logos", exact: true })
+            .click();
+          await check(
+            page.getByText("2 of 2 processed · 2 applied · 0 failed", { exact: true }),
+          ).toBeVisible();
+          await check(page.locator("tr[data-recommendation-id]")).toHaveCount(4);
+          for (const item of applyItems) {
+            const actor = await db.actor.findUniqueOrThrow({ where: { id: item.actorId } });
+            expect(actor.currentImageUrl).toBe(`${upstreamUrl}/storage/${actor.apifyActorId}.webp`);
+            expect(
+              (await db.actorLogoRecommendation.findUniqueOrThrow({ where: { id: item.id } }))
+                .status,
+            ).toBe("APPLIED");
+          }
+          const providerWrites = upstreamRequests.filter((item) => item.method === "PUT").length;
+          for (const item of dismissItems)
+            await page
+              .locator(`[data-recommendation-id="${item.id}"] input[type="checkbox"]`)
+              .check();
+          await page.getByRole("button", { name: "Dismiss selected", exact: true }).click();
+          await page
+            .getByRole("dialog")
+            .getByRole("button", { name: "Dismiss 2 selected", exact: true })
+            .click();
+          await check(
+            page.getByText("2 of 2 processed · 2 dismissed · 0 failed", { exact: true }),
+          ).toBeVisible();
+          await check(page.locator("tr[data-recommendation-id]")).toHaveCount(2);
+          expect(upstreamRequests.filter((item) => item.method === "PUT")).toHaveLength(
+            providerWrites,
           );
-          await page.getByRole("button", { name: "Review logos", exact: true }).click();
-          await page.getByRole("button", { name: "Apply to Apify", exact: true }).click();
-          expect((await applied).status()).toBe(200);
-          await check(page.locator('[data-picture-source="actor"]:visible')).toHaveCount(1);
-          const actor = await db.actor.findUniqueOrThrow({ where: { id: item.actorId } });
-          await check(page.locator('[data-picture-source="actor"]:visible')).toHaveAttribute(
-            "data-picture-url",
-            actor.currentImageUrl!,
-          );
-          await check(page.locator('[data-picture-source="actor"]:visible img')).toHaveJSProperty(
+          for (const item of dismissItems)
+            expect(
+              (await db.actorLogoRecommendation.findUniqueOrThrow({ where: { id: item.id } }))
+                .status,
+            ).toBe("DISMISSED");
+          for (const item of untouched)
+            expect(
+              (await db.actorLogoRecommendation.findUniqueOrThrow({ where: { id: item.id } }))
+                .status,
+            ).toBe("PENDING");
+          await page.getByRole("button", { name: "Applied 2", exact: true }).click();
+          await check(page.locator("tr[data-recommendation-id]")).toHaveCount(2);
+          await check(page.getByRole("img", { name: /Apify thumbnail$/ }).first()).toHaveJSProperty(
             "naturalWidth",
             512,
           );
+          await page.getByRole("button", { name: "Dismissed 2", exact: true }).click();
+          await check(page.locator("tr[data-recommendation-id]")).toHaveCount(2);
+          await page.getByRole("button", { name: "Needs review 2", exact: true }).click();
+          await check(page.locator("tr[data-recommendation-id]")).toHaveCount(2);
+          await page
+            .locator(`[data-recommendation-id="${untouched[0].id}"] input[type="checkbox"]`)
+            .check();
+          await page.emulateMedia({ reducedMotion: "reduce" });
+          await page.setViewportSize({ width: 375, height: 844 });
+          await check(page.getByRole("region", { name: "Bulk logo actions" })).toBeInViewport();
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+          ).toBe(true);
           await page.screenshot({
-            path: join(workspaceRoot, ".cache", "image-flow-applied-desktop.png"),
+            path: join(workspaceRoot, ".cache", "bulk-logo-review-mobile.png"),
             fullPage: true,
           });
-          await page.setViewportSize({ width: 390, height: 844 });
-          await check(page.locator('[data-picture-source="actor"]:visible')).toHaveCount(1);
-          await check(page.locator('[data-picture-source="website"]:visible')).toHaveCount(1);
+          await page.setViewportSize({ width: 844, height: 390 });
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+          ).toBe(true);
+          await page.setViewportSize({ width: 1600, height: 1100 });
+          await page.getByRole("button", { name: "Toggle color theme", exact: true }).click();
+          await check(page.locator("html")).not.toHaveClass(/dark/);
           await page.screenshot({
-            path: join(workspaceRoot, ".cache", "image-flow-applied-mobile.png"),
+            path: join(workspaceRoot, ".cache", "bulk-logo-review-light.png"),
             fullPage: true,
           });
           expect(pageErrors).toEqual([]);

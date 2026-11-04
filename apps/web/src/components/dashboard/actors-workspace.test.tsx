@@ -29,7 +29,7 @@ function render(ui: ReactNode) {
 }
 
 import { ActorsWorkspace } from "./actors-workspace";
-import { LogoRecommendations } from "./logo-recommendations";
+import { BulkLogoReview } from "./bulk-logo-review";
 import { WorkspaceApifyConnectionBanner } from "./workspace-apify-connection-banner";
 import { DASHBOARD_STATUS_CHANGED_EVENT } from "./dashboard-navigation";
 
@@ -369,11 +369,20 @@ describe("ActorsWorkspace", () => {
           return new Response(
             JSON.stringify({
               data: {
+                workspaceId: "workspace-1",
+                total: applied ? 0 : 1,
+                page: 1,
+                limit: 10,
+                summary: {
+                  counts: { PENDING: applied ? 0 : 1, APPLIED: applied ? 1 : 0, DISMISSED: 0 },
+                  websites: [],
+                },
                 items: applied
                   ? []
                   : [
                       {
                         id: "rec_1",
+                        status: "PENDING",
                         error: null,
                         proposedImageUrl: "/api/website-logo-assets/logo_1",
                         actor: {
@@ -427,20 +436,21 @@ describe("ActorsWorkspace", () => {
     );
     const { container } = render(
       <>
-        <LogoRecommendations />
+        <BulkLogoReview />
         <ActorsWorkspace />
       </>,
     );
     await screen.findAllByText("Local preview");
-    fireEvent.click(await screen.findByRole("button", { name: "Review logos" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply to Apify" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Select Maps for logo review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply 1 logo to Apify" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply 1 logo" }));
     await waitFor(() =>
       expect(
         container.querySelector('[data-picture-source="actor"]')?.getAttribute("data-picture-url"),
       ).toBe(pictureUrl),
     );
     expect(screen.queryByText("Local preview")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Review logos" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Select Maps for logo review" })).toBeNull();
   });
 
   it("clears selected Actors when the active workspace changes", async () => {
