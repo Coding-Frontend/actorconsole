@@ -211,7 +211,7 @@ export function ActorActions({
             {imageSource === "website" ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 Shown only in ActorConsole.{" "}
-                <Link href="/dashboard/actors?logoStatus=pending" className="underline">
+                <Link href="/dashboard/actors/logos" className="underline">
                   Review and apply logos
                 </Link>{" "}
                 to update Apify.
