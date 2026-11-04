@@ -92,7 +92,7 @@ export default async function TicketDetailPage({
             <ArrowLeft className="mr-1 h-4 w-4" /> Back
           </Link>
         </Button>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {fetchError
             ? "The ticket could not be loaded. Refresh the page to try again."
             : "Ticket not available."}
@@ -129,13 +129,13 @@ export default async function TicketDetailPage({
         <Card>
           <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-muted-foreground text-xs uppercase tracking-wider">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
                 Related Actor
               </p>
               <p className="mt-1 text-sm font-medium">
                 {ticket.actor.title ?? ticket.actor.actorName}
               </p>
-              <p className="text-muted-foreground mt-0.5 font-mono text-xs">
+              <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                 {ticket.actor.apifyActorId}
               </p>
             </div>
@@ -178,7 +178,7 @@ export default async function TicketDetailPage({
           ))}
 
           {(ticket.messageTotal ?? ticket.messages.length) > messageLimit ? (
-            <div className="border-border/50 flex items-center justify-between border-t pt-3 text-sm">
+            <div className="flex items-center justify-between border-t border-border/50 pt-3 text-sm">
               {messagePage > 1 ? (
                 <Button asChild variant="outline" size="sm">
                   <Link
@@ -190,7 +190,7 @@ export default async function TicketDetailPage({
               ) : (
                 <span />
               )}
-              <span className="text-muted-foreground text-xs">
+              <span className="text-xs text-muted-foreground">
                 Page {messagePage} of{" "}
                 {Math.max(1, Math.ceil((ticket.messageTotal ?? 0) / messageLimit))}
               </span>
@@ -209,11 +209,11 @@ export default async function TicketDetailPage({
           ) : null}
 
           {closed ? (
-            <p className="bg-muted/40 text-muted-foreground rounded-md p-3 text-sm">
+            <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
               This ticket is {ticket.status.toLowerCase()}. Open a new ticket if you need more help.
             </p>
           ) : (
-            <TicketReplyBox ticketId={ticket.id} />
+            <TicketReplyBox ticketId={ticket.id} userId={session.user.id} />
           )}
         </CardContent>
       </Card>

@@ -12,7 +12,7 @@ export const metadata = { title: "Log in" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string; reset?: string }>;
 }) {
   const params = await searchParams;
   const callbackUrl = safeCallbackUrl(params.callbackUrl);
@@ -28,17 +28,17 @@ export default async function LoginPage({
             {
               title: "Apify",
               description: "Actor sync",
-              icon: <Database className="text-signal-orange h-4 w-4" />,
+              icon: <Database className="h-4 w-4 text-signal-orange" />,
             },
             {
               title: "Insights",
               description: "Usage and cost signals",
-              icon: <BarChart3 className="text-signal-orange h-4 w-4" />,
+              icon: <BarChart3 className="h-4 w-4 text-signal-orange" />,
             },
             {
               title: "MCP",
               description: "Agent access",
-              icon: <CheckCircle2 className="text-signal-orange h-4 w-4" />,
+              icon: <CheckCircle2 className="h-4 w-4 text-signal-orange" />,
             },
           ]}
         />
@@ -47,10 +47,10 @@ export default async function LoginPage({
       <div className="space-y-7">
         <div>
           <p className="type-kicker eyebrow-line text-signal-orange">ActorConsole account</p>
-          <h1 className="font-display-tight text-foreground mt-5 text-4xl sm:text-5xl">
+          <h1 className="font-display-tight mt-5 text-4xl text-foreground sm:text-5xl">
             Pick up where you left off.
           </h1>
-          <p className="text-muted-foreground mt-4 max-w-sm text-sm leading-6">
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
             Sign in to manage your Actor portfolio, publishing schedule, and operating costs from
             one calm workspace.
           </p>
@@ -60,13 +60,21 @@ export default async function LoginPage({
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-bold tracking-tight">Welcome back</h2>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Sign in to manage your Apify actors.
               </p>
             </div>
 
+            {params.reset === "success" ? (
+              <p
+                role="status"
+                className="border-signal-green/30 bg-signal-green/5 rounded-md border p-3 text-sm"
+              >
+                Your password was updated. Sign in with your new password.
+              </p>
+            ) : null}
             {params.error && (
-              <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {params.error === "CredentialsSignin"
                   ? "Invalid credentials. Please try again."
                   : params.error}
@@ -80,7 +88,7 @@ export default async function LoginPage({
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background text-muted-foreground px-2">Or continue with</span>
+                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>
 
@@ -88,11 +96,11 @@ export default async function LoginPage({
           </div>
         </Panel>
 
-        <p className="text-muted-foreground text-center text-sm">
+        <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
           <Link
             href={`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-            className="text-signal-blue font-medium hover:underline"
+            className="font-medium text-signal-blue hover:underline"
           >
             Sign up
           </Link>

@@ -13,8 +13,8 @@ export function normalizePageSize(value: string | number | null | undefined): nu
     : DEFAULT_PAGE_SIZE;
 }
 
-export function clampPageSize(value: string | number): number | null {
+export function clampPageSize(value: string | number, max = MAX_PAGE_SIZE): number | null {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || !Number.isFinite(parsed)) return null;
-  return Math.min(MAX_PAGE_SIZE, Math.max(1, parsed));
+  return Math.min(MAX_PAGE_SIZE, max, Math.max(1, parsed));
 }

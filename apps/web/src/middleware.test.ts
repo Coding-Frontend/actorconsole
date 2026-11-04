@@ -60,6 +60,7 @@ describe("dashboard workspace middleware", () => {
     "/dashboard/billing",
     "/dashboard/apify",
     "/dashboard/account",
+    "/dashboard/security",
     "/dashboard/upgrade",
   ])("keeps %s available even if the check is unavailable", async (path) => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("unavailable")));
@@ -73,6 +74,11 @@ describe("dashboard workspace middleware", () => {
     expect((await middleware(request("/dashboard"))).headers.get("location")).toBe(
       "https://actorconsole.com/dashboard/upgrade?access=unavailable",
     );
+  });
+  it("resolves a bookmarked security URL to its canonical account page", async () => {
+    expect(
+      (await middleware(request("/dashboard/settings/security"))).headers.get("location"),
+    ).toBe("https://actorconsole.com/dashboard/security");
   });
   it("redirects an expired session to login", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
