@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { LocalDateTime } from "@/components/dashboard/local-date-time";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   ExternalLink,
@@ -75,7 +76,7 @@ function currentPricingPeriod(value: unknown): ActorPricingPeriod | null {
     return Number.isFinite(startsAt) && startsAt <= now;
   });
   return (
-    [...(effective.length ? effective : periods)]
+    [...effective]
       .sort((left, right) => {
         const leftTime = left.startedAt ? Date.parse(left.startedAt) : 0;
         const rightTime = right.startedAt ? Date.parse(right.startedAt) : 0;
@@ -532,7 +533,7 @@ export default async function ActorDetailPage({
                       {actorPricingEvents.map(([eventName, event]) => {
                         const price = pricingEventPrice(event);
                         return (
-                          <div key={eventName} className="bg-card p-4">
+                          <div key={eventName} className="min-w-0 bg-card p-4">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
                                 <p className="font-semibold">{event.eventTitle ?? eventName}</p>
@@ -541,9 +542,32 @@ export default async function ActorDetailPage({
                                 </p>
                               </div>
                               <span className="font-mono font-semibold tabular-nums">
-                                {price == null ? "Price unavailable" : `$${price.toFixed(6)}`}
+                                {event.eventTieredPricingUsd
+                                  ? "Subscription tier pricing"
+                                  : price == null
+                                    ? "Price unavailable"
+                                    : `$${price.toFixed(6)}`}
                               </span>
                             </div>
+                            {event.eventTieredPricingUsd && (
+                              <dl className="mt-3 grid gap-2 text-xs">
+                                {Object.entries(event.eventTieredPricingUsd).map(
+                                  ([tier, value]) => (
+                                    <div
+                                      key={tier}
+                                      className="flex min-w-0 flex-wrap justify-between gap-2"
+                                    >
+                                      <dt className="break-all text-muted-foreground">{tier}</dt>
+                                      <dd className="font-mono tabular-nums">
+                                        {value.tieredEventPriceUsd == null
+                                          ? "Price unavailable"
+                                          : `$${value.tieredEventPriceUsd.toFixed(6)}`}
+                                      </dd>
+                                    </div>
+                                  ),
+                                )}
+                              </dl>
+                            )}
                             {event.eventDescription && (
                               <p className="mt-3 text-xs leading-5 text-muted-foreground">
                                 {event.eventDescription}
@@ -834,6 +858,13 @@ export default async function ActorDetailPage({
                         changedAt: string;
                       }) => {
                         const events = pricingHistoryEvents(p.payload);
+                        const startedAt =
+                          p.payload &&
+                          typeof p.payload === "object" &&
+                          "startedAt" in p.payload &&
+                          typeof p.payload.startedAt === "string"
+                            ? p.payload.startedAt
+                            : null;
                         return (
                           <li key={p.id} className="space-y-2 border-b border-border/40 pb-3">
                             <div className="flex items-center justify-between gap-3">
@@ -844,19 +875,34 @@ export default async function ActorDetailPage({
                                 </span>
                               </div>
                               <span className="text-muted-foreground">
-                                {new Date(p.changedAt).toLocaleDateString()}
+                                Saved <LocalDateTime value={p.changedAt} />
                               </span>
                             </div>
+                            {startedAt ? (
+                              <p className="text-muted-foreground">
+                                {Date.parse(startedAt) > Date.now()
+                                  ? "Scheduled from"
+                                  : "Effective from"}{" "}
+                                <LocalDateTime value={startedAt} />
+                              </p>
+                            ) : null}
                             {events.length > 0 ? (
                               <div className="space-y-1">
                                 {events.map(([name, event]) => (
                                   <div
                                     key={name}
-                                    className="flex items-center justify-between gap-3"
+                                    className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                                   >
                                     <span className="truncate font-mono">{name}</span>
-                                    <span className="shrink-0 font-mono">
-                                      ${pricingEventPrice(event)?.toFixed(6) ?? "—"}
+                                    <span className="min-w-0 break-words font-mono sm:max-w-[65%]">
+                                      {event.eventTieredPricingUsd
+                                        ? Object.entries(event.eventTieredPricingUsd)
+                                            .map(
+                                              ([tier, entry]) =>
+                                                `${tier}: $${entry.tieredEventPriceUsd?.toFixed(6) ?? "—"}`,
+                                            )
+                                            .join(" · ")
+                                        : `$${pricingEventPrice(event)?.toFixed(6) ?? "—"}`}
                                     </span>
                                   </div>
                                 ))}
@@ -915,18 +961,7 @@ export default async function ActorDetailPage({
                 imageSource={actorImageSource}
                 categories={actorCategories}
                 metaLabels={actorMetaLabels}
-                pricingEvents={Object.fromEntries(
-                  actorPricingEvents.map(([name, event]) => [
-                    name,
-                    {
-                      eventTitle: event.eventTitle,
-                      eventDescription: event.eventDescription,
-                      eventPriceUsd: pricingEventPrice(event) ?? undefined,
-                      isOneTimeEvent: event.isOneTimeEvent,
-                      isPrimaryEvent: event.isPrimaryEvent,
-                    },
-                  ]),
-                )}
+                pricingEvents={Object.fromEntries(actorPricingEvents)}
               />
             </CardContent>
           </Card>

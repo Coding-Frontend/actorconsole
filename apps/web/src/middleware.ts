@@ -16,6 +16,7 @@ export default async function middleware(req: NextRequest) {
     "/dashboard/settings/api-keys": "/dashboard/mcp",
     "/dashboard/api-keys": "/dashboard/mcp",
     "/dashboard/settings/profile": "/dashboard/profile",
+    "/dashboard/settings/security": "/dashboard/security",
     "/dashboard/settings/notifications": "/dashboard/notification-preferences",
     "/dashboard/settings/billing": "/dashboard/billing",
     "/dashboard/settings/export": "/dashboard/data-export",

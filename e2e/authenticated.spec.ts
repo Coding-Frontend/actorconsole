@@ -128,7 +128,7 @@ test("password reset consumes the emailed code and revokes existing sessions", a
   try {
     await resetPage.goto("/forgot-password");
     await resetPage.getByLabel("Email", { exact: true }).fill(email);
-    await resetPage.getByRole("button", { name: "Send reset link", exact: true }).click();
+    await resetPage.getByRole("button", { name: "Send reset code", exact: true }).click();
     const code = await emailCode(page.request, email, "Reset");
     await resetPage.getByLabel("Reset code", { exact: true }).fill(code);
     const newPassword = `${password}-changed`;

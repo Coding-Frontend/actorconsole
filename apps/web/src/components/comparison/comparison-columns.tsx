@@ -41,10 +41,10 @@ export function ComparisonColumns({
           {items.map((item) => (
             <div
               key={item.id}
-              className="border-border bg-card flex min-h-20 items-start justify-between gap-3 border px-4 py-4"
+              className="flex min-h-20 items-start justify-between gap-3 border border-border bg-card px-4 py-4"
             >
               <div className="flex min-w-0 items-start gap-3">
-                <Avatar className="border-border h-9 w-9 shrink-0 border">
+                <Avatar className="h-9 w-9 shrink-0 border border-border">
                   {item.imageUrl ? <AvatarImage src={item.imageUrl} alt="" /> : null}
                   <AvatarFallback className="text-xs font-semibold">
                     {item.title.slice(0, 2).toUpperCase()}
@@ -54,7 +54,7 @@ export function ComparisonColumns({
                   {item.href ? (
                     <Link
                       href={item.href}
-                      className="hover:text-signal-orange inline-flex items-start gap-1 font-semibold leading-5 hover:underline"
+                      className="inline-flex min-h-11 items-start gap-1 font-semibold leading-5 hover:text-signal-orange hover:underline"
                     >
                       <span className="line-clamp-2 break-words">{item.title}</span>
                       <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -64,7 +64,7 @@ export function ComparisonColumns({
                       {item.title}
                     </span>
                   )}
-                  <span className="text-muted-foreground mt-1 block break-all text-xs">
+                  <span className="mt-1 block break-all text-xs text-muted-foreground">
                     {item.subtitle}
                   </span>
                 </div>
@@ -73,7 +73,7 @@ export function ComparisonColumns({
                 <button
                   type="button"
                   onClick={() => onRemove(item.id)}
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring shrink-0 rounded p-1 focus-visible:outline-none focus-visible:ring-2"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={`Remove ${item.title} from comparison`}
                 >
                   <X className="h-4 w-4" />
@@ -85,7 +85,7 @@ export function ComparisonColumns({
         </div>
         {groups.map((group) => (
           <section key={group} aria-label={group} className="mt-7">
-            <h2 className="font-display-tight border-border border-b pb-3 text-xl font-semibold">
+            <h2 className="font-display-tight border-b border-border pb-3 text-xl font-semibold">
               {group}
             </h2>
             {rows
@@ -93,7 +93,7 @@ export function ComparisonColumns({
               .map((row) => {
                 const best = highlightBest ? bestValue(row, items) : null;
                 return (
-                  <div key={row.key} className="border-border grid gap-3 border-b" style={columns}>
+                  <div key={row.key} className="grid gap-3 border-b border-border" style={columns}>
                     {items.map((item) => {
                       const value = item.metrics[row.key];
                       const isBest = best !== null && value === best;
@@ -102,7 +102,7 @@ export function ComparisonColumns({
                           key={item.id}
                           className="flex min-w-0 items-start justify-between gap-4 py-3.5 text-sm"
                         >
-                          <span className="text-muted-foreground min-w-0 shrink text-xs sm:text-sm">
+                          <span className="min-w-0 shrink text-xs text-muted-foreground sm:text-sm">
                             {row.label}
                           </span>
                           <span

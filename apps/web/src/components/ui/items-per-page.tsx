@@ -10,11 +10,13 @@ export function ItemsPerPageSelect({
   value,
   onChange,
   label = "Items per page",
+  maxValue = MAX_PAGE_SIZE,
   className,
 }: {
   value: number;
   onChange?: (value: number) => void;
   label?: string;
+  maxValue?: number;
   className?: string;
 }) {
   const presetValue = isPageSizePreset(value);
@@ -39,7 +41,7 @@ export function ItemsPerPageSelect({
   }
 
   function commitCustomValue() {
-    const nextValue = clampPageSize(customValue);
+    const nextValue = clampPageSize(customValue, maxValue);
     if (nextValue === null) {
       setCustomValue(String(value));
       return;
@@ -49,8 +51,8 @@ export function ItemsPerPageSelect({
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <label className="text-muted-foreground flex items-center gap-2 text-xs">
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>{label}</span>
         <select
           value={customSelected ? "custom" : String(value)}
@@ -64,9 +66,9 @@ export function ItemsPerPageSelect({
             apply(Number(event.target.value));
           }}
           aria-label={label}
-          className="border-input bg-background text-foreground h-8 rounded-md border px-2 text-xs"
+          className="h-11 rounded-md border border-input bg-background px-2 text-base text-foreground sm:h-8 sm:text-xs"
         >
-          {PAGE_SIZE_OPTIONS.map((option) => (
+          {PAGE_SIZE_OPTIONS.filter((option) => option <= maxValue).map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -78,7 +80,7 @@ export function ItemsPerPageSelect({
         <input
           type="number"
           min={1}
-          max={MAX_PAGE_SIZE}
+          max={maxValue}
           step={1}
           value={customValue}
           onChange={(event) => setCustomValue(event.target.value)}
@@ -90,7 +92,7 @@ export function ItemsPerPageSelect({
             }
           }}
           aria-label={`${label} custom value`}
-          className="border-input bg-background text-foreground h-8 w-20 rounded-md border px-2 text-xs"
+          className="h-11 w-20 rounded-md border border-input bg-background px-2 text-base text-foreground sm:h-8 sm:text-xs"
         />
       ) : null}
     </div>
