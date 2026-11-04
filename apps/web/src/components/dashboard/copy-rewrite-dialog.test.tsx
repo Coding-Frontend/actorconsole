@@ -124,6 +124,15 @@ describe("CopyRewriteDialog", () => {
     expect(screen.getByRole("button", { name: "Generate variants" })).toBeTruthy();
   });
 
+  it("shows a useful retry message when ingress returns an HTML timeout page", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<!DOCTYPE html><h1>Gateway timeout</h1>", { status: 504 })));
+    render(<CopyRewriteDialog open onOpenChange={vi.fn()} apifyActorId="actor-A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Generate variants" }));
+    await screen.findByText("Copy generation could not finish. Please try again.");
+    expect((screen.getByRole("button", { name: "Generate variants" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(toastError).toHaveBeenCalledWith("Copy generation could not finish. Please try again.");
+  });
+
   it("keeps the review open when Apify detects a newer listing edit", async () => {
     vi.mocked(fetch)
       .mockReset()
