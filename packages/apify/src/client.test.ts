@@ -1190,7 +1190,14 @@ describe("ApifyClientWrapper marketplace publishing", () => {
       storeVisibilityAvailable: false,
       storeDeprecationAvailable: false,
       storeNoticeAvailable: false,
+      listingMetadataAvailable: { title: false, description: false, pictureUrl: false },
     });
+  });
+
+  it("distinguishes explicit listing removals from omitted inventory fields", async () => {
+    actorsList.mockResolvedValueOnce({ items: [{ id: "actor-1", username: "owner", name: "actor", title: null, description: null, pictureUrl: null }] });
+    const [item] = await createApifyClient({ token: "owner-api-token" }).listMyActors();
+    expect(item).toMatchObject({ title: null, description: null, pictureUrl: null, listingMetadataAvailable: { title: true, description: true, pictureUrl: true } });
   });
 
   it("loads and normalizes the Apify Console notification publication", async () => {
