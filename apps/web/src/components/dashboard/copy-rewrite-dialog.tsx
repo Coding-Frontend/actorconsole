@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { API_BASE_URL } from "@/lib/api-base";
 import { trackEvent } from "@/lib/analytics-events";
-import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -17,191 +19,350 @@ import { toast } from "sonner";
 import { Sparkles, Loader2, Check, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface Variant {
-  title: string;
-  description: string;
-  seoTitle: string;
-  seoDescription: string;
+const fields = [
+  { key: "title", label: "Title", limit: 100 },
+  { key: "description", label: "Description", limit: 500 },
+  { key: "seoTitle", label: "SEO title", limit: 60 },
+  { key: "seoDescription", label: "SEO description", limit: 160 },
+] as const;
+type CopyField = (typeof fields)[number]["key"];
+type Copy = Record<CopyField, string>;
+type CurrentCopy = Record<CopyField, string | null>;
+interface Variant extends Copy {
   reasoning: string;
 }
-
 interface Props {
   open: boolean;
-  onOpenChange: (v: boolean) => void;
+  onOpenChange: (open: boolean) => void;
   apifyActorId: string;
   onChanged?: () => void;
 }
 
-const API_BASE = API_BASE_URL;
-
 export function CopyRewriteDialog({ open, onOpenChange, apifyActorId, onChanged }: Props) {
-  const encodedActorId = encodeURIComponent(apifyActorId);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  const [draft, setDraft] = useState<Copy | null>(null);
+  const [current, setCurrent] = useState<CurrentCopy | null>(null);
+  const [selectedFields, setSelectedFields] = useState<CopyField[]>(fields.map(({ key }) => key));
   const [loading, setLoading] = useState(false);
-  const [updating, startUpdate] = useTransition();
+  const [updating, setUpdating] = useState(false);
+  const [review, setReview] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [keywords, setKeywords] = useState<string[]>([]);
+  const request = useRef<AbortController | null>(null);
+  const generation = useRef(0);
+  const writing = useRef(false);
+
+  useEffect(() => {
+    generation.current += 1;
+    request.current?.abort();
+    setVariants([]);
+    setSelected(null);
+    setDraft(null);
+    setCurrent(null);
+    setLoading(false);
+    setUpdating(false);
+    setReview(false);
+    setApplied(false);
+    setKeywords([]);
+    setError(null);
+    setSelectedFields(fields.map(({ key }) => key));
+    return () => {
+      generation.current += 1;
+      request.current?.abort();
+    };
+  }, [open, apifyActorId]);
+
+  function changeOpen(next: boolean) {
+    if (writing.current) return;
+    if (!next) {
+      generation.current += 1;
+      request.current?.abort();
+    }
+    onOpenChange(next);
+  }
 
   async function generate() {
+    if (writing.current) return;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    const version = ++generation.current;
     setLoading(true);
     setSelected(null);
+    setReview(false);
+    setVariants([]);
+    setError(null);
     try {
-      const res = await fetch(`${API_BASE}/actors/${encodedActorId}/rewrite-copy`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
-      void trackEvent("actor_copy_generated", {});
+      const response = await fetch(
+        `${API_BASE_URL}/actors/${encodeURIComponent(apifyActorId)}/rewrite-copy`,
+        {
+          method: "POST",
+          credentials: "include",
+          signal: controller.signal,
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        },
+      );
+      const body = await response.json();
+      if (controller.signal.aborted || generation.current !== version) return;
+      if (!response.ok) throw new Error(body?.error?.message ?? "Could not generate copy");
+      if (!Array.isArray(body.data?.variants) || !body.data?.currentCopy)
+        throw new Error("Could not load the current listing for review. Generate fresh variants.");
       setVariants(body.data.variants);
+      setCurrent(body.data.currentCopy);
       setKeywords(body.data.keywords ?? []);
-      onChanged?.();
+      void trackEvent("actor_copy_generated", {});
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to generate");
+      if (controller.signal.aborted || generation.current !== version) return;
+      const message = err instanceof Error ? err.message : "Failed to generate";
+      setError(message);
+      toast.error(message);
     } finally {
-      setLoading(false);
+      if (generation.current === version) setLoading(false);
     }
   }
 
-  function updateActor() {
-    if (selected === null) return;
-    startUpdate(async () => {
-      try {
-        const v = variants[selected]!;
-        const res = await fetch(`${API_BASE}/actors/${encodedActorId}/copy`, {
+  async function updateActor() {
+    if (!draft || !current || !selectedFields.length || writing.current) return;
+    const invalid = fields.find(
+      ({ key, limit }) =>
+        selectedFields.includes(key) && (!draft[key].trim() || draft[key].length > limit),
+    );
+    if (invalid) {
+      setError(`${invalid.label} must contain 1–${invalid.limit} characters.`);
+      return;
+    }
+    writing.current = true;
+    setUpdating(true);
+    setError(null);
+    const version = generation.current;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/actors/${encodeURIComponent(apifyActorId)}/copy`,
+        {
           method: "PUT",
           credentials: "include",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            title: v.title,
-            description: v.description,
-            seoTitle: v.seoTitle,
-            seoDescription: v.seoDescription,
+            ...Object.fromEntries(selectedFields.map((key) => [key, draft[key]])),
+            expectedCopy: current,
           }),
-        });
-        const body = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
-        void trackEvent("actor_copy_applied", {});
-        toast.success("Actor listing updated on Apify");
-        onChanged?.();
-        onOpenChange(false);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Actor update failed");
+        },
+      );
+      const body = await response.json().catch(() => null);
+      if (generation.current !== version) return;
+      if (!response.ok || body?.data?.verified !== true)
+        throw new Error(
+          body?.error?.message ??
+            "Could not verify the listing update. Refresh and review before retrying.",
+        );
+      setApplied(true);
+      void trackEvent("actor_copy_applied", {});
+      toast.success("Actor listing updated and verified on Apify");
+      onChanged?.();
+    } catch (err) {
+      if (generation.current === version) {
+        const message = err instanceof Error ? err.message : "Actor update failed";
+        setError(message);
+        toast.error(message);
       }
-    });
+    } finally {
+      writing.current = false;
+      if (generation.current === version) setUpdating(false);
+    }
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        onOpenChange(v);
-        if (!v) {
-          setVariants([]);
-          setSelected(null);
-        }
-      }}
-    >
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={changeOpen}>
+      <DialogContent
+        className="flex max-h-[calc(100dvh-2rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:p-0"
+        onEscapeKeyDown={(event) => {
+          if (writing.current) event.preventDefault();
+        }}
+      >
+        <DialogHeader className="shrink-0 border-b p-5 pr-14 sm:p-6 sm:pr-14">
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="text-signal-orange h-5 w-5" />
-            AI rewrite copy
+            <Sparkles className="h-5 w-5 shrink-0 text-signal-orange" />
+            {applied
+              ? "Listing update verified"
+              : review
+                ? "Review listing changes"
+                : "AI rewrite copy"}
           </DialogTitle>
           <DialogDescription>
-            Generates 3 SEO-optimized title and description variants. Apify assigns and maintains
-            the Store categories automatically.
+            {applied
+              ? "Apify returned the saved values for every selected field. Your copy history has been updated."
+              : "Generate variants, review the current and proposed copy, then apply only the fields you choose."}
           </DialogDescription>
         </DialogHeader>
-
-        {variants.length === 0 ? (
-          <div className="space-y-4 py-6 text-center">
-            {loading ? (
-              <>
-                <Loader2 className="text-signal-orange mx-auto h-8 w-8 animate-spin" />
-                <p className="text-muted-foreground text-sm">
-                  Analyzing actor and generating variants…
-                </p>
-              </>
-            ) : (
-              <>
-                <Sparkles className="text-signal-orange/50 mx-auto h-10 w-10" />
-                <p className="text-muted-foreground text-sm">
-                  Click below to generate 3 variants — outcome-led, use-case-led, and feature-led.
-                </p>
-                <Button onClick={generate} size="lg" variant="gradient">
-                  <Sparkles className="h-4 w-4" />
-                  Generate variants
-                </Button>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {keywords.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 text-xs">
-                <span className="text-muted-foreground">Keywords:</span>
-                {keywords.map((k) => (
-                  <Badge key={k} variant="outline">
-                    {k}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {variants.map((v, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setSelected(i)}
-                className={cn(
-                  "block w-full rounded-lg border p-4 text-left transition-all",
-                  selected === i
-                    ? "border-signal-orange bg-signal-orange/5 shadow-glow"
-                    : "border-border/60 hover:border-signal-orange/40",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-signal-orange text-xs font-semibold uppercase tracking-wider">
-                      Variant {i + 1}
-                    </p>
-                    <p className="mt-1 font-semibold">{v.title}</p>
-                    <p className="text-muted-foreground mt-1 text-xs">{v.description}</p>
-                    <div className="mt-2 space-y-1 text-xs">
-                      <p>
-                        <span className="text-muted-foreground">SEO title: </span>
-                        <span className="font-mono">{v.seoTitle}</span>
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">SEO desc: </span>
-                        <span className="font-mono">{v.seoDescription}</span>
+        <div className="min-h-0 space-y-4 overflow-y-auto p-5 sm:p-6">
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+            >
+              {error}
+            </p>
+          ) : null}
+          {applied ? (
+            <div className="flex items-start gap-3 py-5">
+              <Check className="h-6 w-6 shrink-0 text-signal-green" />
+              <p>
+                Selected listing fields are saved on Apify. Open the Actor’s History tab to review
+                the applied copy.
+              </p>
+            </div>
+          ) : review && draft && current ? (
+            <div className="space-y-5">
+              <p className="text-sm text-muted-foreground">
+                Only checked fields will change. If someone edits this listing in Apify, you will be
+                asked to generate fresh variants.
+              </p>
+              {fields.map(({ key, label, limit }) => (
+                <section key={key} className="min-w-0 rounded-md border p-3 sm:p-4">
+                  <label className="mb-3 flex min-h-11 items-center gap-2 text-sm font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={selectedFields.includes(key)}
+                      disabled={updating}
+                      onChange={(e) =>
+                        setSelectedFields((old) =>
+                          e.target.checked ? [...old, key] : old.filter((field) => field !== key),
+                        )
+                      }
+                    />
+                    {label}
+                  </label>
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <p className="mb-2 text-xs text-muted-foreground">Current on Apify</p>
+                      <p className="whitespace-pre-wrap break-words text-sm">
+                        {current[key] || "Not set"}
                       </p>
                     </div>
-                    <p className="text-muted-foreground mt-2 text-xs italic">{v.reasoning}</p>
+                    <div className="min-w-0">
+                      <Label htmlFor={`copy-${key}`}>
+                        Proposed {label.startsWith("SEO") ? label : label.toLowerCase()}
+                      </Label>
+                      <Textarea
+                        id={`copy-${key}`}
+                        value={draft[key]}
+                        maxLength={limit}
+                        disabled={updating || !selectedFields.includes(key)}
+                        onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+                        className="mt-2"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {draft[key].length}/{limit} characters
+                      </p>
+                    </div>
                   </div>
-                  {selected === i && <Check className="text-signal-orange h-5 w-5 shrink-0" />}
+                </section>
+              ))}
+            </div>
+          ) : variants.length ? (
+            <div className="space-y-3">
+              {keywords.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {keywords.map((word) => (
+                    <Badge key={word} variant="outline">
+                      {word}
+                    </Badge>
+                  ))}
                 </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <DialogFooter>
-          {variants.length > 0 && (
+              ) : null}
+              {variants.map((variant, index) => (
+                <button
+                  type="button"
+                  key={index}
+                  aria-pressed={selected === index}
+                  onClick={() => {
+                    setSelected(index);
+                    setDraft(variant);
+                  }}
+                  className={cn(
+                    "block w-full min-w-0 rounded-md border p-4 text-left",
+                    selected === index && "bg-signal-orange/5 border-signal-orange",
+                  )}
+                >
+                  <p className="text-xs font-semibold text-signal-orange">
+                    Variant {index + 1}
+                    {selected === index ? " · Selected" : ""}
+                  </p>
+                  <p className="mt-1 break-words font-semibold">{variant.title}</p>
+                  <p className="mt-2 break-words text-sm text-muted-foreground">
+                    {variant.description}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">{variant.reasoning}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4 py-6 text-center">
+              {loading ? (
+                <>
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-signal-orange" />
+                  <p role="status">Analyzing actor and generating variants…</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Generate three variants covering different ways to describe this Actor. Nothing
+                    changes on Apify until you review and apply.
+                  </p>
+                  <Button onClick={() => void generate()} variant="gradient">
+                    Generate variants
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <DialogFooter className="shrink-0 border-t bg-card p-4 sm:p-5">
+          {applied ? (
+            <Button onClick={() => changeOpen(false)}>Done</Button>
+          ) : (
             <>
-              <Button variant="outline" onClick={generate} disabled={loading}>
-                Regenerate
-              </Button>
               <Button
-                onClick={updateActor}
-                disabled={selected === null || updating}
-                variant="gradient"
+                variant="outline"
+                disabled={updating}
+                onClick={() => (review ? setReview(false) : changeOpen(false))}
               >
-                {updating ? "Updating…" : "Update Actor"}
-                <ArrowRight className="h-4 w-4" />
+                {review ? "Back to variants" : "Cancel"}
               </Button>
+              {variants.length && !review ? (
+                <>
+                  <Button variant="outline" disabled={loading} onClick={() => void generate()}>
+                    Regenerate
+                  </Button>
+                  <Button
+                    disabled={selected === null}
+                    onClick={() => setReview(true)}
+                    variant="gradient"
+                  >
+                    Review changes
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : null}
+              {review ? (
+                <Button
+                  onClick={() => void updateActor()}
+                  disabled={updating || !selectedFields.length}
+                  variant="gradient"
+                >
+                  {updating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Applying and verifying…
+                    </>
+                  ) : (
+                    "Apply selected fields"
+                  )}
+                </Button>
+              ) : null}
             </>
           )}
         </DialogFooter>

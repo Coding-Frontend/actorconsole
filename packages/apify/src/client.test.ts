@@ -254,6 +254,192 @@ describe("ApifyClientWrapper marketplace publishing", () => {
     expect(result.actor.title).toBe("New title");
   });
 
+  it.each(["seoTitle", "seoDescription"] as const)(
+    "rejects a %s verification mismatch",
+    async (field) => {
+      actorGet.mockResolvedValue(actor({ seoTitle: "Old SEO", seoDescription: "Old description" }));
+      vi.mocked(fetch).mockResolvedValueOnce(Response.json({ data: {} }));
+      await expect(
+        createApifyClient({ token: "fixture" }).updateActorMetadata("actor-1", {
+          [field]: "Changed SEO value",
+        }),
+      ).rejects.toMatchObject({ status: 502 });
+    },
+  );
+
+  it("writes requested SEO values instead of restoring the old preserved values", async () => {
+    actorGet
+      .mockResolvedValueOnce(actor({ seoTitle: "Old SEO", seoDescription: "Old meta" }))
+      .mockResolvedValueOnce(actor({ seoTitle: "New SEO", seoDescription: "New meta" }));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ data: {} }));
+    const result = await createApifyClient({ token: "fixture" }).updateActorMetadata("actor-1", {
+      seoTitle: "New SEO",
+      seoDescription: "New meta",
+    });
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body))).toMatchObject({
+      seoTitle: "New SEO",
+      seoDescription: "New meta",
+    });
+    expect(result.verified).toBe(true);
+  });
+
+  it("normalizes SDK pricing dates at the Actor read boundary", async () => {
+    actorGet.mockResolvedValueOnce(
+      actor({
+        pricingInfos: [
+          { pricingModel: "PAY_PER_EVENT", startedAt: new Date("2025-01-01T00:00:00.000Z") },
+        ],
+      }),
+    );
+    const result = await createApifyClient({ token: "fixture" }).getActor("actor-1");
+    expect(result?.pricingInfos?.[0].startedAt).toBe("2025-01-01T00:00:00.000Z");
+  });
+
+  it("rejects copy generated before a newer external edit, without writing", async () => {
+    actorGet.mockResolvedValue(
+      actor({ title: "Newer external edit", seoTitle: null, seoDescription: null }),
+    );
+    await expect(
+      createApifyClient({ token: "fixture" }).updateActorMetadata("actor-1", {
+        title: "Generated title",
+        expectedCopy: {
+          title: "Current title",
+          description: "Current description",
+          seoTitle: null,
+          seoDescription: null,
+        },
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves billing settings and all tiers when appending a changed tier price", async () => {
+    const existing = {
+      pricingModel: "PAY_PER_EVENT" as const,
+      startedAt: "2025-01-01T00:00:00.000Z",
+      minimalMaxTotalChargeUsd: 2,
+      isPPEPlatformUsagePaidByUser: false,
+      isPriceChangeNotificationSuppressed: true,
+      apifyMarginPercentage: 0.15,
+      pricingPerEvent: {
+        actorChargeEvents: {
+          result: {
+            eventTitle: "Result",
+            eventTieredPricingUsd: {
+              FREE: { tieredEventPriceUsd: 0.01 },
+              GOLD: { tieredEventPriceUsd: 0.005 },
+            },
+          },
+        },
+      },
+    };
+    const requested = {
+      pricingModel: "PAY_PER_EVENT" as const,
+      pricingPerEvent: {
+        actorChargeEvents: {
+          result: {
+            eventTitle: "Result",
+            eventTieredPricingUsd: {
+              FREE: { tieredEventPriceUsd: 0.01 },
+              GOLD: { tieredEventPriceUsd: 0.003 },
+            },
+          },
+        },
+      },
+    };
+    const startedAt = "2030-01-01T00:00:00.000Z";
+    actorGet
+      .mockResolvedValueOnce(actor({ pricingInfos: [existing] }))
+      .mockResolvedValueOnce(
+        actor({ pricingInfos: [existing, { ...existing, ...requested, startedAt }] }),
+      );
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ data: {} }));
+    const result = await createApifyClient({ token: "fixture" }).appendActorPricing(
+      "actor-1",
+      requested,
+      { startedAt },
+    );
+    const payload = JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body));
+    expect(payload.pricingInfos[0]).toEqual(existing);
+    expect(payload.pricingInfos[1]).toMatchObject({ ...existing, ...requested, startedAt });
+    expect(result.changed).toBe(true);
+  });
+
+  it("keeps an identical pending period as a no-op and rejects a second future period before writing", async () => {
+    const pricing = {
+      pricingModel: "PAY_PER_EVENT" as const,
+      pricingPerEvent: {
+        actorChargeEvents: { result: { eventTitle: "Result", eventPriceUsd: 0.01 } },
+      },
+    };
+    actorGet.mockResolvedValue(
+      actor({ pricingInfos: [{ ...pricing, startedAt: "2030-01-01T00:00:00.000Z" }] }),
+    );
+    const client = createApifyClient({ token: "fixture" });
+    await expect(client.appendActorPricing("actor-1", pricing)).resolves.toMatchObject({
+      changed: false,
+      startedAt: "2030-01-01T00:00:00.000Z",
+    });
+    await expect(
+      client.appendActorPricing("actor-1", {
+        ...pricing,
+        pricingPerEvent: {
+          actorChargeEvents: { result: { eventTitle: "Result", eventPriceUsd: 0.02 } },
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "validation",
+      status: 422,
+      message: expect.stringContaining("already has a pricing change scheduled"),
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a saved pricing period that silently changed a subscription tier", async () => {
+    const requested = {
+      pricingModel: "PAY_PER_EVENT" as const,
+      pricingPerEvent: {
+        actorChargeEvents: {
+          result: {
+            eventTitle: "Result",
+            eventTieredPricingUsd: {
+              FREE: { tieredEventPriceUsd: 0.01 },
+              GOLD: { tieredEventPriceUsd: 0.003 },
+            },
+          },
+        },
+      },
+    };
+    const startedAt = "2030-01-01T00:00:00.000Z";
+    actorGet.mockResolvedValueOnce(actor()).mockResolvedValueOnce(
+      actor({
+        pricingInfos: [
+          {
+            ...requested,
+            startedAt,
+            pricingPerEvent: {
+              actorChargeEvents: {
+                result: {
+                  ...requested.pricingPerEvent.actorChargeEvents.result,
+                  eventTieredPricingUsd: {
+                    FREE: { tieredEventPriceUsd: 0.01 },
+                    GOLD: { tieredEventPriceUsd: 0.005 },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      }),
+    );
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ data: {} }));
+    await expect(
+      createApifyClient({ token: "fixture" }).appendActorPricing("actor-1", requested, {
+        startedAt,
+      }),
+    ).rejects.toMatchObject({ status: 502 });
+  });
+
   it("maps the display name from the nested users/me profile", async () => {
     userGet.mockResolvedValueOnce({
       id: "apify-account",

@@ -36,6 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { BulkPublishingHeader } from "@/components/dashboard/bulk-publishing-header";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
+import { useWorkspaceAccess } from "@/components/dashboard/workspace-access-context";
 import { DEFAULT_PAGE_SIZE, normalizePageSize } from "@/lib/page-size";
 import {
   DashboardAsyncState,
@@ -165,8 +166,29 @@ function operationIcon(status: ActorOperationState) {
 }
 
 export function BulkPublishingWorkspace() {
+  const { access } = useWorkspaceAccess();
+  const workspaceId = access?.workspaceId ?? undefined;
   const [actors, setActors] = useState<ActorItem[]>([]);
-  const [selected, setSelected] = useState<Map<string, ActorItem>>(new Map());
+  const [selection, setSelection] = useState<{
+    workspaceId: string | undefined;
+    actors: Map<string, ActorItem>;
+  }>({ workspaceId, actors: new Map() });
+  const selected =
+    selection.workspaceId === workspaceId ? selection.actors : new Map<string, ActorItem>();
+  const setSelected = useCallback(
+    (
+      next: Map<string, ActorItem> | ((current: Map<string, ActorItem>) => Map<string, ActorItem>),
+    ) => {
+      setSelection((old) => ({
+        workspaceId,
+        actors:
+          typeof next === "function"
+            ? next(old.workspaceId === workspaceId ? old.actors : new Map())
+            : next,
+      }));
+    },
+    [workspaceId],
+  );
   const [queryInput, setQueryInput] = useState(() => publishingParam("q") ?? "");
   const [query, setQuery] = useState(() => publishingParam("q") ?? "");
   const [status, setStatus] = useState<StoreFilter>(initialStoreFilter);
@@ -191,8 +213,8 @@ export function BulkPublishingWorkspace() {
 
   const clearSelection = useCallback(() => {
     setSelected(new Map());
-    savePublishingSelection([]);
-  }, []);
+    savePublishingSelection([], workspaceId);
+  }, [workspaceId, setSelected]);
 
   // Inventory selections are intentionally scoped to the current view. The
   // session value only exists long enough to hand the current selection to the
@@ -208,8 +230,9 @@ export function BulkPublishingWorkspace() {
   }, [clearSelection]);
 
   useEffect(() => {
-    savePublishingSelection([...selected.values()]);
-  }, [selected]);
+    if (selection.workspaceId === workspaceId)
+      savePublishingSelection([...selection.actors.values()], workspaceId);
+  }, [selection, workspaceId]);
 
   const load = useCallback(async () => {
     const currentRequest = ++requestId.current;
@@ -583,10 +606,10 @@ export function BulkPublishingWorkspace() {
       />
 
       {operation ? (
-        <section className="border-border bg-card overflow-hidden rounded-md border shadow-sm">
-          <div className="border-border bg-muted/20 flex flex-col gap-4 border-b px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+        <section className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+          <div className="flex flex-col gap-4 border-b border-border bg-muted/20 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className="bg-signal-blue/10 text-signal-blue mt-0.5 flex h-9 w-9 items-center justify-center rounded-sm">
+              <div className="bg-signal-blue/10 mt-0.5 flex h-9 w-9 items-center justify-center rounded-sm text-signal-blue">
                 {operation.active ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : operation.failed ? (
@@ -597,13 +620,13 @@ export function BulkPublishingWorkspace() {
               </div>
               <div>
                 <p className="font-display-tight text-lg">{operation.label}</p>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {operation.active
                     ? `${operation.completed} of ${operation.total} complete · ${Object.values(operation.items).filter((item) => item.state === "RUNNING").length} running`
                     : `Finished with ${operation.succeeded} successful and ${operation.failed} failed`}
                 </p>
                 {operation.error ? (
-                  <p className="text-destructive mt-1.5 max-w-2xl text-xs">{operation.error}</p>
+                  <p className="mt-1.5 max-w-2xl text-xs text-destructive">{operation.error}</p>
                 ) : null}
               </div>
             </div>
@@ -626,17 +649,17 @@ export function BulkPublishingWorkspace() {
               </div>
             ) : null}
           </div>
-          <div className="bg-muted/40 h-1.5">
+          <div className="h-1.5 bg-muted/40">
             <div
-              className="bg-signal-blue h-full transition-[width] duration-500 ease-out"
+              className="h-full bg-signal-blue transition-[width] duration-500 ease-out"
               style={{
                 width: `${operation.total ? (operation.completed / operation.total) * 100 : 0}%`,
               }}
             />
           </div>
-          <div className="bg-border grid max-h-64 gap-px overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid max-h-64 gap-px overflow-y-auto bg-border sm:grid-cols-2 xl:grid-cols-3">
             {Object.entries(operation.items).map(([actorId, item]) => (
-              <div key={actorId} className="bg-card flex min-w-0 items-start gap-3 px-4 py-3">
+              <div key={actorId} className="flex min-w-0 items-start gap-3 bg-card px-4 py-3">
                 <span
                   className={`mt-0.5 ${
                     item.state === "SUCCEEDED"
@@ -652,11 +675,11 @@ export function BulkPublishingWorkspace() {
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{item.label}</p>
-                  <p className="text-muted-foreground mt-0.5 truncate font-mono text-[10px] uppercase tracking-wide">
+                  <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
                     {item.state}
                   </p>
                   {item.error ? (
-                    <p className="text-destructive mt-1 line-clamp-2 text-xs">{item.error}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-destructive">{item.error}</p>
                   ) : null}
                 </div>
               </div>
@@ -665,14 +688,14 @@ export function BulkPublishingWorkspace() {
         </section>
       ) : null}
 
-      <section className="border-border bg-card overflow-visible rounded-md border shadow-sm">
-        <div className="border-border flex flex-col gap-4 border-b p-4 sm:p-5 xl:flex-row xl:items-end xl:justify-between">
+      <section className="overflow-visible rounded-md border border-border bg-card shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-border p-4 sm:p-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <CircleDashed className="text-signal-orange h-4 w-4" />
+              <CircleDashed className="h-4 w-4 text-signal-orange" />
               <h2 className="font-display-tight text-xl">Actor inventory</h2>
             </div>
-            <p className="text-muted-foreground mt-1.5 text-sm">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               Inspect Store state and apply controlled changes across your portfolio.
             </p>
           </div>
@@ -694,10 +717,10 @@ export function BulkPublishingWorkspace() {
           </Button>
         </div>
 
-        <div className="dashboard-filter-rail border-border bg-card/95 flex flex-col gap-3 border-b p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="dashboard-filter-rail flex flex-col gap-3 border-b border-border bg-card/95 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
           <form onSubmit={submitSearch} className="flex min-w-0 flex-1 gap-2 xl:max-w-xl">
             <div className="relative min-w-0 flex-1">
-              <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={queryInput}
                 onChange={(event) => setQueryInput(event.target.value)}
@@ -765,8 +788,8 @@ export function BulkPublishingWorkspace() {
         </div>
 
         {!loading && total > actors.length && selected.size === 0 ? (
-          <div className="border-border bg-muted/15 flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <p className="text-muted-foreground text-xs">
+          <div className="flex flex-col gap-2 border-b border-border bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-xs text-muted-foreground">
               The checkbox selects this page. Select all to include every result across pagination.
             </p>
             <Button
@@ -782,7 +805,7 @@ export function BulkPublishingWorkspace() {
         ) : null}
 
         {selected.size > 0 ? (
-          <div className="border-border border-b px-4 py-3 sm:px-5">
+          <div className="border-b border-border px-4 py-3 sm:px-5">
             <SelectionActionBar
               count={selected.size}
               noun="Actor"
@@ -864,11 +887,11 @@ export function BulkPublishingWorkspace() {
 
         {refreshJobId || revalidating ? (
           <div
-            className="border-border/70 bg-signal-blue/[0.035] text-muted-foreground flex items-center gap-2 border-b px-4 py-2 text-xs sm:px-5"
+            className="bg-signal-blue/[0.035] flex items-center gap-2 border-b border-border/70 px-4 py-2 text-xs text-muted-foreground sm:px-5"
             role="status"
             aria-live="polite"
           >
-            <Loader2 className="text-signal-blue h-3.5 w-3.5 shrink-0 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-signal-blue" />
             <span>
               {refreshJobId
                 ? refreshProgress?.total
@@ -889,7 +912,7 @@ export function BulkPublishingWorkspace() {
         ) : null}
 
         {loading ? (
-          <div className="bg-border space-y-px">
+          <div className="space-y-px bg-border">
             {Array.from({ length: 4 }).map((_, index) => (
               <Skeleton key={index} className="h-14 w-full rounded-none" />
             ))}
@@ -904,15 +927,15 @@ export function BulkPublishingWorkspace() {
           />
         ) : actors.length === 0 ? (
           <div className="px-6 py-20 text-center">
-            <Wrench className="text-muted-foreground mx-auto h-6 w-6" />
+            <Wrench className="mx-auto h-6 w-6 text-muted-foreground" />
             <p className="mt-4 font-medium">No Actors match this view</p>
-            <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
+            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
               Change the search or status filter, or refresh your inventory from Apify.
             </p>
           </div>
         ) : (
           <>
-            <div className="divide-border divide-y md:hidden">
+            <div className="divide-y divide-border md:hidden">
               {actors.map((actor) => {
                 const isSelected = selected.has(actor.id);
                 const issues = readinessIssues(actor);
@@ -927,13 +950,13 @@ export function BulkPublishingWorkspace() {
                         checked={isSelected}
                         onChange={() => toggle(actor)}
                         aria-label={`Select ${actor.title ?? actor.actorName}`}
-                        className="accent-signal-orange mt-1 h-4 w-4"
+                        className="mt-1 h-4 w-4 accent-signal-orange"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold">
                           {actor.title ?? actor.actorName}
                         </p>
-                        <p className="text-muted-foreground mt-0.5 truncate font-mono text-[11px]">
+                        <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
                           {actor.username}/{actor.actorName}
                         </p>
                       </div>
@@ -955,7 +978,7 @@ export function BulkPublishingWorkspace() {
                         {issues.length === 0 ? "Ready" : `${issues.length} readiness issues`}
                       </Badge>
                     </div>
-                    <p className="text-muted-foreground mt-3 pl-7 text-[11px]">
+                    <p className="mt-3 pl-7 text-[11px] text-muted-foreground">
                       Verified {formatDate(actor.readinessSyncedAt ?? actor.storeStatusSyncedAt)}
                     </p>
                   </label>
@@ -964,7 +987,7 @@ export function BulkPublishingWorkspace() {
             </div>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[1080px] text-sm">
-                <thead className="bg-muted/35 text-muted-foreground border-border border-b text-left font-mono text-[10px] uppercase tracking-[0.14em]">
+                <thead className="border-b border-border bg-muted/35 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                   <tr>
                     <th className="w-14 px-5 py-3">
                       <input
@@ -972,7 +995,7 @@ export function BulkPublishingWorkspace() {
                         checked={allVisibleSelected}
                         onChange={toggleVisible}
                         aria-label="Select all visible Actors"
-                        className="accent-signal-orange h-4 w-4"
+                        className="h-4 w-4 accent-signal-orange"
                       />
                     </th>
                     <th className="px-4 py-3 font-medium">Actor</th>
@@ -981,7 +1004,7 @@ export function BulkPublishingWorkspace() {
                     <th className="px-4 py-3 font-medium">Last verified</th>
                   </tr>
                 </thead>
-                <tbody className="divide-border divide-y">
+                <tbody className="divide-y divide-border">
                   {actors.map((actor) => {
                     const isSelected = selected.has(actor.id);
                     return (
@@ -995,19 +1018,19 @@ export function BulkPublishingWorkspace() {
                             checked={isSelected}
                             onChange={() => toggle(actor)}
                             aria-label={`Select ${actor.title ?? actor.actorName}`}
-                            className="accent-signal-orange h-4 w-4"
+                            className="h-4 w-4 accent-signal-orange"
                           />
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
-                            <div className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border font-mono text-xs font-semibold">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border bg-muted font-mono text-xs font-semibold text-muted-foreground">
                               {(actor.title ?? actor.actorName).slice(0, 2).toUpperCase()}
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-medium">
                                 {actor.title ?? actor.actorName}
                               </p>
-                              <p className="text-muted-foreground mt-0.5 truncate font-mono text-[11px]">
+                              <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
                                 {actor.username}/{actor.actorName}
                               </p>
                             </div>
@@ -1044,7 +1067,7 @@ export function BulkPublishingWorkspace() {
                             </div>
                           )}
                         </td>
-                        <td className="text-muted-foreground px-4 py-3.5 text-xs">
+                        <td className="px-4 py-3.5 text-xs text-muted-foreground">
                           {formatDate(actor.readinessSyncedAt ?? actor.storeStatusSyncedAt)}
                         </td>
                       </tr>
@@ -1056,15 +1079,15 @@ export function BulkPublishingWorkspace() {
           </>
         )}
 
-        <div className="border-border flex flex-col gap-3 border-t px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <p className="text-muted-foreground text-xs">
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="text-xs text-muted-foreground">
             {total
               ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`
               : "No results"}
             {selected.size ? ` · ${selected.size} selected across pages` : ""}
           </p>
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground mr-1 text-xs">
+            <span className="mr-1 text-xs text-muted-foreground">
               Page {page} of {totalPages}
             </span>
             <Button
