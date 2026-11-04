@@ -1475,6 +1475,15 @@ describe("Actor routes", () => {
   });
 
   describe("POST /actors/sync", () => {
+    it.each([false, true])("preserves omitted listing fields and accepts explicit removals (available=%s)", async (available) => {
+      const saved = { title: "Reviewed title", description: "Reviewed description", currentImageUrl: "https://images.test/applied.webp", hasDescription: true };
+      mockGetUserApifyClient.mockResolvedValueOnce({ listMyActors: vi.fn().mockResolvedValueOnce([{ id: "ap1", name: "actor1", username: "user1", title: null, description: null, pictureUrl: null, listingMetadataAvailable: { title: available, description: available, pictureUrl: available } }]) });
+      mockUpsert.mockImplementationOnce(async ({ update }) => Object.assign(saved, update));
+      const response = await buildApp().request("/actors/sync", { method: "POST" });
+      expect(response.status).toBe(200);
+      expect(saved).toMatchObject(available ? { title: null, description: null, currentImageUrl: null, hasDescription: false } : { title: "Reviewed title", description: "Reviewed description", currentImageUrl: "https://images.test/applied.webp", hasDescription: true });
+    });
+
     it("reconciles an empty Apify inventory and resets the active actor count", async () => {
       mockGetUserApifyClient.mockResolvedValueOnce({ listMyActors: vi.fn().mockResolvedValue([]) });
       const res = await buildApp().request("/actors/sync", { method: "POST" });

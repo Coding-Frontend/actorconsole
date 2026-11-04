@@ -29,6 +29,7 @@ import {
   analyzeActorPublishReadiness,
   type ActorPublishReadiness,
   publishingJobSchema,
+  actorListingUpdate,
 } from "@actorconsole/shared";
 import { initOpenTelemetry } from "@actorconsole/shared/telemetry";
 import { assertWorkspacePlanAccess } from "./lib/plan-access.js";
@@ -1038,7 +1039,8 @@ async function refreshWorkspacePublishingInventory(
               storeStatusSyncedAt: syncedAt,
             }
           : {};
-        const readinessData = {
+        const listingData = actorListingUpdate(source);
+        const readinessData: Partial<ReturnType<typeof actorReadinessData>> = {
           ...actorReadinessData(artifactReadiness),
           hasDescription: Boolean(description?.trim()),
           // Category assignment is display-only and never gates publication.
@@ -1067,6 +1069,7 @@ async function refreshWorkspacePublishingInventory(
                 }
               : {}),
         };
+        if (listingData.hasDescription === undefined) delete readinessData.hasDescription;
 
         await db.actor.upsert({
           where: {
@@ -1092,9 +1095,7 @@ async function refreshWorkspacePublishingInventory(
             userId: input.userId,
             username: source.username ?? actor.username,
             actorName: source.name ?? actor.name,
-            title: source.title ?? actor.title,
-            description,
-            currentImageUrl: source.pictureUrl ?? actor.pictureUrl,
+            ...listingData,
             ...(pricing ? { currentPricing: pricing as unknown as Prisma.InputJsonValue } : {}),
             ...statusData,
             ...readinessData,
@@ -1179,9 +1180,7 @@ async function bootstrapWorkspaceInsights(
             update: {
               username: actor.username,
               actorName: actor.name,
-              title: actor.title,
-              description: actor.description,
-              currentImageUrl: actor.pictureUrl,
+              ...actorListingUpdate(actor),
               ...(pricing ? { currentPricing: pricing as unknown as Prisma.InputJsonValue } : {}),
               ...(actor.storeStatusAvailable
                 ? {
