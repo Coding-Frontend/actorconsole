@@ -1,8 +1,6 @@
 {
     "extends": "@actorconsole/config/tsconfig/nextjs.json",
     "compilerOptions": {
-        "baseUrl": ".",
-        "ignoreDeprecations": "5.0",
         "paths": {
             "@/*": [
                 "./src/*"
