@@ -101,9 +101,14 @@ describe("ActorActions", () => {
   });
 
   it("opens the direct pricing editor instead of starting an AI generation run", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ ok: true, data: null }), { status: 200 }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        ok: true,
+        data: String(input).endsWith("/pricing/recommendation")
+          ? null
+          : { periods: [], active: null, scheduled: [], earliestStartsAt: "2026-11-05T00:00:00Z" },
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     render(
       <ActorActions
@@ -124,8 +129,25 @@ describe("ActorActions", () => {
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(screen.getByDisplayValue("result")).toBeTruthy();
     expect(screen.getByDisplayValue("0.002")).toBeTruthy();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(String(fetchMock.mock.calls[0][0])).toContain("/actors/apify-id/pricing/recommendation");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const requests = fetchMock.mock.calls.map(([input, init]) => ({
+      path: new URL(String(input), "http://localhost").pathname,
+      method: init?.method ?? "GET",
+    }));
+    expect(requests).toContainEqual({
+      path: expect.stringMatching(/\/actors\/apify-id\/pricing$/),
+      method: "GET",
+    });
+    expect(requests).toContainEqual({
+      path: expect.stringMatching(/\/actors\/apify-id\/pricing\/recommendation$/),
+      method: "GET",
+    });
+    expect(
+      requests.every(
+        ({ path, method }) =>
+          /\/actors\/apify-id\/pricing(?:\/recommendation)?$/.test(path) && method === "GET",
+      ),
+    ).toBe(true);
     expect(routerPush).not.toHaveBeenCalled();
   });
 
