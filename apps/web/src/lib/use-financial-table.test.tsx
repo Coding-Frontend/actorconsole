@@ -16,6 +16,32 @@ const details = {
 };
 
 describe("financial report details", () => {
+  it("reuses an expired snapshot's replacement for subsequent pagination", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify({
+            data: {
+              items: [{ key: "row" }],
+              total: 100,
+              page: 1,
+              pageSize: 25,
+              snapshotId: "replacement",
+            },
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { result, rerender } = renderHook(
+      ({ page }) => useFinancialTable("costs", details, "", page, 25, "direct", "desc"),
+      { initialProps: { page: 1 } },
+    );
+    await waitFor(() => expect(result.current.data?.snapshotId).toBe("replacement"));
+    rerender({ page: 2 });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("snapshotId=replacement");
+  });
+
   it("exports every filtered page and pins requests to the selected workspace", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const params = new URL(String(input), "https://actorconsole.com").searchParams;
@@ -51,6 +77,7 @@ describe("financial report details", () => {
       String(input).includes("pageSize=500"),
     );
     expect(exports).toHaveLength(2);
+    expect(String(exports[0]![0])).toContain("snapshotId=reused");
     expect(String(exports[1]![0])).toContain("snapshotId=reused");
     expect(String(exports[1]![0])).toContain("q=maps");
     expect(fetchMock).toHaveBeenCalledWith(

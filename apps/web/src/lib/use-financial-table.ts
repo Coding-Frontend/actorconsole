@@ -29,6 +29,7 @@ export function useFinancialTable(
   } | null>(null);
   const exportController = useRef<AbortController | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+  const latestSnapshot = useRef<{ origin: string; id: string } | null>(null);
   useEffect(() => {
     const switching = () => {
       activeRequest.current?.abort();
@@ -61,7 +62,11 @@ export function useFinancialTable(
     activeRequest.current = controller;
     void (async () => {
       try {
-        const response = await fetch(url, {
+        const requestParams = new URLSearchParams(url.slice(url.indexOf("?") + 1));
+        if (latestSnapshot.current?.origin === details.snapshotId) {
+          requestParams.set("snapshotId", latestSnapshot.current.id);
+        }
+        const response = await fetch(`${url.slice(0, url.indexOf("?"))}?${requestParams}`, {
           credentials: "include",
           cache: "no-store",
           headers: details.workspaceId ? { "x-business-profile-id": details.workspaceId } : {},
@@ -69,7 +74,12 @@ export function useFinancialTable(
         });
         if (!response.ok) throw new Error("Could not load report details");
         const body = await response.json();
-        if (!controller.signal.aborted) setResult({ key, data: body.data });
+        if (!controller.signal.aborted) {
+          // Keep the request identity stable while reusing replacements after
+          // expiration, eviction, or a different API replica's cache miss.
+          latestSnapshot.current = { origin: details.snapshotId, id: body.data.snapshotId };
+          setResult({ key, data: body.data });
+        }
       } catch (error) {
         if (!controller.signal.aborted)
           setResult({
@@ -100,6 +110,9 @@ export function useFinancialTable(
       exportController.current = controller;
       const rows: FinancialTablePage["items"] = [];
       const exportParams = new URLSearchParams(params);
+      if (latestSnapshot.current?.origin === details.snapshotId) {
+        exportParams.set("snapshotId", latestSnapshot.current.id);
+      }
       exportParams.set("pageSize", "500");
       let nextPage = 1;
       do {

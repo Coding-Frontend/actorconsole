@@ -73,7 +73,15 @@ async function prepare(options: Options) {
           : "total";
   const rows = financialTableRows(data, options.kind, table);
   const snapshotId = randomUUID();
-  const snapshot = { scope: scope(options), criteria: criteria(options.query), rows };
+  // Pin default ranges to the report's actual UTC dates, including when the
+  // next detail request arrives after midnight or a snapshot has expired.
+  const snapshot = {
+    scope: scope(options),
+    criteria: criteria((key) =>
+      key === "from" ? data.filters?.from : key === "to" ? data.filters?.to : options.query(key),
+    ),
+    rows,
+  };
   snapshots.set(snapshotId, snapshot, 120_000);
   const usageTotals = usageActorTotalRows(data).reduce(
     (sum, row) => ({
