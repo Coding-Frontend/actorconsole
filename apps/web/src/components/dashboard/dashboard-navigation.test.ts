@@ -68,6 +68,7 @@ describe("dashboard navigation", () => {
   it("exposes account destinations as first-class pages", () => {
     expect(accountNavigation.map((item) => item.label)).toEqual([
       "Profile",
+      "Security",
       "Notification preferences",
       "Billing",
       "Payment history",

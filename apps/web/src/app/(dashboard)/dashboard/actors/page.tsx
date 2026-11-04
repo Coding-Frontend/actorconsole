@@ -1,5 +1,5 @@
 import { ActorsWorkspace } from "@/components/dashboard/actors-workspace";
-import { History, Search } from "lucide-react";
+import { History, ImageIcon, Search } from "lucide-react";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
 import { LogoRecommendations } from "@/components/dashboard/logo-recommendations";
 
@@ -17,6 +17,11 @@ export default async function ActorsPage({
         description="Find, evaluate, and improve the Actors connected to this workspace."
         breadcrumbs={[{ label: "Workspace" }, { label: "Actors" }]}
         secondaryActions={[
+          {
+            label: "Logo review",
+            href: "/dashboard/actors/logos",
+            icon: <ImageIcon className="h-3.5 w-3.5" />,
+          },
           {
             label: "Keyword research",
             href: "/dashboard/keywords",

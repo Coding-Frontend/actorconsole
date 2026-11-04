@@ -6,12 +6,28 @@ import { useRouter } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
+import { useSessionDraft } from "@/lib/use-session-draft";
 
 const apiBase = API_BASE_URL;
 
-export function TicketReplyBox({ ticketId }: { ticketId: string }) {
+const emptyReply = { body: "" };
+function validReply(value: unknown): value is typeof emptyReply {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    typeof (value as typeof emptyReply).body === "string" &&
+    (value as typeof emptyReply).body.length <= 10000,
+  );
+}
+
+export function TicketReplyBox({ ticketId, userId }: { ticketId: string; userId: string }) {
   const router = useRouter();
-  const [body, setBody] = useState("");
+  const draft = useSessionDraft(
+    `actorconsole:support-reply:${userId}:${ticketId}`,
+    emptyReply,
+    validReply,
+  );
+  const body = draft.value.body;
   const [busy, setBusy] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +54,7 @@ export function TicketReplyBox({ ticketId }: { ticketId: string }) {
         setError(j?.error?.message ?? `Failed (${r.status})`);
         return;
       }
-      if (draftVersion.current === submittedVersion) setBody("");
+      if (draftVersion.current === submittedVersion) draft.clear();
       startTransition(() => router.refresh());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send the reply. Try again.");
@@ -62,6 +78,7 @@ export function TicketReplyBox({ ticketId }: { ticketId: string }) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j?.error?.message ?? `Could not close the ticket (${r.status}).`);
       }
+      draft.clear();
       startTransition(() => router.refresh());
     } finally {
       pending.current = false;
@@ -70,22 +87,50 @@ export function TicketReplyBox({ ticketId }: { ticketId: string }) {
   }
 
   return (
-    <div className="border-border/40 space-y-2 border-t pt-4">
-      <label htmlFor={replyId} className="sr-only">Reply</label>
+    <div className="space-y-2 border-t border-border/40 pt-4">
+      {draft.dirty || draft.restored ? (
+        <p role="status" className="text-xs text-muted-foreground">
+          {draft.storageAvailable
+            ? "Your reply draft is saved in this tab."
+            : "Draft saving is unavailable. Copy your reply before leaving this page."}
+        </p>
+      ) : null}
+      <label htmlFor={replyId} className="sr-only">
+        Reply
+      </label>
       <textarea
         id={replyId}
         value={body}
-        onChange={(e) => { draftVersion.current++; setBody(e.target.value); }}
+        onChange={(e) => {
+          draftVersion.current++;
+          draft.setValue({ body: e.target.value });
+        }}
+        disabled={!draft.ready}
+        maxLength={10000}
         rows={4}
         placeholder="Write a reply…"
-        className="border-input bg-background focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ring"
       />
-      {error && <p role="alert" className="text-destructive text-xs">{error}</p>}
-      <div className="flex justify-between">
-        <Button type="button" variant="ghost" onClick={() => setCloseOpen(true)} disabled={busy}>
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11"
+          onClick={() => setCloseOpen(true)}
+          disabled={busy || !draft.ready}
+        >
           Close ticket
         </Button>
-        <Button onClick={reply} disabled={busy || !body.trim()}>
+        <Button
+          onClick={reply}
+          className="min-h-11"
+          disabled={busy || !draft.ready || !body.trim()}
+        >
           {busy ? (
             <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           ) : (
@@ -98,7 +143,11 @@ export function TicketReplyBox({ ticketId }: { ticketId: string }) {
         open={closeOpen}
         onOpenChange={setCloseOpen}
         title="Close this ticket?"
-        description="You will no longer be able to reply unless support reopens the ticket."
+        description={
+          body.trim()
+            ? "Your unsent reply will be discarded. You will no longer be able to reply unless support reopens the ticket."
+            : "You will no longer be able to reply unless support reopens the ticket."
+        }
         confirmLabel="Close ticket"
         onConfirm={close}
       />

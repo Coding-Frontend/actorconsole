@@ -217,7 +217,7 @@ function ChartLegend({
             <button
               type="button"
               className={cn(
-                "inline-flex min-w-0 items-center gap-1.5 rounded-sm border px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-sm border px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-0 sm:min-w-0",
                 visible
                   ? "border-border bg-card text-foreground"
                   : "border-transparent bg-muted/40 text-muted-foreground line-through",
@@ -238,7 +238,7 @@ function ChartLegend({
             {interactive ? (
               <button
                 type="button"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/series:opacity-100"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-sm text-muted-foreground opacity-100 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/series:opacity-100 sm:h-6 sm:w-6 sm:opacity-0"
                 aria-label={`Show only ${item.label}`}
                 title={`Show only ${item.label}`}
                 onClick={() => onShowOnly(item.key)}

@@ -67,7 +67,7 @@ export function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {error ? (
-          <p className="text-destructive text-sm" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {error}
           </p>
         ) : null}
@@ -75,6 +75,7 @@ export function ConfirmDialog({
           <Button
             type="button"
             variant="outline"
+            className="h-auto min-h-11 whitespace-normal py-3"
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
@@ -83,6 +84,7 @@ export function ConfirmDialog({
           <Button
             type="button"
             variant={destructive ? "destructive" : "default"}
+            className="h-auto min-h-11 whitespace-normal py-3"
             onClick={() => void handleConfirm()}
             disabled={pending}
           >
@@ -177,7 +179,7 @@ export function PromptDialog({
           />
         </div>
         {error ? (
-          <p className="text-destructive text-sm" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {error}
           </p>
         ) : null}

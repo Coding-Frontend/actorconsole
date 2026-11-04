@@ -31,7 +31,8 @@ export interface ApifyActorStats {
 }
 
 export interface ApifyEventPrice {
-  eventPriceUsd: number;
+  eventPriceUsd?: number;
+  eventTieredPricingUsd?: Record<string, { tieredEventPriceUsd: number }>;
   eventTitle: string;
   eventDescription?: string;
   isOneTimeEvent?: boolean;
@@ -60,6 +61,8 @@ export interface ApifyActorSummary {
   title: string | null;
   description: string | null;
   pictureUrl: string | null;
+  /** Fields actually present in an owned-Actor inventory response. */
+  listingMetadataAvailable?: { title: boolean; description: boolean; pictureUrl: boolean };
   isPublic: boolean;
   isDeprecated?: boolean;
   notice?: "NONE" | "RESIDENTIAL_PROXY_REQUIRED" | "UNDER_MAINTENANCE" | null;
@@ -274,6 +277,8 @@ export interface ApifyActorMetadataInput {
   seoDescription?: string;
   pictureUrl?: string;
   picture?: ApifyActorPictureUpload;
+  /** The copy reviewed by the user. Reject newer external edits before writing. */
+  expectedCopy?: Record<"title" | "description" | "seoTitle" | "seoDescription", string | null>;
 }
 
 export interface ApifyActorMetadataResult {

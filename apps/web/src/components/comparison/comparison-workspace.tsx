@@ -92,7 +92,7 @@ export function ComparisonWorkspace({
             sideOffset={8}
             collisionPadding={12}
             aria-label={`Select ${kind === "actor" ? "an Actor" : "a builder"}`}
-            className="border-border bg-popover text-popover-foreground z-50 w-[min(400px,calc(100vw-24px))] rounded-xl border p-4"
+            className="z-50 w-[min(400px,calc(100vw-24px))] rounded-xl border border-border bg-popover p-4 text-popover-foreground"
           >
             <p className="mb-3 text-sm font-semibold">
               {replacement
@@ -110,13 +110,13 @@ export function ComparisonWorkspace({
     return selectedRows.map((row) => {
       const best = highlightBest && row.better ? metricLeader(items, row.key, row.better) : null;
       return (
-        <div key={row.key} className="border-border grid gap-3 border-b" style={grid}>
+        <div key={row.key} className="grid gap-3 border-b border-border" style={grid}>
           {items.map((item) => (
             <div
               key={item.id}
               className="flex min-w-0 items-start justify-between gap-4 px-4 py-2.5 text-sm sm:px-5 sm:py-3.5"
             >
-              <span className="text-muted-foreground min-w-0">{row.label}</span>
+              <span className="min-w-0 text-muted-foreground">{row.label}</span>
               <span
                 className={`${typeof item.metrics[row.key] === "number" ? "shrink-0 whitespace-nowrap" : "min-w-0 max-w-[58%] break-words"} text-right font-medium tabular-nums ${best !== null && item.metrics[row.key] === best ? "text-signal-orange" : "text-foreground"}`}
                 title={
@@ -136,12 +136,12 @@ export function ComparisonWorkspace({
 
   return (
     <div className="space-y-6 sm:space-y-10">
-      <div className="bg-background/95 sticky top-16 z-30 -mx-1 px-1 pb-3 pt-2">
+      <div className="sticky top-16 z-30 -mx-1 bg-background/95 px-1 pb-3 pt-2">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
           <div className="flex items-center gap-3">
-            <span className="text-muted-foreground text-xs">Period</span>
+            <span className="text-xs text-muted-foreground">Period</span>
             <div
-              className="border-border flex rounded-lg border p-1"
+              className="flex rounded-lg border border-border p-1"
               role="group"
               aria-label="Reporting period"
             >
@@ -151,7 +151,7 @@ export function ComparisonWorkspace({
                   key={days}
                   aria-pressed={days === window}
                   onClick={() => onWindowChange(days)}
-                  className={`focus-visible:ring-ring rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 ${days === window ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`min-h-11 min-w-11 rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-0 sm:min-w-0 ${days === window ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {days}d
                 </button>
@@ -159,7 +159,7 @@ export function ComparisonWorkspace({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            <div className="text-muted-foreground flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Switch
                 id="comparison-highlight"
                 checked={highlightBest}
@@ -167,7 +167,10 @@ export function ComparisonWorkspace({
                 disabled={items.length < 2}
                 aria-label="Highlight best"
               />
-              <label htmlFor="comparison-highlight" className="cursor-pointer">
+              <label
+                htmlFor="comparison-highlight"
+                className="inline-flex min-h-11 cursor-pointer items-center"
+              >
                 Highlight best
               </label>
             </div>
@@ -180,7 +183,7 @@ export function ComparisonWorkspace({
                 </Button>,
               )
             ) : (
-              <span className="text-muted-foreground text-xs">5 of 5 selected</span>
+              <span className="text-xs text-muted-foreground">5 of 5 selected</span>
             )}
           </div>
         </div>
@@ -197,16 +200,16 @@ export function ComparisonWorkspace({
             {items.map((item) => (
               <div
                 key={item.id}
-                className="border-border bg-background flex min-h-16 items-center justify-between gap-2 rounded-lg border px-3 py-3 sm:px-4"
+                className="flex min-h-16 items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-3 sm:px-4"
               >
                 {picker(
                   item.id,
                   <button
                     type="button"
                     aria-label={`Change ${item.title}`}
-                    className="focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-2.5 rounded text-left focus-visible:outline-none focus-visible:ring-2"
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Avatar className="border-border h-8 w-8 shrink-0 rounded-md border">
+                    <Avatar className="h-8 w-8 shrink-0 rounded-md border border-border">
                       {item.imageUrl ? <AvatarImage src={item.imageUrl} alt="" /> : null}
                       <AvatarFallback className="rounded-md text-[10px] font-semibold">
                         {item.title.slice(0, 2).toUpperCase()}
@@ -214,11 +217,11 @@ export function ComparisonWorkspace({
                     </Avatar>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{item.title}</span>
-                      <span className="text-muted-foreground mt-0.5 block truncate text-[11px]">
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                         {item.subtitle}
                       </span>
                     </span>
-                    <ChevronDown className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   </button>,
                   item.id,
                 )}
@@ -226,7 +229,7 @@ export function ComparisonWorkspace({
                   <Link
                     href={item.href}
                     aria-label={`View ${item.title} profile`}
-                    className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1.5 focus-visible:outline-none focus-visible:ring-2"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ArrowUpRight className="h-3.5 w-3.5" />
                   </Link>
@@ -235,7 +238,7 @@ export function ComparisonWorkspace({
                   type="button"
                   onClick={() => onRemove(item.id)}
                   aria-label={`Remove ${item.title} from comparison`}
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1.5 focus-visible:outline-none focus-visible:ring-2"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -246,7 +249,7 @@ export function ComparisonWorkspace({
                   "empty",
                   <button
                     type="button"
-                    className="border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring flex min-h-16 items-center justify-center gap-2 rounded-lg border border-dashed px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2"
+                    className="flex min-h-16 items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Plus className="h-4 w-4" />
                     Select {kind === "actor" ? "an Actor" : "a builder"}
@@ -270,11 +273,11 @@ export function ComparisonWorkspace({
           <div style={{ minWidth }}>{metricRows(overviewRows)}</div>
         </div>
         {items.length === 1 ? (
-          <p className="text-muted-foreground mt-3 px-4 text-xs sm:px-5">
+          <p className="mt-3 px-4 text-xs text-muted-foreground sm:px-5">
             Select another {noun} to compare side by side.
           </p>
         ) : null}
-        <p className="text-muted-foreground mt-3 px-4 text-xs sm:px-5">
+        <p className="mt-3 px-4 text-xs text-muted-foreground sm:px-5">
           Active users use the selected period. Runs and earnings always use 30 days.
         </p>
       </section>
@@ -284,14 +287,14 @@ export function ComparisonWorkspace({
       <section aria-label="Comparison details" className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold tracking-tight">All details</h2>
-          <span className="text-muted-foreground text-xs">
+          <span className="text-xs text-muted-foreground">
             {visibleRows.length} of {rows.length} details
           </span>
         </div>
-        <div className="border-border flex flex-wrap items-center gap-x-5 gap-y-3 border-b pb-4">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-border pb-4">
           <div className="relative min-w-44 flex-1 sm:max-w-72">
             <Search
-              className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
@@ -302,20 +305,20 @@ export function ComparisonWorkspace({
               className="h-9 rounded-lg pl-9 text-xs"
             />
           </div>
-          <label className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
-              className="accent-foreground h-4 w-4"
+              className="h-4 w-4 accent-foreground"
               checked={differencesOnly}
               disabled={items.length < 2}
               onChange={(event) => setDifferencesOnly(event.target.checked)}
             />
             Differences only
           </label>
-          <label className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
-              className="accent-foreground h-4 w-4"
+              className="h-4 w-4 accent-foreground"
               checked={completeOnly}
               onChange={(event) => setCompleteOnly(event.target.checked)}
             />
@@ -329,7 +332,7 @@ export function ComparisonWorkspace({
               type="button"
               aria-pressed={option === group}
               onClick={() => setGroup(option)}
-              className={`focus-visible:ring-ring shrink-0 rounded-lg px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 ${option === group ? "bg-muted text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${option === group ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               {option}
             </button>
@@ -346,7 +349,7 @@ export function ComparisonWorkspace({
           <div style={{ minWidth }}>
             {[...new Set(visibleRows.map((row) => row.group))].map((name) => (
               <section key={name} aria-label={name} className="mb-8">
-                <h3 className="border-border mb-1 border-b px-4 pb-3 text-lg font-semibold sm:px-5">
+                <h3 className="mb-1 border-b border-border px-4 pb-3 text-lg font-semibold sm:px-5">
                   {name}
                 </h3>
                 {metricRows(visibleRows.filter((row) => row.group === name))}
@@ -355,7 +358,7 @@ export function ComparisonWorkspace({
           </div>
         </div>
         {!visibleRows.length ? (
-          <div className="border-border rounded-lg border px-4 py-8 text-center text-sm">
+          <div className="rounded-lg border border-border px-4 py-8 text-center text-sm">
             <p className="font-medium">No details match these filters</p>
             <button
               type="button"
@@ -371,7 +374,7 @@ export function ComparisonWorkspace({
             </button>
           </div>
         ) : null}
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           — means the source has no published value. Zero is a published value.
         </p>
       </section>

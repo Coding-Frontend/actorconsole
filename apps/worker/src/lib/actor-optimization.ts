@@ -17,7 +17,10 @@ import { assertWorkspacePlanAccess } from "./plan-access.js";
 import { actorOptimizationState, optimizationFingerprint } from "./actor-optimization-state.js";
 
 export type OptimizationPayload = { action: "audit" | "apply"; resultId: string };
-interface RetryContext { attemptsMade: number; attemptsMax: number }
+interface RetryContext {
+  attemptsMade: number;
+  attemptsMax: number;
+}
 function isFinalAttempt(context?: RetryContext): boolean {
   return !context || context.attemptsMade + 1 >= context.attemptsMax;
 }
@@ -233,7 +236,9 @@ export async function runOptimizationApply(resultId: string, retryContext?: Retr
       apify.getActorBasicInfo(result.actor.apifyActorId),
     ]);
     if (!liveActor) throw new Error("The selected Actor no longer exists on Apify");
-    const currentFingerprint = optimizationFingerprint(actorOptimizationState(liveActor, basicInfo));
+    const currentFingerprint = optimizationFingerprint(
+      actorOptimizationState(liveActor, basicInfo),
+    );
     if (currentFingerprint !== result.metadataFingerprint) {
       await db.actorOptimizationResult.update({
         where: { id: resultId },
@@ -261,10 +266,6 @@ export async function runOptimizationApply(resultId: string, retryContext?: Retr
       }
       const pricingUpdate = await apify.appendActorPricing(result.actor.apifyActorId, {
         pricingModel: "PAY_PER_EVENT",
-        minimalMaxTotalChargeUsd: 0.5,
-        isPPEPlatformUsagePaidByUser: true,
-        isPriceChangeNotificationSuppressed: false,
-        apifyMarginPercentage: 0.2,
         reasonForChange: "Approved ActorConsole optimization proposal",
         pricingPerEvent: { actorChargeEvents: pricing.events },
       });

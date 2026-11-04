@@ -26,6 +26,7 @@ const alwaysAvailableDashboardPaths = [
   "/dashboard/billing",
   "/dashboard/onboarding",
   "/dashboard/profile",
+  "/dashboard/security",
   "/dashboard/notification-preferences",
   "/dashboard/notifications",
   "/dashboard/data-export",

@@ -103,8 +103,6 @@ const PRESERVED_METADATA_FIELDS = [
   "isPublic",
   "notice",
   "customStatus",
-  "seoTitle",
-  "seoDescription",
 ] as const;
 
 export class ApifyClientWrapper {
@@ -296,7 +294,14 @@ export class ApifyClientWrapper {
         limit: opts.limit ?? 100,
         ...(opts.offset !== undefined ? { offset: opts.offset } : {}),
       });
-      return list.items.map(toActorSummary);
+      return list.items.map((item) => ({
+        ...toActorSummary(item),
+        listingMetadataAvailable: {
+          title: Object.prototype.hasOwnProperty.call(item, "title"),
+          description: Object.prototype.hasOwnProperty.call(item, "description"),
+          pictureUrl: Object.prototype.hasOwnProperty.call(item, "pictureUrl"),
+        },
+      }));
     });
   }
 
@@ -1118,6 +1123,21 @@ export class ApifyClientWrapper {
       current = await this.getActorBasicInfo(idOrUsernameName);
     }
 
+    if (input.expectedCopy) {
+      for (const field of ["title", "description", "seoTitle", "seoDescription"] as const) {
+        const actual = Object.prototype.hasOwnProperty.call(current, field)
+          ? (current[field] ?? null)
+          : (publicActor[field] ?? null);
+        if (actual !== input.expectedCopy[field]) {
+          throw new ApifyClientError(
+            "unknown",
+            "The Actor changed after this copy was generated. Generate fresh variants before applying.",
+            { status: 409 },
+          );
+        }
+      }
+    }
+
     const title = input.title ?? current.title ?? publicActor.title ?? undefined;
     const description =
       input.description ?? current.description ?? publicActor.description ?? undefined;
@@ -1165,6 +1185,14 @@ export class ApifyClientWrapper {
     if (
       (input.title !== undefined && actualTitle !== input.title) ||
       (input.description !== undefined && actualDescription !== input.description) ||
+      (input.seoTitle !== undefined &&
+        (Object.prototype.hasOwnProperty.call(verifiedBasic, "seoTitle")
+          ? verifiedBasic.seoTitle
+          : verifiedActor.seoTitle) !== input.seoTitle) ||
+      (input.seoDescription !== undefined &&
+        (Object.prototype.hasOwnProperty.call(verifiedBasic, "seoDescription")
+          ? verifiedBasic.seoDescription
+          : verifiedActor.seoDescription) !== input.seoDescription) ||
       (input.picture !== undefined && actualPictureUrl !== pictureUrl)
     ) {
       throw new ApifyClientError("unknown", "Apify metadata verification mismatch", {
@@ -1274,6 +1302,42 @@ export class ApifyClientWrapper {
       });
     }
     const existing = actor.pricingInfos ?? [];
+    const previous = [...existing].sort(
+      (a, b) =>
+        Date.parse(b.startedAt ?? b.createdAt ?? "1970-01-01") -
+        Date.parse(a.startedAt ?? a.createdAt ?? "1970-01-01"),
+    )[0];
+    // Editing event prices must not silently change who pays platform usage or
+    // other billing settings. Only inherit fields accepted on pricing writes.
+    pricing = {
+      ...Object.fromEntries(
+        (
+          [
+            "minimalMaxTotalChargeUsd",
+            "isPPEPlatformUsagePaidByUser",
+            "isPriceChangeNotificationSuppressed",
+            "apifyMarginPercentage",
+          ] as const
+        )
+          .filter((field) => previous?.[field] !== undefined)
+          .map((field) => [field, previous![field]]),
+      ),
+      ...pricing,
+    };
+    for (const [name, event] of Object.entries(pricing.pricingPerEvent?.actorChargeEvents ?? {})) {
+      const tiers = previous?.pricingPerEvent?.actorChargeEvents[name]?.eventTieredPricingUsd;
+      if (
+        tiers &&
+        (!event.eventTieredPricingUsd ||
+          Object.keys(tiers).some((tier) => !(tier in event.eventTieredPricingUsd!)))
+      ) {
+        throw new ApifyClientError(
+          "validation",
+          `Keep every subscription tier for event ${name}. A flat price would replace its tiered pricing.`,
+          { status: 422 },
+        );
+      }
+    }
     // A matching historical period is not a duplicate when a newer period
     // superseded it. Only the newest scheduled/effective definition can make
     // this request a no-op; otherwise users could never return to an earlier
@@ -1289,6 +1353,13 @@ export class ApifyClientWrapper {
       .at(-1);
     if (newest && samePricingDefinition(newest, pricing)) {
       return { actor, pricingInfos: existing, changed: false, startedAt: newest.startedAt };
+    }
+    if (newest?.startedAt && Date.parse(newest.startedAt) > Date.now()) {
+      throw new ApifyClientError(
+        "validation",
+        `This Actor already has a pricing change scheduled for ${newest.startedAt}. Apify allows one future pricing period. Wait until it takes effect or contact Apify support to change it.`,
+        { status: 422 },
+      );
     }
 
     const startedAt =
@@ -1941,22 +2012,40 @@ function samePricingDefinition(left: ApifyPricingInfo, right: ApifyPricingInfo):
               key,
               {
                 eventPriceUsd: event.eventPriceUsd,
+                eventTieredPricingUsd: event.eventTieredPricingUsd
+                  ? Object.fromEntries(
+                      Object.entries(
+                        event.eventTieredPricingUsd as Record<
+                          string,
+                          { tieredEventPriceUsd: number }
+                        >,
+                      )
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([tier, value]) => [
+                          tier,
+                          { tieredEventPriceUsd: value.tieredEventPriceUsd },
+                        ]),
+                    )
+                  : undefined,
                 eventTitle: event.eventTitle,
                 eventDescription: event.eventDescription,
-                isOneTimeEvent: event.isOneTimeEvent,
-                isPrimaryEvent: event.isPrimaryEvent,
+                isOneTimeEvent: Boolean(event.isOneTimeEvent),
+                isPrimaryEvent: Boolean(event.isPrimaryEvent),
               },
             ];
           }),
       );
     return (
       JSON.stringify(normalize(leftEvents)) === JSON.stringify(normalize(rightEvents)) &&
-      (left.minimalMaxTotalChargeUsd ?? null) === (right.minimalMaxTotalChargeUsd ?? null) &&
-      (left.isPPEPlatformUsagePaidByUser ?? null) ===
-        (right.isPPEPlatformUsagePaidByUser ?? null) &&
-      (left.isPriceChangeNotificationSuppressed ?? null) ===
-        (right.isPriceChangeNotificationSuppressed ?? null) &&
-      (left.apifyMarginPercentage ?? null) === (right.apifyMarginPercentage ?? null)
+      [
+        "minimalMaxTotalChargeUsd",
+        "isPPEPlatformUsagePaidByUser",
+        "isPriceChangeNotificationSuppressed",
+        "apifyMarginPercentage",
+      ].every((field) => {
+        const key = field as keyof ApifyPricingInfo;
+        return right[key] === undefined || left[key] === right[key];
+      })
     );
   }
   return (
@@ -2013,7 +2102,9 @@ function toActorSummary(a: any): ApifyActorSummary {
     totalRuns: a.totalRuns,
     currentRunCount: a.currentRunCount,
     categories: stringArray(a.categories),
-    pricingInfos: a.pricingInfos ?? (a.currentPricingInfo ? [a.currentPricingInfo] : undefined),
+    pricingInfos: normalizePricingInfos(
+      a.pricingInfos ?? (a.currentPricingInfo ? [a.currentPricingInfo] : undefined),
+    ),
     createdAt: a.createdAt,
     modifiedAt: a.modifiedAt,
     firstPublishedAt:
@@ -2218,6 +2309,18 @@ function toConsoleStoreSearchResult(value: unknown): ApifyStoreSearchResult {
   });
 }
 
+function normalizePricingInfos(value: unknown): ApifyPricingInfo[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter(isRecord).map(
+    (entry) =>
+      ({
+        ...entry,
+        ...(entry.startedAt ? { startedAt: toIsoString(entry.startedAt) } : {}),
+        ...(entry.createdAt ? { createdAt: toIsoString(entry.createdAt) } : {}),
+      }) as unknown as ApifyPricingInfo,
+  );
+}
+
 function normalizeActorBasicInfo(value: ApifyActorBasicInfo): ApifyActorBasicInfo {
   const record = value as Record<string, unknown>;
   const rawStats = isRecord(record.stats) ? record.stats : {};
@@ -2225,6 +2328,7 @@ function normalizeActorBasicInfo(value: ApifyActorBasicInfo): ApifyActorBasicInf
     ...value,
     id: String(record.id ?? record._id ?? ""),
     categories: stringArray(record.categories),
+    pricingInfos: normalizePricingInfos(record.pricingInfos),
     metaLabels: normalizeMetaLabels(record.metaLabels),
     stats: {
       totalRuns: numberOrUndefined(rawStats.totalRuns),

@@ -28,6 +28,8 @@ describe("OnboardingGate", () => {
   it("keeps account operations available while onboarding is incomplete", () => {
     for (const pathname of [
       "/dashboard/profile",
+      "/dashboard/security",
+      "/dashboard/settings/security",
       "/dashboard/notification-preferences",
       "/dashboard/billing",
       "/dashboard/data-export",
