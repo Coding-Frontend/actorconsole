@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+vi.mock("@/components/dashboard/workspace-access-context", () => ({
+  useWorkspaceAccess: () => ({ access: { workspaceId: "workspace-1" } }),
+}));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
@@ -213,7 +216,10 @@ describe("BulkPublishingWorkspace", () => {
       hasKeyValueSchema: true,
       readinessSyncedAt: new Date().toISOString(),
     };
-    window.sessionStorage.setItem(PUBLISHING_SELECTION_KEY, JSON.stringify([actor]));
+    window.sessionStorage.setItem(
+      `${PUBLISHING_SELECTION_KEY}:workspace-1`,
+      JSON.stringify({ workspaceId: "workspace-1", actors: [actor] }),
+    );
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(() =>
@@ -228,7 +234,12 @@ describe("BulkPublishingWorkspace", () => {
 
     const actorCheckboxes = await screen.findAllByRole("checkbox", { name: "Select Sample Actor" });
     expect(actorCheckboxes.every((checkbox) => !(checkbox as HTMLInputElement).checked)).toBe(true);
-    await waitFor(() => expect(window.sessionStorage.getItem(PUBLISHING_SELECTION_KEY)).toBe("[]"));
+    await waitFor(() =>
+      expect(
+        JSON.parse(window.sessionStorage.getItem(`${PUBLISHING_SELECTION_KEY}:workspace-1`)!)
+          .actors,
+      ).toEqual([]),
+    );
 
     fireEvent.click(actorCheckboxes[0]!);
     const clearSelection = (await screen.findAllByRole("button", { name: "Clear selection" }))[0];
@@ -284,6 +295,8 @@ describe("BulkPublishingWorkspace", () => {
     window.dispatchEvent(new Event("actorconsole:workspace-changed"));
 
     await waitFor(() => expect(screen.queryByText("1 Actor selected")).toBeNull());
-    expect(window.sessionStorage.getItem(PUBLISHING_SELECTION_KEY)).toBe("[]");
+    expect(
+      JSON.parse(window.sessionStorage.getItem(`${PUBLISHING_SELECTION_KEY}:workspace-1`)!).actors,
+    ).toEqual([]);
   });
 });

@@ -1,7 +1,12 @@
 import { Hono, type Handler } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { admitWorkspaceActors, db, Prisma } from "@actorconsole/db";
+import {
+  admitWorkspaceActors,
+  db,
+  Prisma,
+  reconcileActorLogoRecommendations,
+} from "@actorconsole/db";
 import {
   updateActorCopySchema,
   inferActorLanguage,
@@ -219,9 +224,8 @@ function priceFromInfo(info: ApifyPricingInfo | undefined): number | null {
   if (info.pricingModel === "PAY_PER_EVENT") {
     const events = Object.values(info.pricingPerEvent?.actorChargeEvents ?? {});
     const comparableEvent =
-      events.find((event) => event.isPrimaryEvent) ??
-      events.find((event) => event.isOneTimeEvent !== true) ??
-      events[0];
+      events.find((event) => event.isPrimaryEvent && event.isOneTimeEvent !== true) ??
+      events.find((event) => event.isOneTimeEvent !== true);
     return typeof comparableEvent?.eventPriceUsd === "number" && comparableEvent.eventPriceUsd > 0
       ? comparableEvent.eventPriceUsd
       : null;
@@ -236,6 +240,10 @@ function mapPricingCompetitor(
   pricingInfos: ApifyPricingInfo[] | undefined = item.pricingInfos,
 ) {
   const pricing = activePricingInfo(pricingInfos);
+  const events = Object.entries(pricing?.pricingPerEvent?.actorChargeEvents ?? {});
+  const primary =
+    events.find(([, event]) => event.isPrimaryEvent && !event.isOneTimeEvent) ??
+    events.find(([, event]) => !event.isOneTimeEvent);
   return {
     id: item.id,
     username: item.username,
@@ -243,7 +251,10 @@ function mapPricingCompetitor(
     title: item.title,
     model: pricing?.pricingModel ?? "FREE",
     amount: priceFromInfo(pricing),
-    unitName: pricing?.unitName ?? null,
+    unitName: pricing?.unitName ?? primary?.[1].eventTitle ?? null,
+    eventName: primary?.[0] ?? null,
+    eventDescription: primary?.[1].eventDescription ?? null,
+    pricingKind: primary?.[1].eventTieredPricingUsd ? "tiered" : "flat",
     totalRuns: item.stats?.totalRuns ?? null,
     rating: item.stats?.rating ?? null,
     users30Days: item.stats?.totalUsers30Days ?? item.stats?.monthlyUsers ?? null,
@@ -260,6 +271,13 @@ async function requireOwnedActor(userId: string, apifyActorId: string, businessP
   if (!actor) throw new AppError("not_found", `Actor ${apifyActorId} not found`, 404);
   return actor;
 }
+
+const reviewedCopySchema = z.object({
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  seoTitle: z.string().nullable(),
+  seoDescription: z.string().nullable(),
+});
 
 async function listAllMyActors(apify: {
   listMyActors(options: { limit: number; offset: number }): Promise<ApifyActorSummary[]>;
@@ -1471,6 +1489,10 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         });
       }),
     );
+    await reconcileActorLogoRecommendations({
+      userId: session.userId,
+      businessProfileId: session.businessProfileId,
+    });
     // Plan-limit cache key includes the actor count; an upsert that
     // adds a new actor must invalidate it.
     await cacheSet(actorCountKey, admission.trackedCount, 60);
@@ -1486,7 +1508,11 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         ),
       );
     }
-    trackEvent("actors.synced", { userId: session.userId, businessProfileId: session.businessProfileId, properties: { count: upserts.length } });
+    trackEvent("actors.synced", {
+      userId: session.userId,
+      businessProfileId: session.businessProfileId,
+      properties: { count: upserts.length },
+    });
     await recordUserAudit(c, session, "actors.sync", "actors", { count: upserts.length });
     return c.json({
       ok: true,
@@ -1567,8 +1593,17 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         throw new AppError("invalid_request", "Request actor does not match the route", 400);
       }
 
-      const title = actor.title ?? actor.name;
-      const description = actor.description ?? "";
+      const basicInfo = await apify.getActorBasicInfo(apifyActorId);
+      const source = { ...actor, ...basicInfo };
+      const currentCopy = {
+        title: source.title ?? null,
+        description: source.description ?? null,
+        seoTitle: source.seoTitle ?? null,
+        seoDescription: source.seoDescription ?? null,
+      };
+
+      const title = currentCopy.title ?? actor.name;
+      const description = currentCopy.description ?? "";
       const readme = actor.readme ?? null;
       const language = inferActorLanguage({ title, description, readme });
       const keywords = extractKeywords({ title, description, max: 8 });
@@ -1636,7 +1671,10 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         keywords: seedKeywords,
       });
 
-      return c.json({ ok: true, data: { variants, keywords: seedKeywords, language } });
+      return c.json({
+        ok: true,
+        data: { variants, keywords: seedKeywords, language, currentCopy },
+      });
     },
   )
 
@@ -1648,7 +1686,7 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
       "json",
       updateActorCopySchema
         .omit({ apifyActorId: true, readme: true })
-        .extend({ readme: z.never().optional() }),
+        .extend({ readme: z.never().optional(), expectedCopy: reviewedCopySchema.optional() }),
     ),
     async (c) => {
       const session = c.get("session");
@@ -1660,17 +1698,37 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         apifyActorId,
         session.businessProfileId,
       );
-      const body = c.req.valid("json");
+      const { expectedCopy, ...body } = c.req.valid("json");
       const apify = session.businessProfileId
         ? await getUserApifyClient(session.userId, session.businessProfileId)
         : await getUserApifyClient(session.userId);
       if (!apify) throw new AppError("apify_not_connected", "Connect Apify first", 400);
 
-      const updated = Object.keys(body).length
-        ? typeof apify.updateActorMetadata === "function"
-          ? await apify.updateActorMetadata(apifyActorId, body).then((result) => result.actor)
-          : await apify.updateActor(apifyActorId, body)
-        : await apify.getActor(apifyActorId);
+      let updated;
+      try {
+        if (Object.keys(body).length) {
+          const result = await apify.updateActorMetadata(apifyActorId, { ...body, expectedCopy });
+          if (!result.verified)
+            throw new AppError(
+              "copy_verification_failed",
+              "Apify did not confirm the listing changes. Refresh and review before retrying.",
+              502,
+            );
+          updated = result.actor;
+        } else updated = await apify.getActor(apifyActorId);
+      } catch (error) {
+        if (error instanceof Error && (error as Error & { status?: number }).status === 409) {
+          throw new AppError("copy_conflict", error.message, 409);
+        }
+        if (error instanceof Error && (error as Error & { status?: number }).status === 502) {
+          throw new AppError(
+            "copy_verification_failed",
+            "Apify did not confirm all listing changes. Refresh and review before retrying.",
+            502,
+          );
+        }
+        throw error;
+      }
       if (!updated) throw new AppError("not_found", `Actor ${apifyActorId} not found`, 404);
       const currentCopy = { ...jsonRecord(actorRow.currentCopy), ...body };
       await db.actor.update({
@@ -1702,7 +1760,7 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
       }
 
       await recordUserAudit(c, session, "actor.copy.updated", `actor:${apifyActorId}`, body);
-      return c.json({ ok: true, data: updated });
+      return c.json({ ok: true, data: { ...updated, verified: true } });
     },
   )
 
@@ -1874,12 +1932,21 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
       select: { apifyActorId: true, currentPricing: true, updatedAt: true },
     });
     if (!actor) throw new AppError("not_found", `Actor ${apifyActorId} not found`, 404);
+    const apify = await getUserApifyClient(session.userId, session.businessProfileId);
+    const live = apify ? await apify.getActor(apifyActorId) : null;
+    const periods = live?.pricingInfos ?? [];
     return c.json({
       ok: true,
       data: {
         apifyActorId: actor.apifyActorId,
         pricing: actor.currentPricing,
         synchronizedAt: actor.updatedAt,
+        periods,
+        active: activePricingInfo(periods) ?? null,
+        scheduled: periods
+          .filter((period) => period.startedAt && Date.parse(period.startedAt) > Date.now())
+          .sort((a, b) => Date.parse(a.startedAt!) - Date.parse(b.startedAt!)),
+        earliestStartsAt: new Date(Date.now() + 15 * 86400000).toISOString(),
       },
     });
   })
@@ -1929,15 +1996,26 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         : await getUserApifyClient(session.userId);
       if (!apify) throw new AppError("apify_not_connected", "Connect Apify first", 400);
 
-      const pricingUpdate = await apify.appendActorPricing(apifyActorId, {
-        pricingModel: "PAY_PER_EVENT",
-        minimalMaxTotalChargeUsd: 0.5,
-        isPPEPlatformUsagePaidByUser: true,
-        isPriceChangeNotificationSuppressed: false,
-        apifyMarginPercentage: 0.2,
-        reasonForChange: reason?.trim() || "Updated pay-per-event pricing in ActorConsole",
-        pricingPerEvent: { actorChargeEvents: pricing.events },
-      });
+      const pricingUpdate = await apify
+        .appendActorPricing(apifyActorId, {
+          pricingModel: "PAY_PER_EVENT",
+          reasonForChange: reason?.trim() || "Updated pay-per-event pricing in ActorConsole",
+          pricingPerEvent: { actorChargeEvents: pricing.events },
+        })
+        .catch((error: unknown) => {
+          if (
+            error instanceof Error &&
+            (error as Error & { code?: string; status?: number }).code === "validation" &&
+            (error as Error & { status?: number }).status === 422
+          ) {
+            throw new AppError("pricing_validation", error.message, 422);
+          }
+          throw new AppError(
+            "pricing_verification_failed",
+            "Apify could not confirm the new pricing period. Refresh current pricing before retrying.",
+            502,
+          );
+        });
       const updated = pricingUpdate.actor;
 
       await db.$transaction([
@@ -1978,6 +2056,7 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
           updated: updated.pricingInfos ?? null,
           changed: pricingUpdate.changed,
           startedAt: pricingUpdate.startedAt ?? null,
+          verified: true,
         },
       });
     },
@@ -2096,7 +2175,8 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
     const name = stringQuery(c.req.query("name"), "name", 100);
     const where: any = { userId: session.userId };
     if (session.authMethod === "api-key") {
-      if (!session.businessProfileId) throw new AppError("workspace_required", "Select a workspace first", 403);
+      if (!session.businessProfileId)
+        throw new AppError("workspace_required", "Select a workspace first", 403);
       where.businessProfileId = session.businessProfileId;
     }
     if (name) where.name = name;

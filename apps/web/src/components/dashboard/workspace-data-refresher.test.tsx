@@ -6,7 +6,7 @@ const { refreshWorkspaceActors } = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/actors" }));
-vi.mock("@/lib/actor-refresh", () => ({ refreshWorkspaceActors }));
+vi.mock("@/lib/actor-refresh", () => ({ refreshWorkspaceActors, pendingActorRefresh: () => null }));
 
 import { WorkspaceDataRefresher } from "./workspace-data-refresher";
 
@@ -70,7 +70,10 @@ describe("WorkspaceDataRefresher", () => {
   });
 
   it("refreshes once the previous automatic attempt is older than five minutes", async () => {
-    window.localStorage.setItem("actorconsole:actor-auto-refresh-v2:workspace_1", String(Date.now() - 300_001));
+    window.localStorage.setItem(
+      "actorconsole:actor-auto-refresh-v2:workspace_1",
+      String(Date.now() - 300_001),
+    );
     render(<WorkspaceDataRefresher workspaceId="workspace_1" />);
     await act(async () => vi.advanceTimersByTimeAsync(1_500));
     expect(refreshWorkspaceActors).toHaveBeenCalledOnce();

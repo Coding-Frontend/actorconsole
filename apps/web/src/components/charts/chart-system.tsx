@@ -36,7 +36,7 @@ export type ChartFrameOptions = {
   showSeriesControls?: boolean;
   /** Allow the user to hide both x- and y-axis labels. */
   allowAxisLabels?: boolean;
-  /** Allow consumers to render Recharts labels from the shared state. */
+  /** Allow consumers to render data labels from the shared state. */
   allowDataLabels?: boolean;
   defaultAxisLabelsVisible?: boolean;
   defaultDataLabelsVisible?: boolean;
@@ -94,10 +94,10 @@ export type ChartTooltipProps<TData = unknown> = {
 const DEFAULT_CURRENCY = "USD";
 
 /**
- * Shared chart frame for all Recharts surfaces.
+ * Shared chart frame for all chart surfaces.
  *
- * Recharts still owns the actual SVG primitives, while this component owns
- * the application-level contract: keyboard-accessible series controls,
+ * The renderer owns the chart, while this component owns the application-level
+ * contract: keyboard-accessible series controls,
  * focus-one/restore-all behavior, independent label visibility, and common
  * loading/empty/error presentation.
  */
@@ -217,10 +217,10 @@ function ChartLegend({
             <button
               type="button"
               className={cn(
-                "focus-visible:ring-ring inline-flex min-w-0 items-center gap-1.5 rounded-sm border px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2",
+                "inline-flex min-w-0 items-center gap-1.5 rounded-sm border px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 visible
                   ? "border-border bg-card text-foreground"
-                  : "bg-muted/40 text-muted-foreground border-transparent line-through",
+                  : "border-transparent bg-muted/40 text-muted-foreground line-through",
               )}
               aria-label={interactive ? `Toggle ${item.label}` : item.label}
               aria-pressed={visible}
@@ -238,7 +238,7 @@ function ChartLegend({
             {interactive ? (
               <button
                 type="button"
-                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex h-6 w-6 items-center justify-center rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 group-hover/series:opacity-100"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/series:opacity-100"
                 aria-label={`Show only ${item.label}`}
                 title={`Show only ${item.label}`}
                 onClick={() => onShowOnly(item.key)}
@@ -280,11 +280,11 @@ function ChartOptions({
 
   return (
     <details className="relative shrink-0">
-      <summary className="workbench-control text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm border border-transparent px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden">
+      <summary className="workbench-control inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm border border-transparent px-2 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{options.compact ? "Options" : "Chart options"}</span>
       </summary>
-      <div className="border-border bg-popover text-popover-foreground absolute right-0 z-20 mt-1 grid min-w-48 gap-2 rounded-sm border p-3 shadow-lg">
+      <div className="absolute right-0 z-20 mt-1 grid min-w-48 gap-2 rounded-sm border border-border bg-popover p-3 text-popover-foreground shadow-lg">
         {options.allowAxisLabels ? (
           <label className="flex items-center justify-between gap-4 text-xs" htmlFor={`${id}-axis`}>
             <span>Axis labels</span>
@@ -327,7 +327,7 @@ function ChartStateMessage({
         : "No chart data is available for this scope.";
   return (
     <div
-      className="border-border text-muted-foreground flex min-h-48 items-center justify-center rounded-sm border border-dashed px-6 text-center text-sm"
+      className="flex min-h-48 items-center justify-center rounded-sm border border-dashed border-border px-6 text-center text-sm text-muted-foreground"
       role={status === "error" ? "alert" : "status"}
     >
       {message ?? defaultMessage}
@@ -377,9 +377,9 @@ export function ChartTooltip<TData = unknown>({
   const resolvedLabel = labelFormatter ? labelFormatter(label, payload) : label;
 
   return (
-    <div className="border-border bg-popover text-popover-foreground min-w-36 rounded-sm border p-3 text-xs shadow-lg">
+    <div className="min-w-36 rounded-sm border border-border bg-popover p-3 text-xs text-popover-foreground shadow-lg">
       {resolvedLabel !== undefined && resolvedLabel !== null ? (
-        <p className="text-muted-foreground mb-2 font-medium">{resolvedLabel}</p>
+        <p className="mb-2 font-medium text-muted-foreground">{resolvedLabel}</p>
       ) : null}
       <div className="grid gap-1.5">
         {visiblePayload.map((item, index) => {

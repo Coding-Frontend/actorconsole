@@ -406,6 +406,9 @@ export async function discoverOfficialLogo(domain: string, fetchImpl?: typeof fe
   for (const candidate of candidates) {
     try {
       const downloaded = await downloadLogoSource(candidate.url, fetchImpl);
+      // A successful response can still contain an unsupported or unsafe image.
+      // Validate it before selecting the candidate so another icon can be tried.
+      await normalizeWebsiteLogo(downloaded.bytes);
       return { ...downloaded, sourceKind: candidate.kind };
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));

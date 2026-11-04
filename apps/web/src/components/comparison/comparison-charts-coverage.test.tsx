@@ -2,24 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ComparisonCharts } from "./comparison-charts";
 
-vi.mock("recharts", () =>
-  Object.fromEntries(
-    [
-      "Bar",
-      "BarChart",
-      "CartesianGrid",
-      "Cell",
-      "Legend",
-      "LabelList",
-      "Line",
-      "LineChart",
-      "ResponsiveContainer",
-      "Tooltip",
-      "XAxis",
-      "YAxis",
-    ].map((name) => [name, () => null]),
-  ),
-);
+vi.mock("@/components/charts/chartjs-chart", () => ({ ChartJsChart: () => null }));
 
 afterEach(cleanup);
 

@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImageIcon, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
+import { WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
+import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,26 +35,59 @@ export function LogoRecommendations() {
   const [items, setItems] = useState<Recommendation[]>([]);
   const [selected, setSelected] = useState<Recommendation | null>(null);
   const [working, setWorking] = useState(false);
+  const workspaceVersion = useRef(0);
+  const loadController = useRef<AbortController | null>(null);
+  const actionController = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
-    const response = await fetch(
-      `${API_BASE_URL}/actors/logo-recommendations?status=PENDING&limit=100`,
-      {
-        credentials: "include",
-        cache: "no-store",
-      },
-    );
-    if (!response.ok) return;
-    const body = (await response.json()) as { data: { items: Recommendation[] } };
-    setItems(body.data.items);
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/actors/logo-recommendations?status=PENDING&limit=100`,
+        {
+          credentials: "include",
+          cache: "no-store",
+          signal: controller.signal,
+        },
+      );
+      if (!response.ok) return;
+      const body = (await response.json()) as { data: { items: Recommendation[] } };
+      if (!controller.signal.aborted) setItems(body.data.items);
+    } catch {
+      if (!controller.signal.aborted)
+        toast.error("Could not load logo recommendations. Try refreshing.");
+    }
   }, []);
 
   useEffect(() => {
     void load();
+    const refresh = () => void load();
+    const changeWorkspace = () => {
+      workspaceVersion.current += 1;
+      actionController.current?.abort();
+      setItems([]);
+      setSelected(null);
+      setWorking(false);
+      void load();
+    };
+    window.addEventListener(WORKSPACE_CHANGED_EVENT, changeWorkspace);
+    window.addEventListener(WORKSPACE_DATA_REFRESHED_EVENT, refresh);
+    return () => {
+      workspaceVersion.current += 1;
+      loadController.current?.abort();
+      actionController.current?.abort();
+      window.removeEventListener(WORKSPACE_CHANGED_EVENT, changeWorkspace);
+      window.removeEventListener(WORKSPACE_DATA_REFRESHED_EVENT, refresh);
+    };
   }, [load]);
 
   async function act(action: "apply" | "dismiss") {
     if (!selected) return;
+    const version = workspaceVersion.current;
+    const controller = new AbortController();
+    actionController.current = controller;
     setWorking(true);
     try {
       const response = await fetch(
@@ -60,11 +95,13 @@ export function LogoRecommendations() {
         {
           method: "POST",
           credentials: "include",
+          signal: controller.signal,
         },
       );
       const body = (await response.json()) as {
         error?: { message?: string; details?: { link?: string } };
       };
+      if (controller.signal.aborted || version !== workspaceVersion.current) return;
       if (!response.ok) {
         const message = body.error?.message ?? `Could not ${action} logo`;
         toast.error(message);
@@ -76,11 +113,13 @@ export function LogoRecommendations() {
       }
       toast.success(action === "apply" ? "Logo updated on Apify" : "Logo recommendation dismissed");
       setSelected(null);
-      await load();
+      window.dispatchEvent(new CustomEvent(WORKSPACE_DATA_REFRESHED_EVENT));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Logo update failed");
+      if (!controller.signal.aborted && version === workspaceVersion.current) {
+        toast.error(error instanceof Error ? error.message : "Logo update failed");
+      }
     } finally {
-      setWorking(false);
+      if (version === workspaceVersion.current) setWorking(false);
     }
   }
 
@@ -89,12 +128,12 @@ export function LogoRecommendations() {
     <>
       <div className="border-signal-blue/30 bg-signal-blue/10 flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <ImageIcon className="text-signal-blue mt-0.5 h-5 w-5" />
+          <ImageIcon className="mt-0.5 h-5 w-5 text-signal-blue" />
           <div>
             <p className="font-medium">
               {items.length} reviewed website logo{items.length === 1 ? " is" : "s are"} ready
             </p>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="mt-1 text-sm text-muted-foreground">
               Review each change before ActorConsole updates the real Apify thumbnail.
             </p>
           </div>
@@ -103,7 +142,10 @@ export function LogoRecommendations() {
           Review logos
         </Button>
       </div>
-      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
+      <Dialog
+        open={Boolean(selected)}
+        onOpenChange={(open) => !open && !working && setSelected(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Review website logo</DialogTitle>
@@ -115,8 +157,8 @@ export function LogoRecommendations() {
           </DialogHeader>
           {selected ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="border-border rounded-md border p-4">
-                <p className="text-muted-foreground mb-3 text-xs uppercase tracking-wider">
+              <div className="rounded-md border border-border p-4">
+                <p className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">
                   Current Actor thumbnail
                 </p>
                 {selected.actor.currentImageUrl ? (
@@ -129,13 +171,13 @@ export function LogoRecommendations() {
                     className="mx-auto rounded-xl object-contain"
                   />
                 ) : (
-                  <div className="bg-muted mx-auto grid h-40 w-40 place-items-center rounded-xl text-4xl">
+                  <div className="mx-auto grid h-40 w-40 place-items-center rounded-xl bg-muted text-4xl">
                     {selected.actor.actorName.slice(0, 2).toUpperCase()}
                   </div>
                 )}
               </div>
               <div className="border-signal-blue/40 bg-signal-blue/5 rounded-md border p-4">
-                <p className="text-signal-blue mb-3 text-xs uppercase tracking-wider">
+                <p className="mb-3 text-xs uppercase tracking-wider text-signal-blue">
                   Proposed website logo
                 </p>
                 <Image
@@ -148,7 +190,7 @@ export function LogoRecommendations() {
                 />
               </div>
               {selected.error ? (
-                <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-md border p-3 text-sm sm:col-span-2">
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive sm:col-span-2">
                   {selected.error}{" "}
                   <Link href="/dashboard/apify" className="underline">
                     Update credentials

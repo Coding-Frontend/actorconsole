@@ -3,24 +3,12 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
 import {
   DEFAULT_DASHBOARD_PATH,
   type DefaultDashboardPayload,
 } from "@actorconsole/shared/default-dashboard";
-import {
-  ChartFrame,
-  ChartTooltip,
-  type ChartSeriesDefinition,
-} from "@/components/charts/chart-system";
+import { ChartFrame, type ChartSeriesDefinition } from "@/components/charts/chart-system";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
 import { Button } from "@/components/ui/button";
@@ -161,15 +149,15 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
         <Button type="submit" variant="outline">
           Apply
         </Button>
-        <span className="text-muted-foreground pb-2 text-xs">USD · Daily reporting in UTC</span>
+        <span className="pb-2 text-xs text-muted-foreground">USD · Daily reporting in UTC</span>
       </form>
       {error && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
       {payload.partial && (
-        <p role="status" className="border-border bg-muted/40 rounded-sm border px-4 py-3 text-sm">
+        <p role="status" className="rounded-sm border border-border bg-muted/40 px-4 py-3 text-sm">
           Some workspaces have incomplete financial data. Totals include available records; missing
           values appear as —. Open a workspace to sync its reporting.
         </p>
@@ -178,11 +166,11 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
         {metrics.map((metric) => (
           <Card key={metric.label}>
             <CardContent className="p-4 sm:p-5">
-              <p className="text-muted-foreground text-xs font-medium">{metric.label}</p>
+              <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
               <p className="mt-2 font-mono text-2xl font-semibold tabular-nums">
                 {amount(metric.value)}
               </p>
-              <p className="text-muted-foreground mt-2 text-xs leading-5">{metric.detail}</p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">{metric.detail}</p>
             </CardContent>
           </Card>
         ))}
@@ -199,43 +187,17 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
             statusMessage="No financial history is available yet. Open a workspace and sync its reporting."
             options={{ allowDataLabels: false }}
           >
-            {({ visibleSeries, axisLabelsVisible }) => (
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={payload.daily} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={shortDate}
-                    hide={!axisLabelsVisible}
-                    tick={{ fontSize: 11 }}
-                    minTickGap={30}
-                  />
-                  <YAxis
-                    hide={!axisLabelsVisible}
-                    tickFormatter={(value: number) => money.format(value)}
-                    tick={{ fontSize: 11 }}
-                    width={75}
-                  />
-                  <Tooltip content={<ChartTooltip series={series} />} />
-                  {series
-                    .filter((item) => visibleSeries.has(item.key))
-                    .map((item) => (
-                      <Line
-                        key={item.key}
-                        type="monotone"
-                        dataKey={item.key}
-                        stroke={item.color}
-                        strokeWidth={2}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    ))}
-                </LineChart>
-              </ResponsiveContainer>
+            {(state) => (
+              <ChartJsChart
+                ariaLabel="Earnings across all workspaces"
+                data={payload.daily}
+                xKey="date"
+                series={series}
+                state={state}
+                height={280}
+                xLabelFormatter={shortDate}
+                yAxis={{ formatValue: (value) => money.format(value) }}
+              />
             )}
           </ChartFrame>
         </CardContent>
@@ -247,7 +209,7 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">
             <caption className="sr-only">Earnings by workspace for the selected date range</caption>
-            <thead className="text-muted-foreground border-border border-b text-xs">
+            <thead className="border-b border-border text-xs text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-3 text-left">
                   Workspace
@@ -271,10 +233,10 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
             </thead>
             <tbody>
               {payload.workspaces.map((workspace) => (
-                <tr key={workspace.id} className="border-border border-b last:border-0">
+                <tr key={workspace.id} className="border-b border-border last:border-0">
                   <th scope="row" className="min-w-40 px-3 py-3 text-left font-medium">
                     {workspace.name}
-                    <span className="text-muted-foreground mt-1 block text-xs font-normal">
+                    <span className="mt-1 block text-xs font-normal text-muted-foreground">
                       {workspace.partial ? "Incomplete data" : "Reporting available"}
                       {workspace.syncedAt &&
                         ` · Synced ${new Date(workspace.syncedAt).toLocaleString("en-US", { timeZone: "UTC", timeZoneName: "short" })}`}
@@ -312,7 +274,7 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
       <Card>
         <CardHeader>
           <CardTitle>Earnings by day</CardTitle>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             {payload.summary.runs.toLocaleString("en-US")} runs in the selected range. — means no
             reported value.
           </p>
@@ -322,7 +284,7 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
             <caption className="sr-only">
               Daily earnings across all workspaces, newest first
             </caption>
-            <thead className="text-muted-foreground border-border border-b text-xs">
+            <thead className="border-b border-border text-xs text-muted-foreground">
               <tr>
                 {[
                   "Date (UTC)",
@@ -344,7 +306,7 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
             </thead>
             <tbody>
               {[...payload.daily].reverse().map((row) => (
-                <tr key={row.date} className="border-border border-b last:border-0">
+                <tr key={row.date} className="border-b border-border last:border-0">
                   <th scope="row" className="whitespace-nowrap px-3 py-3 text-left font-normal">
                     {row.date}
                   </th>

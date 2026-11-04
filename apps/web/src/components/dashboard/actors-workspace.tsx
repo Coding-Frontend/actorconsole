@@ -33,7 +33,14 @@ import { Panel } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionViewMode, ViewModeToggle } from "@/components/ui/view-mode-toggle";
 import { ItemsPerPageSelect } from "@/components/ui/items-per-page";
-import { refreshWorkspaceActors, WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
+import {
+  ACTOR_REFRESH_PROGRESS_EVENT,
+  pendingActorRefresh,
+  refreshWorkspaceActors,
+  WORKSPACE_DATA_REFRESHED_EVENT,
+  type ActorRefreshProgress,
+} from "@/lib/actor-refresh";
+import { useWorkspaceAccess } from "@/components/dashboard/workspace-access-context";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
 import {
   DashboardAsyncState,
@@ -212,20 +219,34 @@ function ActorThumbnail({
       .map((part) => part[0]?.toUpperCase())
       .join("") || "A";
   return (
-    <Avatar
-      className={`${size === "sm" ? "h-9 w-9" : "h-11 w-11"} border-border/70 bg-muted/60 rounded-lg border`}
-      data-picture-source={actor.pictureSource ?? "fallback"}
-      data-picture-url={actor.effectivePictureUrl ?? undefined}
-    >
-      {actor.effectivePictureUrl ? (
-        <AvatarImage
-          src={actor.effectivePictureUrl}
-          alt={`${title} thumbnail`}
-          className="object-contain p-1"
-        />
+    <div className="flex shrink-0 flex-col items-center gap-1">
+      <Avatar
+        className={`${size === "sm" ? "h-9 w-9" : "h-11 w-11"} rounded-lg border border-border/70 bg-muted/60`}
+        data-picture-source={actor.pictureSource ?? "fallback"}
+        data-picture-url={actor.effectivePictureUrl ?? undefined}
+        aria-label={
+          actor.pictureSource === "website"
+            ? `${title}: local website logo preview, not applied to Apify`
+            : `${title} thumbnail`
+        }
+      >
+        {actor.effectivePictureUrl ? (
+          <AvatarImage
+            src={actor.effectivePictureUrl}
+            alt={
+              actor.pictureSource === "website"
+                ? `${title} website logo preview`
+                : `${title} Apify thumbnail`
+            }
+            className="object-contain p-1"
+          />
+        ) : null}
+        <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
+      </Avatar>
+      {actor.pictureSource === "website" ? (
+        <span className="whitespace-nowrap text-xs text-muted-foreground">Local preview</span>
       ) : null}
-      <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
-    </Avatar>
+    </div>
   );
 }
 
@@ -237,7 +258,7 @@ function ActorsGridSkeleton() {
       aria-live="polite"
     >
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="border-border/80 bg-card rounded-md border p-5">
+        <div key={index} className="rounded-md border border-border/80 bg-card p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 space-y-2">
               <Skeleton className="h-5 w-40" />
@@ -262,12 +283,12 @@ function ActorsGridSkeleton() {
 function ActorsTableSkeleton() {
   return (
     <div
-      className="border-border/60 bg-card overflow-hidden rounded-md border"
+      className="overflow-hidden rounded-md border border-border/60 bg-card"
       aria-label="Loading actors"
     >
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1120px] text-sm">
-          <thead className="bg-muted/40 border-border/60 border-b text-left text-xs">
+          <thead className="border-b border-border/60 bg-muted/40 text-left text-xs">
             <tr>
               {Array.from({ length: 8 }).map((_, index) => (
                 <th key={index} className="px-4 py-3">
@@ -276,7 +297,7 @@ function ActorsTableSkeleton() {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-border/50 divide-y">
+          <tbody className="divide-y divide-border/50">
             {Array.from({ length: 6 }).map((_, row) => (
               <tr key={row}>
                 <td className="px-4 py-4">
@@ -333,8 +354,8 @@ function ActorsTable({
   const allSelected =
     records.length > 0 && records.every(({ actor }) => selectedActorIds.has(actor.id));
   return (
-    <div className="border-border/60 bg-card overflow-hidden rounded-md border">
-      <div className="divide-border/60 divide-y md:hidden">
+    <div className="overflow-hidden rounded-md border border-border/60 bg-card">
+      <div className="divide-y divide-border/60 md:hidden">
         {records.map(({ actor, info }) => {
           const title = info?.title ?? actor.title ?? actor.actorName;
           const optimization = optimizationByActor.get(actor.id);
@@ -357,11 +378,11 @@ function ActorsTable({
                   >
                     {title}
                   </Link>
-                  <p className="text-muted-foreground mt-0.5 truncate font-mono text-[11px]">
+                  <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
                     {actor.username}/{actor.actorName}
                   </p>
                   <div className="mt-3">
-                    <p className="text-muted-foreground mb-2 text-xs">Est. monthly revenue</p>
+                    <p className="mb-2 text-xs text-muted-foreground">Est. monthly revenue</p>
                     <EarningsBand value={earningsByActor.get(actor.id)} compact />
                   </div>
                 </div>
@@ -414,7 +435,7 @@ function ActorsTable({
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[1120px] text-sm" aria-label="Actors">
           <caption className="sr-only">Actors in this workspace</caption>
-          <thead className="bg-muted/40 text-muted-foreground border-border/60 border-b text-left text-xs">
+          <thead className="border-b border-border/60 bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
               <th scope="col" className="w-10 px-4 py-3 font-medium">
                 <input
@@ -452,12 +473,12 @@ function ActorsTable({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-border/50 divide-y">
+          <tbody className="divide-y divide-border/50">
             {records.map(({ actor, info }) => {
               const title = info?.title ?? actor.title ?? actor.actorName;
               const optimization = optimizationByActor.get(actor.id);
               return (
-                <tr key={actor.id} className="hover:bg-muted/30 align-top transition-colors">
+                <tr key={actor.id} className="align-top transition-colors hover:bg-muted/30">
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
@@ -472,15 +493,15 @@ function ActorsTable({
                       <div className="min-w-0">
                         <Link
                           href={`/dashboard/actors/${actor.id}`}
-                          className="text-foreground block truncate font-medium hover:underline"
+                          className="block truncate font-medium text-foreground hover:underline"
                         >
                           {title}
                         </Link>
-                        <p className="text-muted-foreground mt-1 truncate text-xs">
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
                           {actor.username}/{actor.actorName}
                         </p>
                         <div className="mt-3">
-                          <p className="text-muted-foreground mb-2 text-xs">Est. monthly revenue</p>
+                          <p className="mb-2 text-xs text-muted-foreground">Est. monthly revenue</p>
                           <EarningsBand value={earningsByActor.get(actor.id)} compact />
                         </div>
                       </div>
@@ -489,7 +510,7 @@ function ActorsTable({
                   <td className="px-4 py-3">
                     <Badge variant="outline">Apify</Badge>
                   </td>
-                  <td className="text-muted-foreground whitespace-nowrap px-4 py-3 text-xs">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                     {info?.stats ? (
                       <span>
                         {(info.stats.totalRuns ?? 0).toLocaleString("en-IN")} runs ·{" "}
@@ -499,7 +520,7 @@ function ActorsTable({
                       "—"
                     )}
                   </td>
-                  <td className="text-muted-foreground whitespace-nowrap px-4 py-3 text-xs">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                     {formatActorDate(actor.updatedAt)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs">
@@ -589,6 +610,18 @@ export function ActorsWorkspace({
   // window.location during render caused React hydration error #418 whenever
   // a filtered Actors URL was opened directly.
   const earnings = useIntelligence<WorkspaceEarningsData>("/earnings");
+  const { access } = useWorkspaceAccess();
+  const workspaceId = access?.workspaceId ?? undefined;
+  const [syncProgress, setSyncProgress] = useState<ActorRefreshProgress | null>(null);
+  useEffect(() => {
+    setSyncProgress(pendingActorRefresh(workspaceId));
+    const update = (event: Event) => {
+      const detail = (event as CustomEvent<ActorRefreshProgress & { workspaceId?: string }>).detail;
+      if (detail?.workspaceId === workspaceId) setSyncProgress(detail);
+    };
+    window.addEventListener(ACTOR_REFRESH_PROGRESS_EVENT, update);
+    return () => window.removeEventListener(ACTOR_REFRESH_PROGRESS_EVENT, update);
+  }, [workspaceId]);
   const earningsByActor = new Map(earnings.data?.items.map((actor) => [actor.id, actor.earnings]));
   const initialQuery = initialParams.q?.trim() ?? "";
   const initialPage = Math.max(1, Number(initialParams.page) || 1);
@@ -807,11 +840,16 @@ export function ActorsWorkspace({
     try {
       const state = await refreshWorkspaceActors({
         signal: controller.signal,
+        workspaceId,
         onQueued: () => setSyncMessage("Syncing actors from Apify…"),
       });
       if (controller.signal.aborted) return;
       if (state === "completed") {
         setSyncMessage("Actors refreshed from Apify.");
+      } else if (state === "pending") {
+        setSyncMessage(
+          "Your sync is still running in the background. Progress is saved; you can leave this page and return.",
+        );
       } else {
         setSyncMessage(null);
         setSyncError(
@@ -958,13 +996,13 @@ export function ActorsWorkspace({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const renderActorFilters = () => (
     <>
-      <label className="text-muted-foreground flex items-center gap-2 text-xs">
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>Sort</span>
         <select
           value={sort}
           onChange={(event) => updateSort(normalizeActorSort(event.target.value))}
           aria-label="Sort actors"
-          className="border-input bg-background text-foreground h-9 w-full rounded-sm border px-3 text-sm"
+          className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm text-foreground"
         >
           {(Object.keys(actorSortLabels) as ActorSort[]).map((option) => (
             <option key={option} value={option}>
@@ -973,13 +1011,13 @@ export function ActorsWorkspace({
           ))}
         </select>
       </label>
-      <label className="text-muted-foreground flex items-center gap-2 text-xs">
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>Show</span>
         <select
           value={pendingLogosOnly ? "pending-logos" : readiness}
           onChange={(event) => updatePortfolioFilter(event.target.value as ActorPortfolioFilter)}
           aria-label="Filter Actor readiness"
-          className="border-input bg-background text-foreground h-9 w-full rounded-sm border px-3 text-sm"
+          className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm text-foreground"
         >
           {(Object.keys(actorPortfolioFilterLabels) as ActorPortfolioFilter[]).map((option) => (
             <option key={option} value={option}>
@@ -996,14 +1034,14 @@ export function ActorsWorkspace({
       <WorkspaceState {...earnings} retry={earnings.refresh} />
       {notice === "add-actor-first" ? (
         <div
-          className="border-signal-orange/30 bg-signal-orange/10 text-signal-orange rounded-lg border px-4 py-3 text-sm"
+          className="border-signal-orange/30 bg-signal-orange/10 rounded-lg border px-4 py-3 text-sm text-signal-orange"
           role="status"
         >
           Connect Apify and sync at least one Actor before creating a publishing schedule.
         </div>
       ) : null}
 
-      <div className="dashboard-filter-rail border-border/70 bg-card/95 flex flex-col gap-3 rounded-sm border p-3 sm:p-4">
+      <div className="dashboard-filter-rail flex flex-col gap-3 rounded-sm border border-border/70 bg-card/95 p-3 sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <form
             onSubmit={submitSearch}
@@ -1013,12 +1051,12 @@ export function ActorsWorkspace({
               name="q"
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
-              className="border-input bg-background h-9 min-w-0 flex-1 rounded-sm border px-3 text-sm"
+              className="h-9 min-w-0 flex-1 rounded-sm border border-input bg-background px-3 text-sm"
               placeholder="Search actors"
               aria-label="Search actors"
             />
             <button
-              className="border-input bg-background h-9 rounded-sm border px-3 text-sm"
+              className="h-9 rounded-sm border border-input bg-background px-3 text-sm"
               type="submit"
               disabled={loading}
             >
@@ -1043,7 +1081,11 @@ export function ActorsWorkspace({
                 className={syncing ? "motion-safe:animate-spin" : undefined}
                 aria-hidden="true"
               />
-              {syncing ? "Refreshing…" : "Refresh from Apify"}
+              {syncing
+                ? "Refreshing…"
+                : syncProgress && !["completed", "failed"].includes(syncProgress.state)
+                  ? "Check sync progress"
+                  : "Refresh from Apify"}
             </Button>
             <ViewModeToggle value={view} onValueChange={updateView} label="Actors view" />
             <div className="hidden xl:block">
@@ -1057,7 +1099,7 @@ export function ActorsWorkspace({
                   <Popover.Content
                     align="end"
                     sideOffset={8}
-                    className="border-border bg-card z-[60] grid w-72 gap-3 rounded-md border p-4 shadow-lg"
+                    className="z-[60] grid w-72 gap-3 rounded-md border border-border bg-card p-4 shadow-lg"
                   >
                     {renderActorFilters()}
                   </Popover.Content>
@@ -1085,21 +1127,43 @@ export function ActorsWorkspace({
           </div>
         </div>
         {syncError ? (
-          <p className="text-destructive text-sm" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {syncError}
           </p>
         ) : syncMessage ? (
-          <p className="text-muted-foreground text-sm" role="status">
+          <p className="text-sm text-muted-foreground" role="status">
             {syncMessage}
           </p>
         ) : null}
-        <div className="border-border/60 flex items-center justify-between border-t pt-3">
-          <p className="text-muted-foreground text-xs" aria-live="polite">
+        {syncProgress ? (
+          <div role="status" className="rounded-md border p-3 text-sm">
+            <p className="font-medium">
+              {syncProgress.state === "completed"
+                ? "Sync complete"
+                : syncProgress.state === "failed"
+                  ? "Sync needs attention. Start a fresh sync to retry."
+                  : "Actor sync in progress"}
+            </p>
+            {!["completed", "failed"].includes(syncProgress.state) ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {typeof syncProgress.progress?.completed === "number" &&
+                typeof syncProgress.progress.total === "number"
+                  ? `${syncProgress.progress.completed} of ${syncProgress.progress.total} Actors synchronized.`
+                  : ["waiting", "queued", "delayed"].includes(syncProgress.state)
+                    ? "Queued for processing."
+                    : "Reading the latest inventory from Apify."}{" "}
+                Progress will resume when you return to this workspace.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between border-t border-border/60 pt-3">
+          <p className="text-xs text-muted-foreground" aria-live="polite">
             {loading && total === 0
               ? "Loading Actors…"
               : `${total} Actor${total === 1 ? "" : "s"} matching`}
           </p>
-          <p className="text-muted-foreground/60 hidden text-xs sm:block">
+          <p className="hidden text-xs text-muted-foreground/60 sm:block">
             Sorted by {actorSortLabels[sort].toLowerCase()}
           </p>
         </div>
@@ -1219,10 +1283,16 @@ export function ActorsWorkspace({
               </Button>
             </SelectionActionBar>
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 Open an Actor to see its details. Select several to generate improvements together.
               </p>
             </div>
+            {records.some(({ actor }) => actor.pictureSource === "website") ? (
+              <p className="mb-4 text-xs text-muted-foreground">
+                Local previews are website logos shown only in ActorConsole. Review and apply a logo
+                above to update its Apify thumbnail.
+              </p>
+            ) : null}
             {view === "list" ? (
               <ActorsTable
                 records={records}
@@ -1241,11 +1311,11 @@ export function ActorsWorkspace({
                     variant="hover"
                     className={
                       view === "grid"
-                        ? "group/card border-border/60 relative"
+                        ? "group/card relative border-border/60"
                         : "group/card relative rounded-none border-0 shadow-none"
                     }
                   >
-                    <label className="bg-background/90 pointer-events-auto absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-md border shadow-sm">
+                    <label className="pointer-events-auto absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-md border bg-background/90 shadow-sm">
                       <input
                         type="checkbox"
                         checked={selectedActorIds.has(actor.id)}
@@ -1286,7 +1356,7 @@ export function ActorsWorkspace({
                               />
                             </span>
                           </div>
-                          <p className="text-muted-foreground text-xs">
+                          <p className="text-xs text-muted-foreground">
                             {actor.username}/{actor.actorName}
                           </p>
                         </div>
@@ -1295,7 +1365,7 @@ export function ActorsWorkspace({
                         </Badge>
                       </div>
                       {info?.stats ? (
-                        <div className="text-muted-foreground flex items-center gap-3 text-xs">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             <PlayCircle className="h-3.5 w-3.5" />
                             {(info.stats.totalRuns ?? 0).toLocaleString("en-IN")} runs
@@ -1307,18 +1377,18 @@ export function ActorsWorkspace({
                         </div>
                       ) : null}
                       <div>
-                        <p className="text-muted-foreground mb-2 text-xs">
+                        <p className="mb-2 text-xs text-muted-foreground">
                           Est. monthly creator revenue
                         </p>
                         <EarningsBand value={earningsByActor.get(actor.id)} compact />
                       </div>
                       {(info?.description ?? actor.description) ? (
-                        <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+                        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                           {info?.description ?? actor.description}
                         </p>
                       ) : null}
                       {optimizationByActor.get(actor.id)?.currentScore != null ? (
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-xs text-muted-foreground">
                           Listing quality {optimizationByActor.get(actor.id)?.currentScore}% ·
                           potential {optimizationByActor.get(actor.id)?.proposedScore}%
                         </p>
@@ -1343,7 +1413,7 @@ export function ActorsWorkspace({
                       }
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground/40 flex-1 text-center text-xs">
+                        <span className="flex-1 text-center text-xs text-muted-foreground/40">
                           Click to open →
                         </span>
                       </div>
@@ -1359,7 +1429,7 @@ export function ActorsWorkspace({
       {!loading && !error && total > 0 ? (
         <nav
           aria-label="Actors pagination"
-          className="text-muted-foreground flex flex-col items-center justify-between gap-3 text-sm sm:flex-row"
+          className="flex flex-col items-center justify-between gap-3 text-sm text-muted-foreground sm:flex-row"
         >
           <ItemsPerPageSelect value={pageSize} onChange={updatePageSize} label="Actors per page" />
           <div className="flex items-center gap-3">
@@ -1405,7 +1475,7 @@ export function ActorsWorkspace({
                   key={option.key}
                   htmlFor={inputId}
                   className={`flex cursor-pointer items-start gap-3 rounded-md border p-4 transition-colors ${
-                    checked ? "border-signal-orange bg-signal-orange/5" : "border-border/60"
+                    checked ? "bg-signal-orange/5 border-signal-orange" : "border-border/60"
                   }`}
                 >
                   <span className="sr-only">Choose this optimization field</span>
@@ -1424,7 +1494,7 @@ export function ActorsWorkspace({
                   />
                   <span>
                     <span className="block text-sm font-medium">{option.label}</span>
-                    <span className="text-muted-foreground block text-xs leading-relaxed">
+                    <span className="block text-xs leading-relaxed text-muted-foreground">
                       {option.description}
                     </span>
                   </span>

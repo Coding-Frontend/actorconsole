@@ -2,6 +2,7 @@ import {
   actorInventoryAudience,
   planHasFeature,
   workspacePlanUsage,
+  BoundedTtlCache,
   getLogger,
   type PlanFeature,
   type UserSession,
@@ -143,6 +144,40 @@ export function refreshWorkspacePlanUsage(session: UserSession) {
   const check = getWorkspacePlanUsage(session, true).finally(() => pendingUsageChecks.delete(key));
   pendingUsageChecks.set(key, check);
   return check;
+}
+
+const queuedUsageRefreshes = new BoundedTtlCache<true>(1_000);
+const USAGE_REFRESH_INTERVAL_MS = 5 * 60_000;
+
+/** Navigation reads persisted usage; the audience worker refreshes stale totals. */
+export async function getWorkspaceNavigationUsage(session: UserSession) {
+  const usage = await getWorkspacePlanUsage(session);
+  const stale =
+    !usage.checkedAt ||
+    Date.now() - usage.checkedAt.getTime() >= USAGE_REFRESH_INTERVAL_MS ||
+    (usage.actorCount > 0 && !usage.monthlyUsersComplete);
+  const key = `${session.userId}:${session.businessProfileId}`;
+  if (stale && session.businessProfileId && !queuedUsageRefreshes.get(key)) {
+    queuedUsageRefreshes.set(key, true, USAGE_REFRESH_INTERVAL_MS);
+    void enqueue(
+      "audience",
+      { userId: session.userId, businessProfileId: session.businessProfileId },
+      {
+        jobId: `workspace-audience-${session.businessProfileId}-${Math.floor(Date.now() / USAGE_REFRESH_INTERVAL_MS)}`,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5_000 },
+        removeOnComplete: { age: 3_600 },
+        removeOnFail: { age: 3_600 },
+      },
+    ).catch((error) => {
+      queuedUsageRefreshes.set(key, true, 1_000);
+      log.warn(
+        { error, businessProfileId: session.businessProfileId },
+        "Could not queue workspace audience synchronization",
+      );
+    });
+  }
+  return usage;
 }
 
 export async function assertPlanFeature(session: UserSession, feature: PlanFeature): Promise<void> {

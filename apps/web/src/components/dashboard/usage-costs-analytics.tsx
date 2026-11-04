@@ -4,18 +4,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import {
   Activity,
   ArrowDownRight,
@@ -451,7 +441,7 @@ export function preferredHistoricalMonth(
 
 function EmptyChart({ children }: { children: ReactNode }) {
   return (
-    <div className="text-muted-foreground flex h-72 items-center justify-center rounded-sm border border-dashed px-6 text-center text-sm">
+    <div className="flex h-72 items-center justify-center rounded-sm border border-dashed px-6 text-center text-sm text-muted-foreground">
       {children}
     </div>
   );
@@ -503,11 +493,11 @@ function MetricCard({
     <Card variant="stat">
       <CardContent className="flex items-start justify-between gap-4 p-5 sm:p-6">
         <div className="min-w-0">
-          <p className="text-muted-foreground text-xs font-medium">{label}</p>
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
           <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-          <p className="text-muted-foreground mt-1 text-xs">{detail}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
         </div>
-        <span className="bg-signal-orange/10 text-signal-orange flex h-9 w-9 shrink-0 items-center justify-center rounded-sm">
+        <span className="bg-signal-orange/10 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-signal-orange">
           <Icon className="h-4 w-4" />
         </span>
       </CardContent>
@@ -535,11 +525,11 @@ function ReportPagination({
   const end = Math.min(page * pageSize, total);
 
   return (
-    <div className="border-border/80 mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-muted-foreground text-xs">
-        Showing <span className="text-foreground font-medium">{start.toLocaleString("en-US")}</span>
-        –<span className="text-foreground font-medium">{end.toLocaleString("en-US")}</span> of{" "}
-        <span className="text-foreground font-medium">{total.toLocaleString("en-US")}</span>
+    <div className="mt-5 flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-muted-foreground">
+        Showing <span className="font-medium text-foreground">{start.toLocaleString("en-US")}</span>
+        –<span className="font-medium text-foreground">{end.toLocaleString("en-US")}</span> of{" "}
+        <span className="font-medium text-foreground">{total.toLocaleString("en-US")}</span>
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
         <ItemsPerPageSelect
@@ -562,7 +552,7 @@ function ReportPagination({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-muted-foreground min-w-16 text-center text-xs tabular-nums">
+          <span className="min-w-16 text-center text-xs tabular-nums text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -607,8 +597,8 @@ function MetricDelta({ current, previous }: { current: number; previous: number 
     <span
       className={
         delta >= 0
-          ? "text-signal-green inline-flex items-center gap-1"
-          : "text-signal-orange inline-flex items-center gap-1"
+          ? "inline-flex items-center gap-1 text-signal-green"
+          : "inline-flex items-center gap-1 text-signal-orange"
       }
     >
       <Icon className="h-3 w-3" />
@@ -625,8 +615,8 @@ function CompactMetricDelta({ current, previous }: { current: number; previous: 
     <span
       className={
         delta >= 0
-          ? "text-signal-green mt-1 flex items-center justify-end gap-0.5 text-[10px]"
-          : "text-signal-orange mt-1 flex items-center justify-end gap-0.5 text-[10px]"
+          ? "mt-1 flex items-center justify-end gap-0.5 text-[10px] text-signal-green"
+          : "mt-1 flex items-center justify-end gap-0.5 text-[10px] text-signal-orange"
       }
     >
       <Icon className="h-2.5 w-2.5" />
@@ -662,17 +652,17 @@ function ActorMultiSelect({
                 ? (actors.find((actor) => actor.id === selectedIds[0])?.title ?? "1 Actor")
                 : `${selectedIds.length} Actors`}
           </span>
-          <ChevronsUpDown className="text-muted-foreground h-4 w-4" />
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
         </Button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
           align="start"
           sideOffset={6}
-          className="border-border bg-popover text-popover-foreground z-50 w-[min(360px,calc(100vw-2rem))] rounded-sm border p-3 shadow-2xl"
+          className="z-50 w-[min(360px,calc(100vw-2rem))] rounded-sm border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
         >
           <div className="relative">
-            <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -687,7 +677,7 @@ function ActorMultiSelect({
                 <button
                   key={actor.id}
                   type="button"
-                  className="hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 rounded-sm px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-2"
+                  className="flex w-full items-start gap-3 rounded-sm px-2.5 py-2 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() =>
                     onChange(
                       checked
@@ -705,7 +695,7 @@ function ActorMultiSelect({
                     <span className="block truncate text-xs font-semibold">
                       {actor.title ?? actor.actorName}
                     </span>
-                    <span className="text-muted-foreground block truncate font-mono text-[10px]">
+                    <span className="block truncate font-mono text-[10px] text-muted-foreground">
                       {actor.username}/{actor.actorName}
                     </span>
                   </span>
@@ -713,11 +703,11 @@ function ActorMultiSelect({
               );
             })}
           </div>
-          <div className="border-border mt-3 flex items-center justify-between border-t pt-3">
+          <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange([])}>
               Clear
             </Button>
-            <p className="text-muted-foreground text-[10px]">
+            <p className="text-[10px] text-muted-foreground">
               {selectedIds.length || actors.length} of {actors.length}
             </p>
           </div>
@@ -1359,7 +1349,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
             aria-label="Start date"
             className="w-36 min-w-36"
           />
-          <span className="text-muted-foreground text-xs">to</span>
+          <span className="text-xs text-muted-foreground">to</span>
           <Input
             type="date"
             value={selectedTo}
@@ -1421,7 +1411,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
   const revenueSortHeader = (key: RevenueSortKey, label: string) => (
     <button
       type="button"
-      className="hover:text-foreground inline-flex items-center justify-end gap-1.5"
+      className="inline-flex items-center justify-end gap-1.5 hover:text-foreground"
       onClick={() => {
         if (revenueSort === key) {
           setRevenueSortDirection((direction) => (direction === "desc" ? "asc" : "desc"));
@@ -1445,7 +1435,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
         <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-semibold">Analytics scope</p>
-            <p className="text-muted-foreground mt-0.5 text-xs">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {selectedActorIds.length
                 ? `${selectedActorIds.length} selected Actors`
                 : "All workspace Actors"}
@@ -1467,7 +1457,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
           <TabsTrigger value="revenue">Revenue &amp; profit</TabsTrigger>
         </TabsList>
         {account?.unavailable ? (
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             {account.unavailable} optional Apify dataset
             {account.unavailable === 1 ? " is" : "s are"} unavailable.
           </p>
@@ -1478,10 +1468,10 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
         <Card className="border-signal-orange/50 bg-signal-orange/5">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div className="flex min-w-0 gap-3">
-              <ShieldAlert className="text-signal-orange mt-0.5 h-5 w-5 shrink-0" />
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-signal-orange" />
               <div>
                 <p className="text-sm font-semibold">Apify account connection needs attention</p>
-                <p className="text-muted-foreground mt-1 max-w-4xl text-xs leading-5">
+                <p className="mt-1 max-w-4xl text-xs leading-5 text-muted-foreground">
                   {credentialIssue.message} Current-period usage still comes from the API key, but
                   historical, per-Actor, and revenue analytics are paused to prevent mixing account
                   data.
@@ -1497,7 +1487,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
 
       <TabsContent value="current" className="space-y-5">
         {selectedActorIds.length ? (
-          <div className="border-signal-blue/25 bg-signal-blue/5 text-muted-foreground rounded-sm border px-4 py-3 text-xs leading-5">
+          <div className="border-signal-blue/25 bg-signal-blue/5 rounded-sm border px-4 py-3 text-xs leading-5 text-muted-foreground">
             Actor activity follows the selected scope. Apify billing-cycle and service totals remain
             workspace-wide because those account charges are not reported per Actor.
           </div>
@@ -1539,7 +1529,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold">Plan consumption</p>
-                  <p className="text-muted-foreground mt-1 text-xs">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Discounted usage against the limit returned by Apify.
                   </p>
                 </div>
@@ -1547,9 +1537,9 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                   {Math.min(100, (currentTotal / allowance) * 100).toFixed(1)}%
                 </p>
               </div>
-              <div className="bg-muted mt-4 h-2 overflow-hidden rounded-full">
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="bg-signal-orange h-full rounded-full"
+                  className="h-full rounded-full bg-signal-orange"
                   style={{ width: `${Math.min(100, (currentTotal / allowance) * 100)}%` }}
                 />
               </div>
@@ -1566,7 +1556,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                     ? "Cumulative usage in the current period"
                     : "Daily usage in the current period"}
                 </CardTitle>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Apify platform usage and locally synchronized Actor runs on their actual dates.
                 </p>
               </div>
@@ -1585,70 +1575,19 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                 options={{ compact: true }}
                 chartClassName="h-80 min-w-0"
               >
-                {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={currentDailyChart}
-                      margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        vertical={false}
-                        stroke="var(--color-border)"
-                        strokeOpacity={0.55}
-                      />
-                      <XAxis
-                        dataKey="label"
-                        hide={!axisLabelsVisible}
-                        axisLine={false}
-                        tickLine={false}
-                        minTickGap={28}
-                        tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                      />
-                      <YAxis
-                        yAxisId="cost"
-                        hide={!axisLabelsVisible}
-                        axisLine={false}
-                        tickLine={false}
-                        width={52}
-                        tickFormatter={(value) => money.format(Number(value))}
-                        tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                      />
-                      <YAxis
-                        yAxisId="runs"
-                        orientation="right"
-                        hide
-                        axisLine={false}
-                        tickLine={false}
-                        width={42}
-                        tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                      />
-                      <Tooltip content={<ChartTooltip series={currentUsageSeries} />} />
-                      <Line
-                        yAxisId="cost"
-                        type="monotone"
-                        dataKey="displayCost"
-                        name={currentUsageSeries[0].label}
-                        hide={!visibleSeries.has("displayCost")}
-                        stroke="var(--color-signal-orange)"
-                        strokeWidth={2.5}
-                        dot={false}
-                        label={dataLabelsVisible}
-                        isAnimationActive={false}
-                      />
-                      <Line
-                        yAxisId="runs"
-                        type="monotone"
-                        dataKey="displayRuns"
-                        name={currentUsageSeries[1].label}
-                        hide={!visibleSeries.has("displayRuns")}
-                        stroke="var(--color-signal-blue)"
-                        strokeWidth={1.75}
-                        dot={false}
-                        label={dataLabelsVisible}
-                        isAnimationActive={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                {(state) => (
+                  <ChartJsChart
+                    ariaLabel="Current-period usage and runs"
+                    data={currentDailyChart}
+                    xKey="label"
+                    series={currentUsageSeries.map((item) => ({
+                      ...item,
+                      axisId: item.key === "displayRuns" ? "runs" : "y",
+                    }))}
+                    state={state}
+                    yAxis={{ formatValue: (value) => money.format(value) }}
+                    additionalAxes={{ runs: { hidden: true, integer: true, position: "right" } }}
+                  />
                 )}
               </ChartFrame>
             </CardContent>
@@ -1657,7 +1596,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
           <Card>
             <CardHeader>
               <CardTitle>Current service usage</CardTitle>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 Service groups first, followed by the highest-cost resources.
               </p>
             </CardHeader>
@@ -1665,8 +1604,8 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               {serviceGroups.length ? (
                 <div className="grid grid-cols-2 gap-3">
                   {serviceGroups.map((group) => (
-                    <div key={group.name} className="bg-muted/45 rounded-sm border p-3">
-                      <p className="text-muted-foreground text-xs">{group.name}</p>
+                    <div key={group.name} className="rounded-sm border bg-muted/45 p-3">
+                      <p className="text-xs text-muted-foreground">{group.name}</p>
                       <p className="mt-1 font-mono text-sm font-semibold">
                         {money.format(group.cost)}
                       </p>
@@ -1675,7 +1614,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                 </div>
               ) : null}
               {services.length ? (
-                <div className="divide-border divide-y">
+                <div className="divide-y divide-border">
                   {services.slice(0, 8).map((service) => (
                     <div
                       key={service.key}
@@ -1683,7 +1622,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{serviceLabel(service.key)}</p>
-                        <p className="text-muted-foreground text-xs tabular-nums">
+                        <p className="text-xs tabular-nums text-muted-foreground">
                           {service.quantity.toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
                           units
                         </p>
@@ -1698,7 +1637,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                 <EmptyChart>No current service usage was returned by Apify.</EmptyChart>
               )}
               {beforeDiscount > currentTotal ? (
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   Volume discount saved {money.format(beforeDiscount - currentTotal)} this cycle.
                 </p>
               ) : null}
@@ -1709,7 +1648,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
 
       <TabsContent value="history" className="space-y-5">
         {selectedActorIds.length ? (
-          <div className="border-signal-blue/25 bg-signal-blue/5 text-muted-foreground rounded-sm border px-4 py-3 text-xs leading-5">
+          <div className="border-signal-blue/25 bg-signal-blue/5 rounded-sm border px-4 py-3 text-xs leading-5 text-muted-foreground">
             The Actor breakdown follows the selected scope. Monthly service totals remain
             workspace-wide for accurate reconciliation with Apify billing.
           </div>
@@ -1753,7 +1692,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
           <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
             <div>
               <CardTitle>Historical platform usage</CardTitle>
-              <p className="text-muted-foreground mt-1 text-xs">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Calendar-month raw usage; discounts and credits can make invoice totals differ.
               </p>
             </div>
@@ -1776,65 +1715,16 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               options={{ showSeriesControls: false, compact: true }}
               chartClassName="h-80 min-w-0"
             >
-              {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={historicalChart}
-                    margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="historicalUsageFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                          offset="0%"
-                          stopColor="var(--color-signal-orange)"
-                          stopOpacity={0.28}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="var(--color-signal-orange)"
-                          stopOpacity={0.02}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="var(--color-border)"
-                      strokeOpacity={0.55}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={24}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <YAxis
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      width={52}
-                      tickFormatter={(value) => money.format(Number(value))}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <Tooltip content={<ChartTooltip series={historicalUsageSeries} />} />
-                    <Area
-                      type="monotone"
-                      dataKey="displayCost"
-                      name={historicalUsageSeries[0].label}
-                      hide={!visibleSeries.has("displayCost")}
-                      stroke="var(--color-signal-orange)"
-                      fill="url(#historicalUsageFill)"
-                      strokeWidth={2.5}
-                      label={
-                        dataLabelsVisible
-                          ? { fill: "var(--color-foreground)", fontSize: 10 }
-                          : false
-                      }
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              {(state) => (
+                <ChartJsChart
+                  ariaLabel="Historical monthly platform usage"
+                  data={historicalChart}
+                  xKey="label"
+                  series={historicalUsageSeries}
+                  type="area"
+                  state={state}
+                  yAxis={{ formatValue: (value) => money.format(value) }}
+                />
               )}
             </ChartFrame>
           </CardContent>
@@ -1848,7 +1738,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                   ? "Cumulative platform usage by day"
                   : "Platform usage by day"}
               </CardTitle>
-              <p className="text-muted-foreground mt-1 text-xs">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Daily calendar-month usage from Apify. A fresh sync retains up to twelve months of
                 day-level history.
               </p>
@@ -1868,70 +1758,19 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               options={{ compact: true }}
               chartClassName="h-80 min-w-0"
             >
-              {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={dailyUsageHistoryChart}
-                    margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="var(--color-border)"
-                      strokeOpacity={0.55}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={34}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <YAxis
-                      yAxisId="cost"
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      width={52}
-                      tickFormatter={(value) => money.format(Number(value))}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <YAxis
-                      yAxisId="runs"
-                      orientation="right"
-                      hide
-                      axisLine={false}
-                      tickLine={false}
-                      width={42}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <Tooltip content={<ChartTooltip series={historicalDailyUsageSeries} />} />
-                    <Line
-                      yAxisId="cost"
-                      type="monotone"
-                      dataKey="displayCost"
-                      name={historicalDailyUsageSeries[0].label}
-                      hide={!visibleSeries.has("displayCost")}
-                      stroke="var(--color-signal-orange)"
-                      strokeWidth={2.5}
-                      dot={false}
-                      label={dataLabelsVisible}
-                      isAnimationActive={false}
-                    />
-                    <Line
-                      yAxisId="runs"
-                      type="monotone"
-                      dataKey="displayRuns"
-                      name={historicalDailyUsageSeries[1].label}
-                      hide={!visibleSeries.has("displayRuns")}
-                      stroke="var(--color-signal-blue)"
-                      strokeWidth={1.75}
-                      dot={false}
-                      label={dataLabelsVisible}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              {(state) => (
+                <ChartJsChart
+                  ariaLabel="Historical daily platform usage and runs"
+                  data={dailyUsageHistoryChart}
+                  xKey="label"
+                  series={historicalDailyUsageSeries.map((item) => ({
+                    ...item,
+                    axisId: item.key === "displayRuns" ? "runs" : "y",
+                  }))}
+                  state={state}
+                  yAxis={{ formatValue: (value) => money.format(value) }}
+                  additionalAxes={{ runs: { hidden: true, integer: true, position: "right" } }}
+                />
               )}
             </ChartFrame>
           </CardContent>
@@ -1942,13 +1781,13 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
             <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
               <div>
                 <CardTitle>Usage by Actor</CardTitle>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Only Actors with usage or runs are shown. Shares use the Actor subtotal, never the
                   account total.
                 </p>
               </div>
               <div className="relative w-full sm:w-64">
-                <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(event) => {
@@ -1962,36 +1801,50 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
             </CardHeader>
             <CardContent>
               {selectedActorPeriod && filteredActorRows.length ? (
-                <div className="divide-border divide-y">
+                <div className="divide-y divide-border">
+                  <ChartJsChart
+                    ariaLabel="Usage cost share by Actor on this page"
+                    data={visibleActorRows}
+                    xKey="title"
+                    series={[
+                      {
+                        key: "share",
+                        label: "Share of Actor usage",
+                        color: "var(--color-signal-orange)",
+                        format: { unit: "percent" },
+                      },
+                    ]}
+                    type="bar"
+                    horizontal
+                    height={Math.max(180, visibleActorRows.length * 36)}
+                    xLabelFormatter={(title) =>
+                      title.length > 20 ? `${title.slice(0, 19)}…` : title
+                    }
+                    yAxis={{ min: 0, max: 100, formatValue: (value) => `${value}%` }}
+                  />
                   {visibleActorRows.map((row) => (
                     <div key={row.id} className="py-4 first:pt-0 last:pb-0">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{row.title}</p>
-                          <p className="text-muted-foreground truncate text-xs">
+                          <p className="truncate text-xs text-muted-foreground">
                             {row.username}/{row.actorName}
                           </p>
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-left lg:shrink-0 lg:text-right">
                           <div>
-                            <p className="text-muted-foreground text-[11px]">Runs</p>
+                            <p className="text-[11px] text-muted-foreground">Runs</p>
                             <p className="font-mono text-sm">{row.runs.toLocaleString("en-US")}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground text-[11px]">Cost</p>
+                            <p className="text-[11px] text-muted-foreground">Cost</p>
                             <p className="font-mono text-sm">{money.format(row.cost)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground text-[11px]">Share</p>
+                            <p className="text-[11px] text-muted-foreground">Share</p>
                             <p className="font-mono text-sm">{row.share.toFixed(1)}%</p>
                           </div>
                         </div>
-                      </div>
-                      <div className="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
-                        <div
-                          className="bg-signal-orange h-full rounded-full"
-                          style={{ width: `${Math.min(100, row.share)}%` }}
-                        />
                       </div>
                     </div>
                   ))}
@@ -2040,7 +1893,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
             </CardHeader>
             <CardContent>
               {selectedServices.length ? (
-                <div className="divide-border divide-y">
+                <div className="divide-y divide-border">
                   {selectedServices.slice(0, 12).map((service) => (
                     <div
                       key={service.key}
@@ -2048,7 +1901,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{serviceLabel(service.key)}</p>
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-xs text-muted-foreground">
                           {service.quantity.toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
                           units
                         </p>
@@ -2075,7 +1928,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
         {!hasRevenueData ? (
           <Card>
             <CardContent className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
-              <span className="bg-signal-orange/10 text-signal-orange flex h-12 w-12 items-center justify-center rounded-sm">
+              <span className="bg-signal-orange/10 flex h-12 w-12 items-center justify-center rounded-sm text-signal-orange">
                 <CircleDollarSign className="h-5 w-5" />
               </span>
               <h2 className="mt-5 text-lg font-semibold">
@@ -2083,12 +1936,12 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                   ? "Revenue analytics are temporarily unavailable"
                   : "Revenue data is ready to synchronize"}
               </h2>
-              <p className="text-muted-foreground mt-2 max-w-xl text-sm leading-6">
+              <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
                 {credentialIssue
                   ? "Connect a Console credential from the same Apify account as this workspace API key. Revenue sync will resume after the accounts match."
                   : "Use Sync usage at the top of this page to import Apify monetization data for this workspace. Revenue and profit will appear only for Actors whose owner analytics are available."}
               </p>
-              <p className="text-muted-foreground mt-3 max-w-xl text-xs leading-5">
+              <p className="mt-3 max-w-xl text-xs leading-5 text-muted-foreground">
                 Free-user runs can add runs, results, and platform costs, but they do not generate
                 Actor revenue.
               </p>
@@ -2168,10 +2021,10 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               revenue.coverage.failedActorSyncs > 0) ? (
               <Card className="border-signal-orange/40 bg-signal-orange/5">
                 <CardContent className="flex gap-3 p-5">
-                  <ShieldAlert className="text-signal-orange mt-0.5 h-5 w-5 shrink-0" />
+                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-signal-orange" />
                   <div>
                     <p className="text-sm font-semibold">Financial coverage is partial</p>
-                    <p className="text-muted-foreground mt-1 text-xs leading-5">
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
                       Allocated costs are available for {revenue.coverage.allocatedCostCoveredRows}{" "}
                       of {revenue.coverage.rows} Actor-day rows. Missing cost is displayed as
                       unavailable, never as $0.00. {revenue.coverage.failedActorSyncs} Actor sync
@@ -2189,7 +2042,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                     {revenueGranularity === "day" ? "Daily" : "Monthly"}{" "}
                     {selectedMetric.label.toLowerCase()}
                   </CardTitle>
-                  <p className="text-muted-foreground mt-1 text-xs">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     The chart follows the Actor, period, metric, and comparison scope above.
                   </p>
                 </div>
@@ -2232,58 +2085,21 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                   options={{ showSeriesControls: false, compact: true }}
                   chartClassName="h-80 min-w-0"
                 >
-                  {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                    <ResponsiveContainer width="100%" height="100%" debounce={0}>
-                      <AreaChart
-                        data={revenueTrend}
-                        margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                      >
-                        <CartesianGrid
-                          vertical={false}
-                          stroke="var(--color-border)"
-                          strokeOpacity={0.55}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          minTickGap={24}
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <YAxis
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          width={58}
-                          tickFormatter={(value) =>
-                            selectedMetric.currency
-                              ? money.format(Number(value))
-                              : Number(value).toLocaleString("en-US")
-                          }
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <Tooltip content={<ChartTooltip series={revenueSeries} />} />
-                        <Area
-                          type="monotone"
-                          dataKey={selectedMetric.dataKey}
-                          name={revenueSeries[0].label}
-                          hide={!visibleSeries.has(selectedMetric.dataKey)}
-                          stroke={selectedMetric.color}
-                          strokeWidth={2.5}
-                          fill={selectedMetric.color}
-                          fillOpacity={0.12}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                          label={
-                            dataLabelsVisible
-                              ? { fill: "var(--color-foreground)", fontSize: 10 }
-                              : false
-                          }
-                          isAnimationActive={false}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                  {(state) => (
+                    <ChartJsChart
+                      ariaLabel={`${selectedMetric.label} revenue trend`}
+                      data={revenueTrend}
+                      xKey="label"
+                      series={revenueSeries}
+                      type="area"
+                      state={state}
+                      yAxis={{
+                        formatValue: (value) =>
+                          selectedMetric.currency
+                            ? money.format(value)
+                            : value.toLocaleString("en-US"),
+                      }}
+                    />
                   )}
                 </ChartFrame>
               </CardContent>
@@ -2293,7 +2109,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               <Card className="min-w-0">
                 <CardHeader>
                   <CardTitle>Actor comparison</CardTitle>
-                  <p className="text-muted-foreground mt-1 text-xs">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Compare the selected metric across up to five Actors without losing the daily
                     source records below.
                   </p>
@@ -2308,55 +2124,20 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                       options={{ compact: true }}
                       chartClassName="h-72 min-w-0"
                     >
-                      {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                        <ResponsiveContainer width="100%" height="100%" debounce={0}>
-                          <LineChart
-                            data={actorComparisonTrend}
-                            margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                          >
-                            <CartesianGrid
-                              vertical={false}
-                              stroke="var(--color-border)"
-                              strokeOpacity={0.55}
-                            />
-                            <XAxis
-                              dataKey="label"
-                              hide={!axisLabelsVisible}
-                              axisLine={false}
-                              tickLine={false}
-                              minTickGap={24}
-                              tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                            />
-                            <YAxis
-                              hide={!axisLabelsVisible}
-                              axisLine={false}
-                              tickLine={false}
-                              width={58}
-                              tickFormatter={(value) =>
-                                selectedMetric.currency
-                                  ? money.format(Number(value))
-                                  : Number(value).toLocaleString("en-US")
-                              }
-                              tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                            />
-                            <Tooltip content={<ChartTooltip series={comparisonSeries} />} />
-                            {comparisonActors.map((actor, index) => (
-                              <Line
-                                key={actor.id}
-                                type="monotone"
-                                dataKey={actor.id}
-                                name={comparisonSeries[index]?.label}
-                                hide={!visibleSeries.has(actor.id)}
-                                stroke={comparisonColors[index]}
-                                strokeWidth={2.25}
-                                dot={false}
-                                activeDot={{ r: 4 }}
-                                label={dataLabelsVisible}
-                                isAnimationActive={false}
-                              />
-                            ))}
-                          </LineChart>
-                        </ResponsiveContainer>
+                      {(state) => (
+                        <ChartJsChart
+                          ariaLabel="Selected Actor comparison trend"
+                          data={actorComparisonTrend}
+                          xKey="label"
+                          series={comparisonSeries}
+                          state={state}
+                          yAxis={{
+                            formatValue: (value) =>
+                              selectedMetric.currency
+                                ? money.format(value)
+                                : value.toLocaleString("en-US"),
+                          }}
+                        />
                       )}
                     </ChartFrame>
                   ) : (
@@ -2372,12 +2153,12 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
                 <div>
                   <CardTitle>Revenue by Actor</CardTitle>
-                  <p className="text-muted-foreground mt-1 max-w-3xl text-xs leading-5">
+                  <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
                     Compare synchronized totals for the selected period. Use the Actor selector
                     above to update this table, cards, chart, and ledger together.
                   </p>
                   {revenue?.syncedAt ? (
-                    <p className="text-muted-foreground mt-1 text-xs">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Last synchronized{" "}
                       {new Date(revenue.syncedAt).toLocaleString("en-IN", {
                         day: "2-digit",
@@ -2394,7 +2175,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                   ) : null}
                 </div>
                 <div className="relative w-full sm:w-72">
-                  <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={revenueQuery}
                     onChange={(event) => {
@@ -2438,18 +2219,18 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                             <th className="px-4 py-3 text-right font-medium">Share</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-border divide-y">
+                        <tbody className="divide-y divide-border">
                           {visibleRevenueActors.map((actor) => (
                             <tr key={actor.id}>
                               <td className="px-4 py-4">
                                 <Link
                                   href={`/dashboard/actors/${actor.id}`}
-                                  className="hover:text-signal-blue inline-flex max-w-xs items-center gap-1 truncate font-semibold"
+                                  className="inline-flex max-w-xs items-center gap-1 truncate font-semibold hover:text-signal-blue"
                                 >
                                   {actor.title ?? actor.actorName}
                                   <ExternalLink className="h-3 w-3 shrink-0" />
                                 </Link>
-                                <p className="text-muted-foreground max-w-xs truncate text-xs">
+                                <p className="max-w-xs truncate text-xs text-muted-foreground">
                                   {actor.username}/{actor.actorName}
                                 </p>
                               </td>
@@ -2510,7 +2291,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot className="border-border bg-muted/35 border-t">
+                        <tfoot className="border-t border-border bg-muted/35">
                           <tr className="font-semibold">
                             <td className="px-4 py-3">Actor subtotal</td>
                             <td className="px-3 py-3 text-right font-mono tabular-nums">
@@ -2554,7 +2335,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                       onPageSizeChange={setRevenuePageSize}
                     />
                     {revenue?.unavailableActors ? (
-                      <p className="text-muted-foreground mt-4 text-xs">
+                      <p className="mt-4 text-xs text-muted-foreground">
                         Revenue analytics are unavailable for {revenue.unavailableActors} Actor
                         {revenue.unavailableActors === 1 ? "" : "s"}; those Actors are excluded from
                         this subtotal.
@@ -2571,7 +2352,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
                 <div>
                   <CardTitle>Daily Actor ledger</CardTitle>
-                  <p className="text-muted-foreground mt-1 max-w-3xl text-xs leading-5">
+                  <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
                     Every chart point is traceable to these UTC Actor-day records. Allocated cost
                     adds workspace overhead proportionally to each Actor&apos;s direct daily usage.
                   </p>
@@ -2601,7 +2382,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                       {visibleLedgerRows.map((row) => (
                         <article
                           key={`${row.actorId}:${row.date}`}
-                          className="border-border rounded-sm border p-4"
+                          className="rounded-sm border border-border p-4"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -2615,7 +2396,7 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                                 {row.title ?? row.actorName}
                               </Link>
                             </div>
-                            <span className="text-signal-green font-mono text-sm">
+                            <span className="font-mono text-sm text-signal-green">
                               {row.revenueUsd == null ? "—" : money.format(row.revenueUsd)}
                             </span>
                           </div>
@@ -2667,18 +2448,18 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                             <th className="px-4 py-3 text-right font-medium">Active users</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-border divide-y">
+                        <tbody className="divide-y divide-border">
                           {visibleLedgerRows.map((row) => (
                             <tr key={`${row.actorId}:${row.date}`}>
                               <td className="px-4 py-3 font-mono text-xs">{row.date}</td>
                               <td className="px-4 py-3">
                                 <Link
                                   href={`/dashboard/actors/${row.actorId}`}
-                                  className="hover:text-signal-blue font-semibold"
+                                  className="font-semibold hover:text-signal-blue"
                                 >
                                   {row.title ?? row.actorName}
                                 </Link>
-                                <p className="text-muted-foreground mt-0.5 font-mono text-[10px]">
+                                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                                   {row.username}/{row.actorName}
                                 </p>
                               </td>

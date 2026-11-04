@@ -39,6 +39,7 @@ const {
   mockFindFirstBusinessProfile,
   mockFindUniqueRunSnapshot,
   mockAnalyticsEvents,
+  mockReconcileActorLogoRecommendations,
 } = vi.hoisted(() => ({
   mockFindManyActors: vi.fn(),
   mockFindFirstActor: vi.fn(),
@@ -74,10 +75,13 @@ const {
   mockFindFirstBusinessProfile: vi.fn(),
   mockFindUniqueRunSnapshot: vi.fn(),
   mockAnalyticsEvents: vi.fn(),
+  mockReconcileActorLogoRecommendations: vi.fn().mockResolvedValue({ created: 0 }),
 }));
 
 vi.mock("@actorconsole/db", () => ({
   admitWorkspaceActors: (...args: unknown[]) => mockAdmitWorkspaceActors(...args),
+  reconcileActorLogoRecommendations: (...args: unknown[]) =>
+    mockReconcileActorLogoRecommendations(...args),
   db: {
     analyticsEvent: { findMany: mockAnalyticsEvents },
     businessProfile: { findFirst: (...args: unknown[]) => mockFindFirstBusinessProfile(...args) },
@@ -193,12 +197,22 @@ describe("Actor routes", () => {
       { userId: "u1", businessProfileId: "other", name: "actors.synced" },
       { userId: "u1", businessProfileId: null, name: "account.security" },
     ];
-    mockAnalyticsEvents.mockImplementation(async ({ where }) => events.filter((event) =>
-      event.userId === where.userId && (where.businessProfileId === undefined || event.businessProfileId === where.businessProfileId)));
-    const response = await buildApp("PRO", { authMethod: "api-key" }).request("/actors/analytics/events");
+    mockAnalyticsEvents.mockImplementation(async ({ where }) =>
+      events.filter(
+        (event) =>
+          event.userId === where.userId &&
+          (where.businessProfileId === undefined ||
+            event.businessProfileId === where.businessProfileId),
+      ),
+    );
+    const response = await buildApp("PRO", { authMethod: "api-key" }).request(
+      "/actors/analytics/events",
+    );
     expect(response.status).toBe(200);
     expect((await response.json()).data).toEqual([events[0]]);
-    expect(mockAnalyticsEvents).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1", businessProfileId: "bp1" } }));
+    expect(mockAnalyticsEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "u1", businessProfileId: "bp1" } }),
+    );
   });
   beforeEach(() => {
     vi.clearAllMocks();
@@ -582,12 +596,27 @@ describe("Actor routes", () => {
     });
 
     it("shows a scoped saved summary when Apify no longer retains the run", async () => {
-      mockGetUserApifyClient.mockResolvedValue({ getRun: vi.fn().mockResolvedValue(null), rawClient: vi.fn() });
-      mockFindUniqueRunSnapshot.mockResolvedValue({ apifyRunId: "run-1", status: "FAILED", startedAt: new Date("2026-08-31T10:00:00Z"), usageCostUsd: "0.0016" });
+      mockGetUserApifyClient.mockResolvedValue({
+        getRun: vi.fn().mockResolvedValue(null),
+        rawClient: vi.fn(),
+      });
+      mockFindUniqueRunSnapshot.mockResolvedValue({
+        apifyRunId: "run-1",
+        status: "FAILED",
+        startedAt: new Date("2026-08-31T10:00:00Z"),
+        usageCostUsd: "0.0016",
+      });
       const response = await buildApp().request("/actors/by-id/a1/runs/run-1?section=logs");
       expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ data: { storageUnavailable: true, run: { id: "run-1", status: "FAILED", usageTotalUsd: 0.0016 } } });
-      expect(mockFindUniqueRunSnapshot).toHaveBeenCalledWith({ where: { actorId_apifyRunId: { actorId: "a1", apifyRunId: "run-1" } } });
+      expect(await response.json()).toMatchObject({
+        data: {
+          storageUnavailable: true,
+          run: { id: "run-1", status: "FAILED", usageTotalUsd: 0.0016 },
+        },
+      });
+      expect(mockFindUniqueRunSnapshot).toHaveBeenCalledWith({
+        where: { actorId_apifyRunId: { actorId: "a1", apifyRunId: "run-1" } },
+      });
     });
 
     it("keeps unknown runs unavailable when no scoped snapshot exists", async () => {
@@ -1631,6 +1660,9 @@ describe("Actor routes", () => {
   describe("POST /actors/:apifyActorId/rewrite-copy", () => {
     it("returns AI-generated copy variants", async () => {
       mockGetUserApifyClient.mockResolvedValueOnce({
+        getActorBasicInfo: vi
+          .fn()
+          .mockResolvedValue({ seoTitle: "Current SEO", seoDescription: null }),
         getActor: vi.fn().mockResolvedValueOnce({
           id: "ap1",
           title: "Test Actor",
@@ -1663,6 +1695,12 @@ describe("Actor routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.data.variants).toBeDefined();
+      expect(body.data.currentCopy).toEqual({
+        title: "Test Actor",
+        description: "A test actor",
+        seoTitle: "Current SEO",
+        seoDescription: null,
+      });
       expect(mockRewriteActorCopy).toHaveBeenCalledWith(
         expect.not.objectContaining({ currentCategories: expect.anything() }),
       );
@@ -1719,6 +1757,7 @@ describe("Actor routes", () => {
     it("updates copy while ignoring legacy category fields", async () => {
       const updateActorMetadata = vi.fn().mockResolvedValueOnce({
         actor: { title: "Updated" },
+        verified: true,
       });
       mockGetUserApifyClient.mockResolvedValueOnce({ updateActorMetadata });
       mockFindFirstActor.mockResolvedValueOnce({
@@ -1741,6 +1780,7 @@ describe("Actor routes", () => {
       expect(body.ok).toBe(true);
       expect(updateActorMetadata).toHaveBeenCalledWith("ap1", {
         title: "Updated Title",
+        expectedCopy: undefined,
       });
       expect(mockUpdateActor).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1847,10 +1887,6 @@ describe("Actor routes", () => {
       expect(response.status).toBe(200);
       expect(appendActorPricing).toHaveBeenCalledWith("ap1", {
         pricingModel: "PAY_PER_EVENT",
-        minimalMaxTotalChargeUsd: 0.5,
-        isPPEPlatformUsagePaidByUser: true,
-        isPriceChangeNotificationSuppressed: false,
-        apifyMarginPercentage: 0.2,
         reasonForChange: "Add the result and Actor-start events",
         pricingPerEvent: {
           actorChargeEvents: {

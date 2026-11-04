@@ -4,8 +4,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import { FinancialTrendChart } from "./financial-trend-chart";
 import {
   Activity,
@@ -209,11 +209,11 @@ function MetricCard({
     <Card variant="stat">
       <CardContent className="flex items-start justify-between gap-4 p-5 sm:p-6">
         <div className="min-w-0">
-          <p className="text-muted-foreground text-xs font-medium">{label}</p>
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
           <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-          <div className="text-muted-foreground mt-1 text-xs">{detail}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
         </div>
-        <span className="bg-signal-orange/10 text-signal-orange flex h-9 w-9 shrink-0 items-center justify-center rounded-sm">
+        <span className="bg-signal-orange/10 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-signal-orange">
           <Icon className="h-4 w-4" />
         </span>
       </CardContent>
@@ -254,17 +254,17 @@ function ActorPicker({
                 ? (actors.find((actor) => actor.id === selectedIds[0])?.title ?? "1 Actor")
                 : `${selectedIds.length} Actors`}
           </span>
-          <ChevronsUpDown className="text-muted-foreground h-4 w-4" />
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
         </Button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
           align="start"
           sideOffset={6}
-          className="border-border bg-popover text-popover-foreground z-50 w-[min(360px,calc(100vw-2rem))] rounded-sm border p-3 shadow-2xl"
+          className="z-50 w-[min(360px,calc(100vw-2rem))] rounded-sm border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
         >
           <div className="relative">
-            <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -279,7 +279,7 @@ function ActorPicker({
                 <button
                   key={actor.id}
                   type="button"
-                  className="hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 rounded-sm px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-2"
+                  className="flex w-full items-start gap-3 rounded-sm px-2.5 py-2 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() =>
                     onChange(
                       checked
@@ -297,7 +297,7 @@ function ActorPicker({
                     <span className="block truncate text-xs font-semibold">
                       {actor.title ?? actor.actorName}
                     </span>
-                    <span className="text-muted-foreground block truncate font-mono text-[10px]">
+                    <span className="block truncate font-mono text-[10px] text-muted-foreground">
                       {actor.username}/{actor.actorName}
                     </span>
                   </span>
@@ -305,11 +305,11 @@ function ActorPicker({
               );
             })}
           </div>
-          <div className="border-border mt-3 flex items-center justify-between border-t pt-3">
+          <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange([])}>
               Clear
             </Button>
-            <span className="text-muted-foreground text-[10px]">{selectedIds.length} selected</span>
+            <span className="text-[10px] text-muted-foreground">{selectedIds.length} selected</span>
           </div>
         </Popover.Content>
       </Popover.Portal>
@@ -328,7 +328,7 @@ function FilterField({
 }) {
   return (
     <div className={`flex min-w-0 flex-col gap-1.5 ${className ?? ""}`}>
-      <span className="text-muted-foreground px-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+      <span className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </span>
       {children}
@@ -354,8 +354,8 @@ function Pagination({
   const start = total ? (safePage - 1) * pageSize + 1 : 0;
   const end = Math.min(safePage * pageSize, total);
   return (
-    <div className="border-border/80 mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-muted-foreground text-xs">
+    <div className="mt-5 flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-muted-foreground">
         Showing {start.toLocaleString("en-US")}–{end.toLocaleString("en-US")} of{" "}
         {total.toLocaleString("en-US")}
       </p>
@@ -379,7 +379,7 @@ function Pagination({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="text-muted-foreground min-w-14 text-center text-xs">
+        <span className="min-w-14 text-center text-xs text-muted-foreground">
           {safePage}/{totalPages}
         </span>
         <Button
@@ -990,7 +990,7 @@ export function FinancialAnalyticsPage({
               onChange={(event) => updateUrl({ from: event.target.value, day: null })}
               aria-label="Start date"
             />
-            <span className="text-muted-foreground text-xs">to</span>
+            <span className="text-xs text-muted-foreground">to</span>
             <Input
               type="date"
               className="h-10 min-w-0 flex-1 sm:w-36"
@@ -1015,12 +1015,10 @@ export function FinancialAnalyticsPage({
 
   // Let the browser resolve the active token so the chart is theme-aware
   // without waiting for React to hydrate the ThemeProvider.
-  const gridColor = "hsl(var(--border) / 0.55)";
-  const tickColor = "var(--color-muted-foreground)";
   const sortHeader = (key: SortKey, label: string) => (
     <button
       type="button"
-      className="hover:text-foreground inline-flex items-center gap-1.5"
+      className="inline-flex items-center gap-1.5 hover:text-foreground"
       onClick={() => {
         if (sortKey === key) setSortDirection((value) => (value === "desc" ? "asc" : "desc"));
         else {
@@ -1041,7 +1039,7 @@ export function FinancialAnalyticsPage({
     <div className="space-y-5">
       <DashboardFilterRail
         label="Financial analytics filters"
-        className="border-signal-blue/20 bg-card/95 rounded-sm border"
+        className="border-signal-blue/20 rounded-sm border bg-card/95"
       >
         <CardContent className="grid gap-3 p-3 xl:grid-cols-[minmax(13rem,0.7fr)_minmax(0,3fr)] xl:items-end">
           <DashboardFilterSummary
@@ -1064,9 +1062,9 @@ export function FinancialAnalyticsPage({
         </CardContent>
       </DashboardFilterRail>
 
-      <details className="border-border bg-card rounded-md border px-4 py-3 text-sm">
+      <details className="rounded-md border border-border bg-card px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium">How to read these figures</summary>
-        <div className="text-muted-foreground mt-3 grid gap-2 text-xs leading-5 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 text-xs leading-5 text-muted-foreground sm:grid-cols-2">
           {kind === "usage" ? (
             <>
               <p>
@@ -1117,10 +1115,10 @@ export function FinancialAnalyticsPage({
         <Card className="border-signal-orange/50 bg-signal-orange/5">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-3">
-              <ShieldAlert className="text-signal-orange mt-0.5 h-5 w-5 shrink-0" />
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-signal-orange" />
               <div>
                 <p className="text-sm font-semibold">Console analytics need attention</p>
-                <p className="text-muted-foreground mt-1 text-xs leading-5">
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {payload.accountUsage.credentialIssue.message} API-key usage and direct Actor
                   costs remain available independently.
                 </p>
@@ -1140,10 +1138,10 @@ export function FinancialAnalyticsPage({
         (revenue.coverage.revenueCoveredRows ?? revenue.coverage.rows) < revenue.coverage.rows) ? (
         <Card className="border-signal-blue/35 bg-signal-blue/5">
           <CardContent className="flex gap-3 p-5">
-            <ShieldAlert className="text-signal-blue mt-0.5 h-5 w-5 shrink-0" />
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-signal-blue" />
             <div>
               <p className="text-sm font-semibold">Partial financial coverage</p>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 Direct cost covers {revenue.coverage.costCoveredRows.toLocaleString("en-US")} of{" "}
                 {revenue.coverage.rows.toLocaleString("en-US")} Actor-days; allocated cost covers{" "}
                 {revenue.coverage.allocatedCostCoveredRows.toLocaleString("en-US")}; revenue covers{" "}
@@ -1299,7 +1297,7 @@ export function FinancialAnalyticsPage({
         <Card>
           <CardHeader>
             <CardTitle>Current billing-cycle service categories</CardTitle>
-            <p className="text-muted-foreground mt-1 text-xs">
+            <p className="mt-1 text-xs text-muted-foreground">
               Apify account charges grouped into compute, proxy, transfer, storage, and other
               services.
             </p>
@@ -1317,50 +1315,18 @@ export function FinancialAnalyticsPage({
               }}
               chartClassName="min-w-0"
             >
-              {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                <ResponsiveContainer
-                  width="100%"
+              {(state) => (
+                <ChartJsChart
+                  ariaLabel="Current billing-cycle service categories"
+                  data={serviceCategorySeries}
+                  xKey="category"
+                  series={serviceSeries}
+                  type="bar"
+                  horizontal
+                  state={state}
                   height={Math.max(240, serviceCategorySeries.length * 46)}
-                  debounce={0}
-                >
-                  <BarChart
-                    data={serviceCategorySeries}
-                    layout="vertical"
-                    margin={{ left: 12, right: 24 }}
-                    accessibilityLayer
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                    <XAxis
-                      type="number"
-                      hide={!axisLabelsVisible}
-                      tick={{ fontSize: 11, fill: tickColor }}
-                      stroke={tickColor}
-                      tickFormatter={(value) => money.format(Number(value))}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="category"
-                      hide={!axisLabelsVisible}
-                      width={108}
-                      tick={{ fontSize: 11, fill: tickColor }}
-                      stroke={tickColor}
-                    />
-                    <Tooltip content={<ChartTooltip series={serviceSeries} />} cursor={false} />
-                    <Bar
-                      dataKey="costUsd"
-                      name="Cost USD"
-                      hide={!visibleSeries.has("costUsd")}
-                      fill="var(--color-signal-orange)"
-                      radius={[0, 2, 2, 0]}
-                      label={
-                        dataLabelsVisible
-                          ? { fill: "var(--color-foreground)", fontSize: 10, position: "right" }
-                          : false
-                      }
-                      isAnimationActive={false}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                  yAxis={{ formatValue: (value) => money.format(value) }}
+                />
               )}
             </ChartFrame>
           </CardContent>
@@ -1383,7 +1349,7 @@ export function FinancialAnalyticsPage({
                     ? "Cost by Actor"
                     : "Revenue by Actor"}
             </CardTitle>
-            <p className="text-muted-foreground mt-1 text-xs">
+            <p className="mt-1 text-xs text-muted-foreground">
               {selectedDay
                 ? kind === "revenue"
                   ? "Complete UTC-day breakdown. Open any Actor to continue in its details page."
@@ -1425,7 +1391,7 @@ export function FinancialAnalyticsPage({
               </div>
             ) : null}
             <div className="relative">
-              <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(event) => {
@@ -1459,11 +1425,11 @@ export function FinancialAnalyticsPage({
             <>
               <div className="space-y-3 md:hidden">
                 {visibleRows.map((row) => (
-                  <article key={row.key} className="border-border rounded-sm border p-4">
+                  <article key={row.key} className="rounded-sm border border-border p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         {row.date ? (
-                          <p className="text-muted-foreground font-mono text-[10px]">
+                          <p className="font-mono text-[10px] text-muted-foreground">
                             {periodLabel(row.date, tableView)} UTC
                           </p>
                         ) : null}
@@ -1476,12 +1442,12 @@ export function FinancialAnalyticsPage({
                           {row.name}
                           {kind === "revenue" ? (
                             <>
-                              <ExternalLink className="text-muted-foreground ml-1 inline h-3 w-3" />
+                              <ExternalLink className="ml-1 inline h-3 w-3 text-muted-foreground" />
                               <span className="sr-only"> (opens Actor details in a new tab)</span>
                             </>
                           ) : null}
                         </Link>
-                        <p className="text-muted-foreground truncate font-mono text-[10px]">
+                        <p className="truncate font-mono text-[10px] text-muted-foreground">
                           {row.slug}
                         </p>
                       </div>
@@ -1654,7 +1620,7 @@ export function FinancialAnalyticsPage({
                       )}
                     </tr>
                   </thead>
-                  <tbody className="divide-border divide-y">
+                  <tbody className="divide-y divide-border">
                     {visibleRows.map((row) => (
                       <tr key={row.key}>
                         {tableView !== "total" && kind !== "revenue" ? (
@@ -1665,19 +1631,19 @@ export function FinancialAnalyticsPage({
                         <td className="px-4 py-3">
                           <Link
                             href={`${actorHrefPrefix}/${row.actorId}`}
-                            className="hover:text-signal-blue inline-flex items-center gap-1.5 font-semibold"
+                            className="inline-flex items-center gap-1.5 font-semibold hover:text-signal-blue"
                             target={kind === "revenue" ? "_blank" : undefined}
                             rel={kind === "revenue" ? "noreferrer" : undefined}
                           >
                             {row.name}
                             {kind === "revenue" ? (
                               <>
-                                <ExternalLink className="text-muted-foreground h-3 w-3 shrink-0" />
+                                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
                                 <span className="sr-only">(opens Actor details in a new tab)</span>
                               </>
                             ) : null}
                           </Link>
-                          <p className="text-muted-foreground mt-0.5 font-mono text-[10px]">
+                          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                             {row.slug}
                           </p>
                         </td>
@@ -1686,10 +1652,10 @@ export function FinancialAnalyticsPage({
                             <td className="px-3 py-3 text-right font-mono">
                               {row.runs.toLocaleString("en-US")}
                             </td>
-                            <td className="text-signal-green px-3 py-3 text-right font-mono">
+                            <td className="px-3 py-3 text-right font-mono text-signal-green">
                               {row.successfulRuns.toLocaleString("en-US")}
                             </td>
-                            <td className="text-signal-orange px-3 py-3 text-right font-mono">
+                            <td className="px-3 py-3 text-right font-mono text-signal-orange">
                               {row.failedRuns.toLocaleString("en-US")}
                             </td>
                             <td className="px-3 py-3 text-right font-mono">
@@ -1776,7 +1742,7 @@ export function FinancialAnalyticsPage({
               />
             </>
           ) : (
-            <div className="text-muted-foreground flex h-48 items-center justify-center rounded-sm border border-dashed px-6 text-center text-sm">
+            <div className="flex h-48 items-center justify-center rounded-sm border border-dashed px-6 text-center text-sm text-muted-foreground">
               No Actors match this scope.
             </div>
           )}

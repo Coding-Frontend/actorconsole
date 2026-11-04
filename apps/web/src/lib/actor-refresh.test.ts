@@ -1,14 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { refreshWorkspaceActors, WORKSPACE_DATA_REFRESHED_EVENT } from "./actor-refresh";
+import {
+  pendingActorRefresh,
+  refreshWorkspaceActors,
+  WORKSPACE_DATA_REFRESHED_EVENT,
+} from "./actor-refresh";
 beforeEach(() => vi.useFakeTimers());
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); window.localStorage.clear(); });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+  window.localStorage.clear();
+});
 
 describe("Actor refresh polling", () => {
   it("keeps manual refresh immediate even during the automatic cooldown", async () => {
-    window.localStorage.setItem("actorconsole:actor-auto-refresh-v2:workspace_1", String(Date.now()));
+    window.localStorage.setItem(
+      "actorconsole:actor-auto-refresh-v2:workspace_1",
+      String(Date.now()),
+    );
     const completed = vi.fn();
     window.addEventListener(WORKSPACE_DATA_REFRESHED_EVENT, completed);
-    const fetch = vi.fn().mockResolvedValueOnce(Response.json({ data: { jobId: "job-1" } })).mockResolvedValueOnce(Response.json({ data: { state: "completed" } }));
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ data: { jobId: "job-1" } }))
+      .mockResolvedValueOnce(Response.json({ data: { state: "completed" } }));
     vi.stubGlobal("fetch", fetch);
     const pending = refreshWorkspaceActors();
     await vi.advanceTimersByTimeAsync(1_500);
@@ -19,13 +34,16 @@ describe("Actor refresh polling", () => {
     window.removeEventListener(WORKSPACE_DATA_REFRESHED_EVENT, completed);
   });
   it("backs off queued jobs and stops within the existing one-minute polling budget", async () => {
-    const fetch = vi.fn().mockResolvedValueOnce(Response.json({ data: { jobId: "job-1" } })).mockImplementation(async () => Response.json({ data: { state: "waiting" } }));
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ data: { jobId: "job-1" } }))
+      .mockImplementation(async () => Response.json({ data: { state: "waiting" } }));
     vi.stubGlobal("fetch", fetch);
     const pending = refreshWorkspaceActors();
     await vi.advanceTimersByTimeAsync(1_500);
     expect(fetch).toHaveBeenCalledTimes(2);
     await vi.advanceTimersByTimeAsync(58_500);
-    expect(await pending).toBe("unknown");
+    expect(await pending).toBe("pending");
     const polls = fetch.mock.calls.length - 1;
     expect(polls).toBeLessThanOrEqual(13);
     expect(polls).toBeGreaterThan(3);
@@ -39,5 +57,28 @@ describe("Actor refresh polling", () => {
     controller.abort();
     await rejected;
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("resumes a long-running job after reload without posting a second job", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ data: { jobId: "durable-job" } }))
+      .mockImplementation(async () =>
+        Response.json({ data: { state: "active", progress: { total: 193, completed: 10 } } }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const first = refreshWorkspaceActors({ workspaceId: "workspace-A" });
+    await vi.advanceTimersByTimeAsync(60_001);
+    expect(await first).toBe("pending");
+    expect(pendingActorRefresh("workspace-A")).toMatchObject({
+      jobId: "durable-job",
+      progress: { total: 193, completed: 10 },
+    });
+    expect(pendingActorRefresh("workspace-B")).toBeNull();
+    fetch.mockImplementation(async () => Response.json({ data: { state: "completed" } }));
+    const resumed = refreshWorkspaceActors({ workspaceId: "workspace-A" });
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(await resumed).toBe("completed");
+    expect(fetch.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    expect(pendingActorRefresh("workspace-A")).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { LocalDateTime } from "@/components/dashboard/local-date-time";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   ExternalLink,
@@ -75,7 +76,7 @@ function currentPricingPeriod(value: unknown): ActorPricingPeriod | null {
     return Number.isFinite(startsAt) && startsAt <= now;
   });
   return (
-    [...(effective.length ? effective : periods)]
+    [...effective]
       .sort((left, right) => {
         const leftTime = left.startedAt ? Date.parse(left.startedAt) : 0;
         const rightTime = right.startedAt ? Date.parse(right.startedAt) : 0;
@@ -385,6 +386,10 @@ export default async function ActorDetailPage({
     apifyActor?.pictureUrl ??
     actor.effectivePictureUrl ??
     actor.currentImageUrl;
+  const actorImageSource =
+    basicInfo?.pictureUrl || apifyActor?.pictureUrl || actor.currentImageUrl
+      ? "actor"
+      : (actor.pictureSource ?? "fallback");
   const actorPricing =
     currentPricingPeriod(basicInfo?.pricingInfos) ??
     currentPricingPeriod(apifyActor?.pricingInfos) ??
@@ -489,9 +494,9 @@ export default async function ActorDetailPage({
 
       {(actorPricing || storeCatalog || storeRating != null || storeBookmarkCount != null) && (
         <details className="group">
-          <summary className="border-border bg-card hover:bg-muted/30 focus-visible:ring-ring flex cursor-pointer list-none items-center justify-between rounded-md border px-4 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
             Pricing and Apify Store details{" "}
-            <ChevronDown className="text-muted-foreground h-4 w-4 transition-transform group-open:rotate-180" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
           </summary>
           <div className="mt-4 space-y-4">
             {/* ── Pricing info card ── */}
@@ -514,7 +519,7 @@ export default async function ActorDetailPage({
                       </span>
                     )}
                     {recentRuns[0] && (
-                      <span className="text-muted-foreground ml-auto text-xs">
+                      <span className="ml-auto text-xs text-muted-foreground">
                         Latest run: {recentRuns[0].status} ·{" "}
                         {new Date(recentRuns[0].startedAt).toLocaleString("en-IN", {
                           dateStyle: "medium",
@@ -524,24 +529,47 @@ export default async function ActorDetailPage({
                     )}
                   </div>
                   {actorPricingEvents.length > 0 && (
-                    <div className="border-border grid gap-px overflow-hidden border sm:grid-cols-2">
+                    <div className="grid gap-px overflow-hidden border border-border sm:grid-cols-2">
                       {actorPricingEvents.map(([eventName, event]) => {
                         const price = pricingEventPrice(event);
                         return (
-                          <div key={eventName} className="bg-card p-4">
+                          <div key={eventName} className="min-w-0 bg-card p-4">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
                                 <p className="font-semibold">{event.eventTitle ?? eventName}</p>
-                                <p className="text-muted-foreground mt-1 break-all font-mono text-[10px]">
+                                <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">
                                   {eventName}
                                 </p>
                               </div>
                               <span className="font-mono font-semibold tabular-nums">
-                                {price == null ? "Price unavailable" : `$${price.toFixed(6)}`}
+                                {event.eventTieredPricingUsd
+                                  ? "Subscription tier pricing"
+                                  : price == null
+                                    ? "Price unavailable"
+                                    : `$${price.toFixed(6)}`}
                               </span>
                             </div>
+                            {event.eventTieredPricingUsd && (
+                              <dl className="mt-3 grid gap-2 text-xs">
+                                {Object.entries(event.eventTieredPricingUsd).map(
+                                  ([tier, value]) => (
+                                    <div
+                                      key={tier}
+                                      className="flex min-w-0 flex-wrap justify-between gap-2"
+                                    >
+                                      <dt className="break-all text-muted-foreground">{tier}</dt>
+                                      <dd className="font-mono tabular-nums">
+                                        {value.tieredEventPriceUsd == null
+                                          ? "Price unavailable"
+                                          : `$${value.tieredEventPriceUsd.toFixed(6)}`}
+                                      </dd>
+                                    </div>
+                                  ),
+                                )}
+                              </dl>
+                            )}
                             {event.eventDescription && (
-                              <p className="text-muted-foreground mt-3 text-xs leading-5">
+                              <p className="mt-3 text-xs leading-5 text-muted-foreground">
                                 {event.eventDescription}
                               </p>
                             )}
@@ -588,7 +616,7 @@ export default async function ActorDetailPage({
                       detail={storeCatalog?.isDeprecated ? "Deprecated" : "Current listing"}
                     />
                   </div>
-                  <dl className="border-border grid gap-x-6 gap-y-3 border-t pt-4 text-sm sm:grid-cols-2 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                  <dl className="grid gap-x-6 gap-y-3 border-t border-border pt-4 text-sm sm:grid-cols-2 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
                     <CatalogRecord label="First published" value={storeCatalog?.firstPublishedAt} />
                     <CatalogRecord label="Actor created" value={storeCatalog?.apifyCreatedAt} />
                     <CatalogRecord label="Store modified" value={storeCatalog?.apifyModifiedAt} />
@@ -663,7 +691,7 @@ export default async function ActorDetailPage({
                         value="Sync pending"
                       />
                     </div>
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-xs text-muted-foreground">
                       Store totals are available now. Daily statuses, results, and private usage
                       cost will appear after the background run-history sync completes.
                     </p>
@@ -723,7 +751,7 @@ export default async function ActorDetailPage({
                   description="Private run history is still syncing. Once available, runs are retained here with status, build, result count, and cost."
                 />
               ) : (
-                <div className="divide-border divide-y">
+                <div className="divide-y divide-border">
                   {recentRuns.map(
                     (run: {
                       id: string;
@@ -742,17 +770,17 @@ export default async function ActorDetailPage({
                         <div className="min-w-0">
                           <Link
                             href={`/dashboard/actors/${encodeURIComponent(id)}/runs/${encodeURIComponent(run.apifyRunId ?? run.id)}`}
-                            className="hover:text-signal-orange truncate font-mono text-xs underline-offset-4 hover:underline"
+                            className="truncate font-mono text-xs underline-offset-4 hover:text-signal-orange hover:underline"
                           >
                             {run.apifyRunId ?? run.id}
                           </Link>
-                          <p className="text-muted-foreground text-xs">
+                          <p className="text-xs text-muted-foreground">
                             {new Date(run.startedAt).toLocaleString()} ·{" "}
                             {run.origin ?? "Unknown origin"}
                           </p>
                           <Link
                             href={`/dashboard/actors/${encodeURIComponent(id)}/runs/${encodeURIComponent(run.apifyRunId ?? run.id)}`}
-                            className="text-signal-orange mt-1 inline-block text-xs font-medium hover:underline"
+                            className="mt-1 inline-block text-xs font-medium text-signal-orange hover:underline"
                           >
                             View run details
                           </Link>
@@ -760,7 +788,7 @@ export default async function ActorDetailPage({
                         <Badge variant={run.status === "SUCCEEDED" ? "default" : "outline"}>
                           {run.status}
                         </Badge>
-                        <div className="text-muted-foreground text-xs sm:text-right">
+                        <div className="text-xs text-muted-foreground sm:text-right">
                           <p>
                             {run.resultCount == null
                               ? "Result count syncing"
@@ -830,8 +858,15 @@ export default async function ActorDetailPage({
                         changedAt: string;
                       }) => {
                         const events = pricingHistoryEvents(p.payload);
+                        const startedAt =
+                          p.payload &&
+                          typeof p.payload === "object" &&
+                          "startedAt" in p.payload &&
+                          typeof p.payload.startedAt === "string"
+                            ? p.payload.startedAt
+                            : null;
                         return (
-                          <li key={p.id} className="border-border/40 space-y-2 border-b pb-3">
+                          <li key={p.id} className="space-y-2 border-b border-border/40 pb-3">
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline">{p.model}</Badge>
@@ -840,19 +875,34 @@ export default async function ActorDetailPage({
                                 </span>
                               </div>
                               <span className="text-muted-foreground">
-                                {new Date(p.changedAt).toLocaleDateString()}
+                                Saved <LocalDateTime value={p.changedAt} />
                               </span>
                             </div>
+                            {startedAt ? (
+                              <p className="text-muted-foreground">
+                                {Date.parse(startedAt) > Date.now()
+                                  ? "Scheduled from"
+                                  : "Effective from"}{" "}
+                                <LocalDateTime value={startedAt} />
+                              </p>
+                            ) : null}
                             {events.length > 0 ? (
                               <div className="space-y-1">
                                 {events.map(([name, event]) => (
                                   <div
                                     key={name}
-                                    className="flex items-center justify-between gap-3"
+                                    className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                                   >
                                     <span className="truncate font-mono">{name}</span>
-                                    <span className="shrink-0 font-mono">
-                                      ${pricingEventPrice(event)?.toFixed(6) ?? "—"}
+                                    <span className="min-w-0 break-words font-mono sm:max-w-[65%]">
+                                      {event.eventTieredPricingUsd
+                                        ? Object.entries(event.eventTieredPricingUsd)
+                                            .map(
+                                              ([tier, entry]) =>
+                                                `${tier}: $${entry.tieredEventPriceUsd?.toFixed(6) ?? "—"}`,
+                                            )
+                                            .join(" · ")
+                                        : `$${pricingEventPrice(event)?.toFixed(6) ?? "—"}`}
                                     </span>
                                   </div>
                                 ))}
@@ -878,7 +928,7 @@ export default async function ActorDetailPage({
               <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                 <div>
                   <CardTitle className="text-sm">Latest listing audit</CardTitle>
-                  <p className="text-muted-foreground mt-1 text-xs">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {latestOptimization.currentScore != null
                       ? `${latestOptimization.currentScore}% current quality → ${latestOptimization.proposedScore}% proposed`
                       : latestOptimization.status.replaceAll("_", " ").toLowerCase()}
@@ -897,7 +947,7 @@ export default async function ActorDetailPage({
               <CardTitle className="text-sm">Actor tools</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground mb-4 text-sm">
+              <p className="mb-4 text-sm text-muted-foreground">
                 Use the tools below to improve listing copy and manage pricing for this actor.
               </p>
               <ActorActions
@@ -908,20 +958,10 @@ export default async function ActorDetailPage({
                 title={actorTitle}
                 description={actorDescription}
                 imageUrl={actorImageUrl}
+                imageSource={actorImageSource}
                 categories={actorCategories}
                 metaLabels={actorMetaLabels}
-                pricingEvents={Object.fromEntries(
-                  actorPricingEvents.map(([name, event]) => [
-                    name,
-                    {
-                      eventTitle: event.eventTitle,
-                      eventDescription: event.eventDescription,
-                      eventPriceUsd: pricingEventPrice(event) ?? undefined,
-                      isOneTimeEvent: event.isOneTimeEvent,
-                      isPrimaryEvent: event.isPrimaryEvent,
-                    },
-                  ]),
-                )}
+                pricingEvents={Object.fromEntries(actorPricingEvents)}
               />
             </CardContent>
           </Card>
@@ -941,8 +981,8 @@ function MetricTile({
   value: string | number;
 }) {
   return (
-    <div className="border-border/60 bg-muted/20 rounded-lg border p-4">
-      <div className="text-muted-foreground flex items-center gap-2 text-xs">
+    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon className="h-4 w-4" /> {label}
       </div>
       <p className="mt-2 text-2xl font-bold tabular-nums">
@@ -954,8 +994,8 @@ function MetricTile({
 
 function StatusMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="border-border/60 flex items-center justify-between rounded-lg border px-4 py-3">
-      <span className="text-muted-foreground flex items-center gap-2 text-sm">
+    <div className="flex items-center justify-between rounded-lg border border-border/60 px-4 py-3">
+      <span className="flex items-center gap-2 text-sm text-muted-foreground">
         <XCircle className="h-4 w-4" /> {label}
       </span>
       <span className="font-semibold tabular-nums">{value.toLocaleString()}</span>
@@ -965,8 +1005,8 @@ function StatusMetric({ label, value }: { label: string; value: number }) {
 
 function StatTile({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
-    <div className="border-border/60 bg-card rounded-lg border p-3">
-      <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+    <div className="rounded-lg border border-border/60 bg-card p-3">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
@@ -987,12 +1027,12 @@ function StoreMetric({
   detail: string;
 }) {
   return (
-    <div className="border-border/60 bg-muted/20 rounded-lg border p-4">
-      <p className="text-muted-foreground flex items-center gap-2 text-xs">
+    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon className="h-3.5 w-3.5" /> {label}
       </p>
       <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
-      <p className="text-muted-foreground mt-1 text-xs">{detail}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </div>
   );
 }
@@ -1011,7 +1051,7 @@ function CatalogRecord({
       : "Not available";
   return (
     <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-medium">{readable}</dd>
     </div>
   );

@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/input";
 
 interface PricingEvent {
   eventPriceUsd?: number;
+  eventTieredPricingUsd?: Record<string, { tieredEventPriceUsd?: number }>;
   eventTitle?: string;
   eventDescription?: string;
   isOneTimeEvent?: boolean;
@@ -39,6 +40,7 @@ interface Props {
   title: string | null;
   description: string | null;
   imageUrl: string | null;
+  imageSource?: "actor" | "website" | "fallback";
   categories: string[];
   metaLabels?: Array<{ _id?: string; name?: string; type?: string; value?: string }>;
   pricingEvents: Record<string, PricingEvent>;
@@ -52,6 +54,7 @@ export function ActorActions({
   title,
   description,
   imageUrl,
+  imageSource,
   categories,
   metaLabels = [],
   pricingEvents,
@@ -141,11 +144,7 @@ export function ActorActions({
           description="Create one review run covering listing copy and pricing."
           loading={startingKind === "GENERATE_IMPROVEMENTS"}
           onClick={() =>
-            void createImprovementRun("GENERATE_IMPROVEMENTS", [
-              "title",
-              "description",
-              "pricing",
-            ])
+            void createImprovementRun("GENERATE_IMPROVEMENTS", ["title", "description", "pricing"])
           }
         />
       </div>
@@ -156,15 +155,15 @@ export function ActorActions({
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-muted-foreground text-xs">Title</p>
+            <p className="text-xs text-muted-foreground">Title</p>
             <p className="font-medium">{title ?? "—"}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs">Description</p>
+            <p className="text-xs text-muted-foreground">Description</p>
             <p className="line-clamp-4 text-sm">{description ?? "—"}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs">Store categories</p>
+            <p className="text-xs text-muted-foreground">Store categories</p>
             {categories.length ? (
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {categories.map((category) => (
@@ -192,25 +191,36 @@ export function ActorActions({
             </Button>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs">Thumbnail</p>
+            <p className="text-xs text-muted-foreground">
+              {imageSource === "website" ? "Website logo preview" : "Apify thumbnail"}
+            </p>
             {imageUrl ? (
               <Image
                 src={imageUrl}
-                alt={actorName}
+                alt={imageSource === "website" ? `${actorName} website logo preview` : actorName}
                 width={128}
                 height={128}
                 unoptimized
                 className="aspect-square w-32 rounded-md object-cover"
               />
             ) : (
-              <div className="bg-muted text-muted-foreground flex aspect-square w-32 items-center justify-center rounded-md text-xs">
+              <div className="flex aspect-square w-32 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
                 No image
               </div>
             )}
+            {imageSource === "website" ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Shown only in ActorConsole.{" "}
+                <Link href="/dashboard/actors?logoStatus=pending" className="underline">
+                  Review and apply logos
+                </Link>{" "}
+                to update Apify.
+              </p>
+            ) : null}
           </div>
           {metaLabels.length > 0 ? (
             <div className="sm:col-span-2 lg:col-span-4">
-              <p className="text-muted-foreground text-xs">Apify category metadata</p>
+              <p className="text-xs text-muted-foreground">Apify category metadata</p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {metaLabels.map((label, index) => (
                   <Badge
@@ -227,7 +237,7 @@ export function ActorActions({
         </CardContent>
       </Card>
 
-      <div className="text-muted-foreground mt-6 text-center text-xs">
+      <div className="mt-6 text-center text-xs text-muted-foreground">
         <Link
           href={`https://apify.com/${apifyUsername}/${actorName}`}
           target="_blank"
@@ -306,9 +316,9 @@ function ActionRow({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="border-border/40 bg-background hover:border-signal-orange/40 hover:bg-accent group flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors"
+      className="hover:border-signal-orange/40 group flex w-full items-start gap-3 rounded-md border border-border/40 bg-background p-3 text-left transition-colors hover:bg-accent"
     >
-      <div className="bg-signal-orange/10 text-signal-orange mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md">
+      <div className="bg-signal-orange/10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-signal-orange">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
       </div>
       <div className="min-w-0">
@@ -318,7 +328,7 @@ function ActionRow({
             {badge}
           </Badge>
         </div>
-        <p className="text-muted-foreground text-xs">{description}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
     </button>
   );

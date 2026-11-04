@@ -18,6 +18,29 @@ describe("ActorActions", () => {
     vi.clearAllMocks();
   });
 
+  it("labels a website fallback as a local preview with a path to apply it", () => {
+    render(
+      <ActorActions
+        actorId="actor-id"
+        apifyActorId="apify-id"
+        apifyUsername="builder"
+        actorName="maps"
+        title="Maps Actor"
+        description={null}
+        imageUrl="/api/website-logo-assets/logo_1"
+        imageSource="website"
+        categories={[]}
+        pricingEvents={{}}
+      />,
+    );
+    expect(screen.getByText("Website logo preview")).toBeTruthy();
+    expect(screen.getByText(/Shown only in ActorConsole/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Review and apply logos" }).getAttribute("href")).toBe(
+      "/dashboard/actors?logoStatus=pending",
+    );
+    expect(screen.queryByText("Apify thumbnail")).toBeNull();
+  });
+
   it("shows optimization and pricing together without per-Actor automation tabs", () => {
     render(
       <ActorActions
@@ -78,9 +101,14 @@ describe("ActorActions", () => {
   });
 
   it("opens the direct pricing editor instead of starting an AI generation run", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ ok: true, data: null }), { status: 200 }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        ok: true,
+        data: String(input).endsWith("/pricing/recommendation")
+          ? null
+          : { periods: [], active: null, scheduled: [], earliestStartsAt: "2026-11-05T00:00:00Z" },
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     render(
       <ActorActions
@@ -101,8 +129,25 @@ describe("ActorActions", () => {
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(screen.getByDisplayValue("result")).toBeTruthy();
     expect(screen.getByDisplayValue("0.002")).toBeTruthy();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(String(fetchMock.mock.calls[0][0])).toContain("/actors/apify-id/pricing/recommendation");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const requests = fetchMock.mock.calls.map(([input, init]) => ({
+      path: new URL(String(input), "http://localhost").pathname,
+      method: init?.method ?? "GET",
+    }));
+    expect(requests).toContainEqual({
+      path: expect.stringMatching(/\/actors\/apify-id\/pricing$/),
+      method: "GET",
+    });
+    expect(requests).toContainEqual({
+      path: expect.stringMatching(/\/actors\/apify-id\/pricing\/recommendation$/),
+      method: "GET",
+    });
+    expect(
+      requests.every(
+        ({ path, method }) =>
+          /\/actors\/apify-id\/pricing(?:\/recommendation)?$/.test(path) && method === "GET",
+      ),
+    ).toBe(true);
     expect(routerPush).not.toHaveBeenCalled();
   });
 
@@ -125,7 +170,6 @@ describe("ActorActions", () => {
     expect(await screen.findByRole("button", { name: "Generate variants" })).toBeTruthy();
     expect(screen.getAllByText(/Store categories/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-
   });
 
   it("shows grouped category metadata and submits correction feedback", async () => {

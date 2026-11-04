@@ -203,15 +203,15 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
             ["Failed", data.counts.failed],
           ] as const
         ).map(([label, value]) => (
-          <div key={label} className="border-border bg-card rounded-md border p-4">
-            <p className="text-muted-foreground text-xs uppercase tracking-wider">{label}</p>
+          <div key={label} className="rounded-md border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
             <p className="mt-2 text-2xl font-semibold">{value.toLocaleString("en-IN")}</p>
           </div>
         ))}
       </div>
 
       <form
-        className="border-border bg-card grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_180px_180px_180px_auto]"
+        className="grid gap-3 rounded-md border border-border bg-card p-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_180px_180px_180px_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           const nextQuery = queryInput.trim();
@@ -236,7 +236,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
             setLogoStatus(value);
             void loadPage(1, { logoStatus: value });
           }}
-          className="border-input bg-background h-10 rounded-md border px-3 text-sm"
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           aria-label="Logo status"
         >
           <option value="all">All logo statuses</option>
@@ -250,7 +250,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
             setIdentityStatus(value);
             void loadPage(1, { identityStatus: value });
           }}
-          className="border-input bg-background h-10 rounded-md border px-3 text-sm"
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           aria-label="Website status"
         >
           <option value="all">All website statuses</option>
@@ -265,7 +265,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
             setConfidence(value);
             void loadPage(1, { confidence: value });
           }}
-          className="border-input bg-background h-10 rounded-md border px-3 text-sm"
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           aria-label="Classification confidence"
         >
           <option value="all">All confidence levels</option>
@@ -280,7 +280,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
             setActorCount(value);
             void loadPage(1, { actorCount: value });
           }}
-          className="border-input bg-background h-10 rounded-md border px-3 text-sm"
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           aria-label="Actor count"
         >
           <option value="all">Any Actor count</option>
@@ -309,9 +309,9 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
 
       <div className="space-y-3">
         {data.items.map((website) => (
-          <article key={website.id} className="border-border bg-card rounded-md border p-4">
+          <article key={website.id} className="rounded-md border border-border bg-card p-4">
             <div className="grid gap-5 xl:grid-cols-[96px_minmax(200px,1fr)_minmax(320px,1.5fr)]">
-              <div className="bg-muted grid h-24 w-24 place-items-center overflow-hidden rounded-xl">
+              <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-xl bg-muted">
                 {website.currentLogo ? (
                   <Image
                     src={website.currentLogo.assetUrl}
@@ -322,7 +322,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
                     className="h-full w-full object-contain p-2"
                   />
                 ) : (
-                  <ImageOff className="text-muted-foreground h-8 w-8" />
+                  <ImageOff className="h-8 w-8 text-muted-foreground" />
                 )}
               </div>
               <div>
@@ -335,15 +335,18 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
                     <Badge variant="warning">{website.status}</Badge>
                   ) : null}
                 </div>
-                <p className="text-muted-foreground mt-1 font-mono text-xs">
+                <p className="mt-1 font-mono text-xs text-muted-foreground">
                   {website.canonicalDomain ?? website.slug}
                 </p>
-                <p className="text-muted-foreground mt-3 text-sm">
+                <p className="mt-3 text-sm text-muted-foreground">
                   {website._count.storeActors.toLocaleString("en-IN")} public Actors ·{" "}
                   {website._count.actors.toLocaleString("en-IN")} workspace Actors
                 </p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Updated {new Date(website.updatedAt).toLocaleString()}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Updated{" "}
+                  <time dateTime={website.updatedAt}>
+                    {new Date(website.updatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC
+                  </time>
                 </p>
                 {Array.isArray(website.aliases) && website.aliases.length ? (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -361,13 +364,13 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
                     href={website.currentLogo.sourceUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-signal-blue mt-2 block truncate text-xs underline"
+                    className="mt-2 block truncate text-xs text-signal-blue underline"
                   >
                     {website.currentLogo.sourceKind}: {website.currentLogo.sourceUrl}
                   </a>
                 ) : null}
                 {website.logoError ? (
-                  <p className="text-destructive mt-2 text-xs" role="alert">
+                  <p className="mt-2 text-xs text-destructive" role="alert">
                     {website.logoError}
                   </p>
                 ) : null}
@@ -388,7 +391,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
                   </Button>
                 </form>
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="border-input hover:bg-accent inline-flex h-9 cursor-pointer items-center rounded-md border px-3 text-sm">
+                  <label className="inline-flex h-9 cursor-pointer items-center rounded-md border border-input px-3 text-sm hover:bg-accent">
                     <Upload className="mr-2 h-4 w-4" />
                     Upload reviewed file
                     <input
@@ -417,7 +420,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
                     </Button>
                   ))}
                 </div>
-                <div className="border-border/60 flex flex-col gap-2 border-t pt-3 sm:flex-row">
+                <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row">
                   <select
                     value={mergeTargets[website.id] ?? ""}
                     onChange={(event) =>
@@ -427,7 +430,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
                       }))
                     }
                     aria-label={`Merge ${website.name} into another website`}
-                    className="border-input bg-background h-9 min-w-0 flex-1 rounded-md border px-3 text-sm"
+                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">Merge duplicate into…</option>
                     {data.items
@@ -489,7 +492,7 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
       </nav>
 
       {data.runs.length ? (
-        <section className="border-border bg-card rounded-md border p-4">
+        <section className="rounded-md border border-border bg-card p-4">
           <h2 className="font-semibold">Background runs</h2>
           <div className="mt-3 divide-y">
             {data.runs.map((run) => (

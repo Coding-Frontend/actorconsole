@@ -31,7 +31,8 @@ export interface ApifyActorStats {
 }
 
 export interface ApifyEventPrice {
-  eventPriceUsd: number;
+  eventPriceUsd?: number;
+  eventTieredPricingUsd?: Record<string, { tieredEventPriceUsd: number }>;
   eventTitle: string;
   eventDescription?: string;
   isOneTimeEvent?: boolean;
@@ -274,6 +275,8 @@ export interface ApifyActorMetadataInput {
   seoDescription?: string;
   pictureUrl?: string;
   picture?: ApifyActorPictureUpload;
+  /** The copy reviewed by the user. Reject newer external edits before writing. */
+  expectedCopy?: Record<"title" | "description" | "seoTitle" | "seoDescription", string | null>;
 }
 
 export interface ApifyActorMetadataResult {

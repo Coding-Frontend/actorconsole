@@ -259,6 +259,7 @@ describe("account", () => {
         plan: "FREE",
         apifyActorCount: 51,
         apifyMonthlyUsers: 100,
+        apifyMonthlyUsersComplete: true,
         planUsageCheckedAt: new Date(),
       });
       const response = await buildApp().request("/workspace-access");

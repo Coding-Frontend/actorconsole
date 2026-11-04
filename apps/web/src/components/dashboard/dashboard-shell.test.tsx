@@ -190,6 +190,31 @@ describe("workspace access in the dashboard shell", () => {
     expect(screen.queryByText("Access check failed")).toBeNull();
   });
 
+  it("shows an authorized workspace while optional notification badges are still loading", async () => {
+    vi.stubGlobal("fetch", vi.fn((url: string) =>
+      url.endsWith("/navigation-status")
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(response(access("w1", "PRO", 193))),
+    ));
+    render(<DashboardShell><p>Actor operations</p></DashboardShell>);
+
+    await screen.findByText("Full navigation");
+    expect(screen.getByText("Actor operations")).toBeTruthy();
+    expect(screen.queryByText("Checking workspace access…")).toBeNull();
+  });
+
+  it("shows an access error even while optional notification badges are still loading", async () => {
+    vi.stubGlobal("fetch", vi.fn((url: string) =>
+      url.endsWith("/navigation-status")
+        ? new Promise<Response>(() => {})
+        : Promise.reject(new Error("Access unavailable")),
+    ));
+    render(<DashboardShell><p>Actor operations</p></DashboardShell>);
+
+    await screen.findByText("Access check failed");
+    expect(screen.queryByText("Actor operations")).toBeNull();
+  });
+
   it("throttles focus bursts while explicit status changes remain fresh", async () => {
     const fetch = vi.fn().mockResolvedValue(response(access("w1", "PRO", 100)));
     vi.stubGlobal("fetch", fetch);

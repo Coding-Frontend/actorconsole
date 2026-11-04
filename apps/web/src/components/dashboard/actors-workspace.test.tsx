@@ -13,6 +13,7 @@ vi.mock("@/lib/actor-refresh", async (importOriginal) => ({
 import { refreshWorkspaceActors, WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
 
 import { ActorsWorkspace } from "./actors-workspace";
+import { LogoRecommendations } from "./logo-recommendations";
 
 describe("ActorsWorkspace", () => {
   beforeEach(() => {
@@ -298,9 +299,110 @@ describe("ActorsWorkspace", () => {
     expect(
       container.querySelector('[data-picture-source="website"]')?.getAttribute("data-picture-url"),
     ).toBe("/api/website-logo-assets/logo_1");
+    expect(screen.getAllByText("Local preview").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Local previews are website logos shown only in ActorConsole/),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('[data-picture-source="website"]')?.getAttribute("aria-label"),
+    ).toContain("not applied to Apify");
     expect(container.querySelector('[data-picture-source="fallback"]')?.textContent).toContain(
       "GC",
     );
+  });
+
+  it("replaces a local preview with the verified thumbnail immediately after applying a logo", async () => {
+    let applied = false;
+    const pictureUrl = "https://images.apify.com/verified.webp";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/apify/status")) {
+          return new Response(
+            JSON.stringify({ data: { connected: true, apiKeyConfigured: true } }),
+          );
+        }
+        if (url.includes("/logo-recommendations/rec_1/apply") && init?.method === "POST") {
+          applied = true;
+          return new Response(JSON.stringify({ ok: true, data: { pictureUrl } }));
+        }
+        if (url.includes("/logo-recommendations")) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                items: applied
+                  ? []
+                  : [
+                      {
+                        id: "rec_1",
+                        error: null,
+                        proposedImageUrl: "/api/website-logo-assets/logo_1",
+                        actor: {
+                          id: "actor_1",
+                          apifyActorId: "ap_1",
+                          actorName: "maps",
+                          title: "Maps",
+                          currentImageUrl: null,
+                        },
+                        logo: {
+                          websiteIdentity: {
+                            name: "Google Maps",
+                            canonicalDomain: "maps.google.com",
+                          },
+                        },
+                      },
+                    ],
+              },
+            }),
+          );
+        }
+        if (url.includes("/actors/dashboard-list")) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                total: 1,
+                items: [
+                  {
+                    id: "actor_1",
+                    apifyActorId: "ap_1",
+                    username: "builder",
+                    actorName: "maps",
+                    title: "Maps",
+                    description: null,
+                    snapshots: [],
+                    insightSnapshots: [],
+                    effectivePictureUrl: applied ? pictureUrl : "/api/website-logo-assets/logo_1",
+                    pictureSource: applied ? "actor" : "website",
+                  },
+                ],
+              },
+            }),
+          );
+        }
+        if (url.includes("/actors/optimization/summary"))
+          return new Response(JSON.stringify({ data: [] }));
+        if (url.includes("/intelligence/earnings"))
+          return new Response(JSON.stringify({ data: { items: [] } }));
+        throw new Error(`Unexpected request: ${url}`);
+      }),
+    );
+    const { container } = render(
+      <>
+        <LogoRecommendations />
+        <ActorsWorkspace />
+      </>,
+    );
+    await screen.findAllByText("Local preview");
+    fireEvent.click(await screen.findByRole("button", { name: "Review logos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply to Apify" }));
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-picture-source="actor"]')?.getAttribute("data-picture-url"),
+      ).toBe(pictureUrl),
+    );
+    expect(screen.queryByText("Local preview")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Review logos" })).toBeNull();
   });
 
   it("clears selected Actors when the active workspace changes", async () => {

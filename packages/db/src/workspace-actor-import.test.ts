@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { tx, transaction } = vi.hoisted(() => ({
+const { tx, transaction, reconcileActorLogoRecommendations } = vi.hoisted(() => ({
   tx: {
     $queryRaw: vi.fn(),
+    $executeRaw: vi.fn(),
     actor: { findMany: vi.fn(), createMany: vi.fn(), updateMany: vi.fn() },
     businessProfile: { update: vi.fn() },
   },
   transaction: vi.fn(),
+  reconcileActorLogoRecommendations: vi.fn().mockResolvedValue({ created: 0 }),
 }));
 vi.mock("./client.js", () => ({ db: { $transaction: transaction } }));
+vi.mock("./actor-logo-recommendations.js", () => ({ reconcileActorLogoRecommendations }));
 import { admitWorkspaceActors } from "./workspace-actor-import.js";
 
 const actor = (id: number, monthlyUsers?: number) => ({
@@ -26,6 +29,7 @@ describe("admitWorkspaceActors", () => {
     vi.clearAllMocks();
     transaction.mockImplementation((run) => run(tx));
     tx.$queryRaw.mockResolvedValue([{ plan: "FREE" }]);
+    tx.$executeRaw.mockResolvedValue(0);
     tx.actor.findMany.mockResolvedValue([]);
     tx.actor.createMany.mockResolvedValue({ count: 50 });
     tx.actor.updateMany.mockResolvedValue({ count: 1 });
@@ -231,5 +235,18 @@ describe("admitWorkspaceActors", () => {
   it("does not reconcile a partial admission request", async () => {
     await admitWorkspaceActors("u1", "bp1", [actor(0)]);
     expect(tx.actor.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("inherits catalog matches within the owned workspace before recommending active logos", async () => {
+    await admitWorkspaceActors("u1", "bp1", [actor(0)]);
+    const query = tx.$executeRaw.mock.calls[0][0];
+    expect(query.values).toEqual(["u1", "bp1"]);
+    expect(query.sql).toContain("actor.websiteIdentityId IS NULL");
+    expect(query.sql).toContain("actor.websiteAdminOverride = false");
+    expect(query.sql).toContain("actor.apifyRemovedAt IS NULL");
+    expect(reconcileActorLogoRecommendations).toHaveBeenCalledWith({
+      userId: "u1",
+      businessProfileId: "bp1",
+    });
   });
 });

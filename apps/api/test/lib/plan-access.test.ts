@@ -17,7 +17,11 @@ vi.mock("@actorconsole/db", () => ({
 }));
 vi.mock("@actorconsole/apify", () => ({ getUserApifyClient: getClient }));
 vi.mock("../../src/lib/queue.js", () => ({ enqueue }));
-import { assertPlanFeature, refreshWorkspacePlanUsage } from "../../src/lib/plan-access.js";
+import {
+  assertPlanFeature,
+  getWorkspaceNavigationUsage,
+  refreshWorkspacePlanUsage,
+} from "../../src/lib/plan-access.js";
 
 const session: UserSession = {
   userId: "u1",
@@ -116,10 +120,84 @@ describe("workspace feature access", () => {
       plan: "FREE",
       apifyActorCount: 50,
       apifyMonthlyUsers: 500,
+      apifyMonthlyUsersComplete: true,
       planUsageCheckedAt: new Date(),
     });
     getClient.mockResolvedValue({ listMyActors });
     count.mockResolvedValue(50);
+    enqueue.mockResolvedValue("audience-job");
+  });
+  it("returns saved Pro usage without waiting for Apify or the audience queue", async () => {
+    profile.mockResolvedValue({
+      plan: "PRO",
+      apifyActorCount: 646,
+      apifyMonthlyUsers: 8000,
+      apifyMonthlyUsersComplete: true,
+      planUsageCheckedAt: new Date(0),
+    });
+    getClient.mockImplementation(() => new Promise(() => {}));
+    enqueue.mockImplementation(() => new Promise(() => {}));
+
+    await expect(getWorkspaceNavigationUsage({
+      ...session, plan: "PRO", businessProfileId: "navigation-pro",
+    })).resolves.toMatchObject({
+      actorCount: 646,
+      monthlyUsers: 8000,
+      upgradeRequired: false,
+    });
+    expect(getClient).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(enqueue).toHaveBeenCalledWith(
+      "audience",
+      { userId: "u1", businessProfileId: "navigation-pro" },
+      expect.objectContaining({ attempts: 3 }),
+    );
+  });
+  it("reuses current, complete usage without scheduling another refresh", async () => {
+    await getWorkspaceNavigationUsage({ ...session, businessProfileId: "navigation-current" });
+    expect(getClient).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+  it("deduplicates stale navigation refreshes within each workspace", async () => {
+    profile.mockResolvedValue({
+      plan: "FREE",
+      apifyActorCount: 51,
+      apifyMonthlyUsers: 100,
+      apifyMonthlyUsersComplete: true,
+      planUsageCheckedAt: new Date(0),
+    });
+    const selected = { ...session, businessProfileId: "navigation-stale" };
+    const values = await Promise.all(Array.from({ length: 10 }, () => getWorkspaceNavigationUsage(selected)));
+    expect(values.every((value) => value.upgradeRequired)).toBe(true);
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    await getWorkspaceNavigationUsage({ ...session, businessProfileId: "navigation-other" });
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(getClient).not.toHaveBeenCalled();
+  });
+  it("queues incomplete audience data even when an inventory import is recent", async () => {
+    profile.mockResolvedValue({
+      plan: "PRO",
+      apifyActorCount: 193,
+      apifyMonthlyUsers: null,
+      apifyMonthlyUsersComplete: false,
+      planUsageCheckedAt: new Date(),
+    });
+    await getWorkspaceNavigationUsage({ ...session, businessProfileId: "navigation-incomplete" });
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(getClient).not.toHaveBeenCalled();
+  });
+  it("keeps navigation available if the background queue is unavailable", async () => {
+    profile.mockResolvedValue({
+      plan: "PRO",
+      apifyActorCount: 193,
+      apifyMonthlyUsers: 166,
+      apifyMonthlyUsersComplete: true,
+      planUsageCheckedAt: new Date(0),
+    });
+    enqueue.mockRejectedValue(new Error("Queue unavailable"));
+    await expect(getWorkspaceNavigationUsage({
+      ...session, businessProfileId: "navigation-queue-error",
+    })).resolves.toMatchObject({ actorCount: 193, monthlyUsers: 166 });
   });
   it.each(features)("allows %s at exactly both Free thresholds", async (feature) => {
     await expect(assertPlanFeature(session, feature)).resolves.toBeUndefined();

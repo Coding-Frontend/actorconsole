@@ -62,5 +62,5 @@ export const getBuilderEarnings = unstable_cache(
     };
   },
   ["builder-earnings-public-v3"],
-  { revalidate: 300 },
+  { revalidate: 300, staleWhileRevalidate: 300 },
 );

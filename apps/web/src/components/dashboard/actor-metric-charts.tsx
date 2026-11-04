@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -296,7 +296,7 @@ export function ActorMetricCharts({
           <h3 id="actor-trends-heading" className="text-base font-semibold">
             Actor trends
           </h3>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             Daily Apify analytics with private run history and saved snapshots as fallbacks.
           </p>
         </div>
@@ -354,23 +354,23 @@ export function ActorMetricCharts({
                     {total === null ? "—" : compact(total)}
                   </span>
                 </CardTitle>
-                <p className="text-muted-foreground text-xs">{description}</p>
+                <p className="text-xs text-muted-foreground">{description}</p>
               </CardHeader>
               <CardContent className="px-3 pb-4 sm:px-4">
                 {values.length === 0 ? (
-                  <div className="border-border/60 bg-muted/15 text-muted-foreground flex h-52 items-center justify-center rounded-md border border-dashed px-6 text-center text-xs">
+                  <div className="flex h-52 items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/15 px-6 text-center text-xs text-muted-foreground">
                     This metric will appear after the connected Apify credential completes a sync.
                   </div>
                 ) : values.length === 1 ? (
-                  <div className="border-border/60 bg-muted/15 flex h-52 flex-col items-center justify-center rounded-md border border-dashed px-6 text-center">
+                  <div className="flex h-52 flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/15 px-6 text-center">
                     <p className="font-semibold tabular-nums">{compact(values[0]!)}</p>
-                    <p className="text-muted-foreground mt-2 max-w-xs text-xs leading-5">
+                    <p className="mt-2 max-w-xs text-xs leading-5 text-muted-foreground">
                       Trend baseline is forming. A multi-day chart appears after the next daily
                       catalog or workspace snapshot.
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-muted/10 min-h-52 min-w-0 rounded-md px-1 pt-3">
+                  <div className="min-h-52 min-w-0 rounded-md bg-muted/10 px-1 pt-3">
                     <ChartFrame
                       ariaLabel={`${title} trend`}
                       series={[
@@ -387,76 +387,25 @@ export function ActorMetricCharts({
                       options={{ showSeriesControls: false, compact: true }}
                       chartClassName="h-52 min-w-0"
                     >
-                      {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            data={displayPoints}
-                            margin={{ top: 4, right: 6, left: -18, bottom: 0 }}
-                          >
-                            <CartesianGrid
-                              vertical={false}
-                              stroke="hsl(var(--border))"
-                              strokeOpacity={0.55}
-                            />
-                            <XAxis
-                              dataKey="label"
-                              hide={!axisLabelsVisible}
-                              axisLine={false}
-                              tickLine={false}
-                              interval="preserveStartEnd"
-                              minTickGap={38}
-                              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                            />
-                            <YAxis
-                              hide={!axisLabelsVisible}
-                              axisLine={false}
-                              tickLine={false}
-                              width={44}
-                              tickFormatter={compact}
-                              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                            />
-                            <Tooltip
-                              cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
-                              content={
-                                <ChartTooltip
-                                  series={[
-                                    {
-                                      key: displayKey,
-                                      label: title,
-                                      color: metric.color,
-                                      format: { unit: "compact" },
-                                    },
-                                  ]}
-                                  labelFormatter={(_, payload) =>
-                                    String(
-                                      (payload[0]?.payload as ActorMetricDisplayPoint | undefined)
-                                        ?.date ?? "",
-                                    )
-                                  }
-                                />
-                              }
-                            />
-                            <Bar
-                              dataKey={displayKey}
-                              stroke={metric.color}
-                              fill={metric.color}
-                              hide={!visibleSeries.has(displayKey)}
-                              fillOpacity={0.72}
-                              maxBarSize={18}
-                              radius={[3, 3, 0, 0]}
-                              label={
-                                dataLabelsVisible
-                                  ? {
-                                      fill: "var(--color-foreground)",
-                                      fontSize: 10,
-                                      position: "top",
-                                    }
-                                  : false
-                              }
-                              isAnimationActive={false}
-                            />
-                          </BarChart>
-                        </ResponsiveContainer>
+                      {(state) => (
+                        <ChartJsChart
+                          ariaLabel={`${title} trend`}
+                          data={displayPoints}
+                          xKey="label"
+                          series={[
+                            {
+                              key: displayKey,
+                              label: title,
+                              color: metric.color,
+                              format: { unit: "compact" },
+                              maxBarThickness: 18,
+                            },
+                          ]}
+                          type="bar"
+                          state={state}
+                          tooltipTitle={(point) => point.date}
+                          yAxis={{ formatValue: compact, integer: true }}
+                        />
                       )}
                     </ChartFrame>
                   </div>
