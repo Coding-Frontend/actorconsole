@@ -82,11 +82,12 @@ export default async function NewSupportPage({
         ]}
       />
       {context ? (
-        <p className="border-border bg-muted/30 rounded-md border p-3 text-sm">
+        <p className="rounded-md border border-border bg-muted/30 p-3 text-sm">
           We filled in the topic. Add what happened and what you expected before sending.
         </p>
       ) : null}
       <NewTicketForm
+        userId={session.user.id}
         initialSubject={context?.subject ?? ""}
         initialCategory={context?.category ?? "TECHNICAL"}
         initialBody={context?.body ?? ""}

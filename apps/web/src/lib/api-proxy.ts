@@ -43,6 +43,12 @@ export async function proxyApiRequest(request: Request, path: string[]) {
   target.search = new URL(request.url).search;
   const isImmutableWebsiteLogo = path.length === 2 && path[0] === "website-logo-assets";
   const publicRead = request.method === "GET" && isPublicCachePath(path);
+  const isCopyGeneration =
+    request.method === "POST" && path.length === 3 &&
+    path[0] === "actors" && path[2] === "rewrite-copy";
+  // AI routing has a bounded 180-second budget, plus Apify listing reads.
+  // Ordinary API requests retain their shorter deadline.
+  const upstreamTimeout = AbortSignal.timeout(isCopyGeneration ? 210_000 : 30_000);
 
   const upstreamHeaders = new Headers();
   for (const [name, value] of request.headers) {
@@ -64,7 +70,7 @@ export async function proxyApiRequest(request: Request, path: string[]) {
       body: hasBody ? await readProxyBody(request, path.join("/") === "webhooks/resend" ? 1_048_576 : 6 * 1024 * 1024) : undefined,
       cache: "no-store",
       redirect: "manual",
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(30_000)]),
+      signal: AbortSignal.any([request.signal, upstreamTimeout]),
     });
 
     const publicCacheable = publicRead && upstream.ok &&
@@ -111,6 +117,15 @@ export async function proxyApiRequest(request: Request, path: string[]) {
       return NextResponse.json(
         { ok: false, error: { code: "payload_too_large", message: "Request payload is too large" } },
         { status: 413 },
+      );
+    }
+    if (isCopyGeneration && upstreamTimeout.aborted) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "upstream_timeout", message: "Copy generation took too long. Please try again." },
+        },
+        { status: 504 },
       );
     }
     return NextResponse.json(

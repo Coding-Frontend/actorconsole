@@ -42,6 +42,7 @@ import {
 } from "@/components/dashboard/bulk-publishing-types";
 import { AdvancedSettings } from "@/components/dashboard/dashboard-workbench";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
+import { useWorkspaceAccess } from "@/components/dashboard/workspace-access-context";
 
 const CRON_PRESETS = [
   { value: "0 2 * * *", label: "02:00 UTC" },
@@ -80,9 +81,19 @@ function localStartPreview(cronExpr: string) {
 
 export function BulkPublishingNewSchedule() {
   const router = useRouter();
-  const [actors, setActors] = useState<ActorItem[]>(() =>
-    loadPublishingSelection().filter(isPrivateActor),
-  );
+  const { access } = useWorkspaceAccess();
+  const workspaceId = access?.workspaceId ?? null;
+  const [selection, setSelection] = useState<{ workspaceId: string | null; actors: ActorItem[] }>({
+    workspaceId: null,
+    actors: [],
+  });
+  const actors = selection.workspaceId === workspaceId ? selection.actors : [];
+  const setActors = (next: ActorItem[] | ((current: ActorItem[]) => ActorItem[])) =>
+    setSelection((old) => ({
+      workspaceId,
+      actors:
+        typeof next === "function" ? next(old.workspaceId === workspaceId ? old.actors : []) : next,
+    }));
   const [inventory, setInventory] = useState<ActorItem[]>([]);
   const [name, setName] = useState("Daily Actor publishing");
   const [dailyLimit, setDailyLimit] = useState("5");
@@ -98,11 +109,34 @@ export function BulkPublishingNewSchedule() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [startActive, setStartActive] = useState(true);
   const initialRefreshAttempted = useRef(false);
+  const inventoryRequest = useRef(0);
+  const [localStart, setLocalStart] = useState<string | null>(null);
 
-  useEffect(() => savePublishingSelection(actors), [actors]);
+  useEffect(() => {
+    setSelection({
+      workspaceId,
+      actors: loadPublishingSelection(workspaceId).filter(isPrivateActor),
+    });
+    initialRefreshAttempted.current = false;
+    setInventory([]);
+    setTotal(0);
+    setPage(1);
+    return () => {
+      inventoryRequest.current += 1;
+    };
+  }, [workspaceId]);
+  useEffect(() => {
+    if (selection.workspaceId === workspaceId)
+      savePublishingSelection(selection.actors, workspaceId);
+  }, [selection, workspaceId]);
 
   const loadInventory = useCallback(
     async (refresh = false, silent = false) => {
+      if (!workspaceId) {
+        setLoadingActors(false);
+        return;
+      }
+      const version = ++inventoryRequest.current;
       if (refresh) setRefreshingActors(true);
       else setLoadingActors(true);
       try {
@@ -114,19 +148,23 @@ export function BulkPublishingNewSchedule() {
           cache: "no-store",
         });
         const body = await response.json().catch(() => null);
+        if (version !== inventoryRequest.current) return;
         if (!response.ok || !body?.ok) {
           throw new Error(body?.error?.message ?? "Could not load Actors");
         }
         setInventory((body.data.items ?? []).filter(isPrivateActor));
         setTotal(body.data.total ?? 0);
       } catch (error) {
-        if (!silent) toast.error(error instanceof Error ? error.message : "Could not load Actors");
+        if (!silent && version === inventoryRequest.current)
+          toast.error(error instanceof Error ? error.message : "Could not load Actors");
       } finally {
-        setLoadingActors(false);
-        setRefreshingActors(false);
+        if (version === inventoryRequest.current) {
+          setLoadingActors(false);
+          setRefreshingActors(false);
+        }
       }
     },
-    [page, query],
+    [page, query, workspaceId],
   );
 
   useEffect(() => void loadInventory(), [loadInventory]);
@@ -138,7 +176,9 @@ export function BulkPublishingNewSchedule() {
 
   const selectedIds = new Set(actors.map((actor) => actor.id));
   const cronExpr = preset === "custom" ? customCron.trim() : preset;
-  const localStart = localStartPreview(cronExpr);
+  useEffect(() => {
+    setLocalStart(localStartPreview(cronExpr));
+  }, [cronExpr]);
   const limit = Number(dailyLimit);
   const estimatedDays = Math.max(1, Math.ceil(actors.length / Math.max(1, limit || 1)));
   const valid = Boolean(
@@ -195,8 +235,11 @@ export function BulkPublishingNewSchedule() {
       if (!response.ok || !body?.ok) {
         throw new Error(body?.error?.message ?? "Could not create publishing schedule");
       }
-      void trackEvent("publishing_schedule_created", { actor_count: actors.length, enabled: startActive ? 1 : 0 });
-      savePublishingSelection([]);
+      void trackEvent("publishing_schedule_created", {
+        actor_count: actors.length,
+        enabled: startActive ? 1 : 0,
+      });
+      savePublishingSelection([], workspaceId);
       toast.success(
         startActive
           ? "Publishing schedule created and enabled"
@@ -220,28 +263,28 @@ export function BulkPublishingNewSchedule() {
       />
 
       <div className="border-signal-orange/35 bg-signal-orange/[0.06] flex items-start gap-3 rounded-sm border px-4 py-3 text-sm">
-        <AlertTriangle className="text-signal-orange mt-0.5 h-4 w-4 shrink-0" />
-        <p className="text-muted-foreground leading-6">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-signal-orange" />
+        <p className="leading-6 text-muted-foreground">
           Publishing schedules require a healthy Apify API key that can manage the selected Actors.
           Console UI tokens and cookies provide metadata/category access but cannot publish by
           themselves.{" "}
-          <Link href="/dashboard/apify" className="text-signal-blue font-medium hover:underline">
+          <Link href="/dashboard/apify" className="font-medium text-signal-blue hover:underline">
             Check the Apify connection
           </Link>
           .
         </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="space-y-6">
-          <section className="border-border bg-card overflow-hidden rounded-md border shadow-sm">
-            <div className="border-border flex items-start gap-4 border-b p-5 sm:p-6">
-              <span className="bg-signal-orange/10 text-signal-orange flex h-8 w-8 shrink-0 items-center justify-center rounded-sm font-mono text-xs font-bold">
+      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-6">
+          <section className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+            <div className="flex items-start gap-4 border-b border-border p-5 sm:p-6">
+              <span className="bg-signal-orange/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm font-mono text-xs font-bold text-signal-orange">
                 01
               </span>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h2 className="font-display-tight text-2xl">Choose the publishing queue</h2>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Select Actors here or keep the selection you made in Inventory.
                 </p>
               </div>
@@ -249,10 +292,10 @@ export function BulkPublishingNewSchedule() {
 
             <form
               onSubmit={searchActors}
-              className="border-border grid gap-3 border-b p-4 sm:grid-cols-[minmax(0,1fr)_220px_auto] sm:p-5"
+              className="grid gap-3 border-b border-border p-4 sm:grid-cols-[minmax(0,1fr)_220px_auto] sm:p-5"
             >
               <div className="relative">
-                <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={queryInput}
                   onChange={(event) => setQueryInput(event.target.value)}
@@ -262,10 +305,10 @@ export function BulkPublishingNewSchedule() {
                 />
               </div>
               <div
-                className="border-border bg-muted/30 text-muted-foreground flex h-10 items-center gap-2 rounded-md border px-3 text-sm"
+                className="flex h-10 items-center gap-2 rounded-md border border-border bg-muted/30 px-3 text-sm text-muted-foreground"
                 aria-label="Actor status filter"
               >
-                <ShieldCheck className="text-signal-green h-4 w-4 shrink-0" />
+                <ShieldCheck className="h-4 w-4 shrink-0 text-signal-green" />
                 Private Actors only
               </div>
               <Button type="submit" variant="outline">
@@ -274,13 +317,13 @@ export function BulkPublishingNewSchedule() {
             </form>
 
             {loadingActors ? (
-              <div className="bg-border space-y-px">
+              <div className="space-y-px bg-border">
                 {Array.from({ length: 5 }).map((_, index) => (
                   <Skeleton key={index} className="h-[68px] w-full rounded-none" />
                 ))}
               </div>
             ) : inventory.length ? (
-              <div className="divide-border divide-y">
+              <div className="divide-y divide-border">
                 {inventory.map((actor) => {
                   const selected = selectedIds.has(actor.id);
                   return (
@@ -305,14 +348,14 @@ export function BulkPublishingNewSchedule() {
                         <span className="block truncate text-sm font-medium">
                           {actor.title ?? actor.actorName}
                         </span>
-                        <span className="text-muted-foreground mt-0.5 block truncate font-mono text-[10px]">
+                        <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
                           {actor.username}/{actor.actorName}
                         </span>
                       </span>
-                      <Badge variant="outline" className="text-muted-foreground shrink-0">
+                      <Badge variant="outline" className="shrink-0 text-muted-foreground">
                         {actorState(actor)}
                       </Badge>
-                      <span className="text-signal-blue hidden items-center gap-1 text-xs font-medium sm:flex">
+                      <span className="hidden items-center gap-1 text-xs font-medium text-signal-blue sm:flex">
                         {selected ? "Selected" : "Add"}
                         {!selected ? <Plus className="h-3.5 w-3.5" /> : null}
                       </span>
@@ -323,14 +366,14 @@ export function BulkPublishingNewSchedule() {
             ) : (
               <div className="px-6 py-12 text-center">
                 <p className="font-medium">No Actors match this view</p>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Try another search or refresh your inventory.
                 </p>
               </div>
             )}
 
-            <div className="border-border flex items-center justify-between border-t px-4 py-3 sm:px-5">
-              <p className="text-muted-foreground text-xs">
+            <div className="flex items-center justify-between border-t border-border px-4 py-3 sm:px-5">
+              <p className="text-xs text-muted-foreground">
                 {total ? `${total} matching Actors` : "No matching Actors"}
               </p>
               <div className="flex items-center gap-2">
@@ -344,7 +387,7 @@ export function BulkPublishingNewSchedule() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-muted-foreground font-mono text-[10px]">
+                <span className="font-mono text-[10px] text-muted-foreground">
                   {page} / {totalPages}
                 </span>
                 <Button
@@ -361,14 +404,14 @@ export function BulkPublishingNewSchedule() {
             </div>
           </section>
 
-          <section className="border-border bg-card overflow-hidden rounded-md border shadow-sm">
-            <div className="border-border flex items-start gap-4 border-b p-5 sm:p-6">
-              <span className="bg-signal-orange/10 text-signal-orange flex h-8 w-8 shrink-0 items-center justify-center rounded-sm font-mono text-xs font-bold">
+          <section className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+            <div className="flex items-start gap-4 border-b border-border p-5 sm:p-6">
+              <span className="bg-signal-orange/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm font-mono text-xs font-bold text-signal-orange">
                 02
               </span>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h2 className="font-display-tight text-2xl">Set the daily run</h2>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Choose when publishing runs. You can start it now or leave it paused.
                 </p>
               </div>
@@ -387,7 +430,7 @@ export function BulkPublishingNewSchedule() {
                 <div className="space-y-3">
                   <div>
                     <Label>Daily publish limit</Label>
-                    <p className="text-muted-foreground mt-1 text-xs">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Maximum Actors attempted each day.
                     </p>
                   </div>
@@ -407,7 +450,7 @@ export function BulkPublishingNewSchedule() {
                 <div className="space-y-3">
                   <div>
                     <Label>Daily start time</Label>
-                    <p className="text-muted-foreground mt-1 text-xs">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Times are saved in UTC. Your local time appears in the review.
                     </p>
                   </div>
@@ -459,8 +502,8 @@ export function BulkPublishingNewSchedule() {
                 </div>
               </AdvancedSettings>
               <div className="border-signal-green/25 bg-signal-green/[0.045] flex items-start gap-3 rounded-sm border px-4 py-3">
-                <ShieldCheck className="text-signal-green mt-0.5 h-4 w-4 shrink-0" />
-                <p className="text-muted-foreground text-xs leading-relaxed">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-signal-green" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   If Apify reports its 24-hour publication limit, this run stops and the remaining
                   Actors stay queued for the next scheduled day.
                 </p>
@@ -469,13 +512,15 @@ export function BulkPublishingNewSchedule() {
           </section>
         </div>
 
-        <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">
-          <section className="border-border bg-card overflow-hidden rounded-md border shadow-sm">
-            <div className="border-border flex items-center justify-between border-b px-4 py-4">
+        <aside className="min-w-0 space-y-5 xl:sticky xl:top-6 xl:self-start">
+          <section className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+            <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <div>
                 <p className="text-sm font-semibold">Publishing order</p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  {actors.length ? `${actors.length} Actors selected` : "Select at least one Actor"}
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {actors.length
+                    ? `${actors.length} Actor${actors.length === 1 ? "" : "s"} selected`
+                    : "Select at least one Actor"}
                 </p>
               </div>
               <Badge variant="outline" className="text-signal-blue">
@@ -486,14 +531,14 @@ export function BulkPublishingNewSchedule() {
               <div className="max-h-[420px] divide-y overflow-y-auto">
                 {actors.map((actor, index) => (
                   <div key={actor.id} className="group flex items-center gap-2 px-3 py-3">
-                    <span className="text-muted-foreground w-5 shrink-0 font-mono text-[10px]">
+                    <span className="w-5 shrink-0 font-mono text-[10px] text-muted-foreground">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {actor.title ?? actor.actorName}
                       </p>
-                      <p className="text-muted-foreground mt-0.5 truncate font-mono text-[10px]">
+                      <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
                         {actor.username}/{actor.actorName}
                       </p>
                     </div>
@@ -521,7 +566,7 @@ export function BulkPublishingNewSchedule() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="text-muted-foreground hover:text-destructive h-7 w-7"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
                         onClick={() => toggleActor(actor)}
                         aria-label={`Remove ${actor.title ?? actor.actorName}`}
                       >
@@ -533,21 +578,21 @@ export function BulkPublishingNewSchedule() {
               </div>
             ) : (
               <div className="px-5 py-10 text-center">
-                <Plus className="text-muted-foreground mx-auto h-5 w-5" />
-                <p className="text-muted-foreground mt-2 text-xs">
+                <Plus className="mx-auto h-5 w-5 text-muted-foreground" />
+                <p className="mt-2 text-xs text-muted-foreground">
                   Add Actors from the list on the left.
                 </p>
               </div>
             )}
           </section>
 
-          <section className="border-border bg-card rounded-md border p-5 shadow-sm">
+          <section className="rounded-md border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-semibold">Review your schedule</h2>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">Starts</span>
                 <span className="flex items-center gap-1.5 font-medium">
-                  <Clock3 className="text-signal-blue h-3.5 w-3.5" />{" "}
+                  <Clock3 className="h-3.5 w-3.5 text-signal-blue" />{" "}
                   {localStart ?? "Custom UTC schedule"}
                 </span>
               </div>
@@ -568,19 +613,19 @@ export function BulkPublishingNewSchedule() {
                 </span>
               </div>
             </div>
-            <div className="border-border mt-5 flex items-start gap-3 border-t pt-4 text-sm">
+            <div className="mt-5 flex items-start gap-3 border-t border-border pt-4 text-sm">
               <input
                 id="schedule-start-active"
                 type="checkbox"
                 checked={startActive}
                 onChange={(event) => setStartActive(event.target.checked)}
-                className="accent-signal-blue mt-0.5 h-4 w-4"
+                className="mt-0.5 h-4 w-4 accent-signal-blue"
               />
               <div>
                 <label htmlFor="schedule-start-active" className="block cursor-pointer font-medium">
                   Start automatically after creation
                 </label>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Turn this off to review the schedule in a paused state first.
                 </p>
               </div>
@@ -600,7 +645,7 @@ export function BulkPublishingNewSchedule() {
               {submitting ? "Creating schedule" : "Review and create"}
             </Button>
             {!actors.length ? (
-              <p className="text-muted-foreground mt-2 text-center text-xs">
+              <p className="mt-2 text-center text-xs text-muted-foreground">
                 Select at least one Actor to continue.
               </p>
             ) : null}

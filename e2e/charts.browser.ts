@@ -2,6 +2,14 @@ import { test, expect, type Page } from "@playwright/test";
 import type {} from "../apps/web/test/fixtures/charts";
 
 const errors = new WeakMap<Page, string[]>();
+
+async function loadAllCharts(page: Page) {
+  const frames = page.locator("[data-chart-label]");
+  for (const frame of await frames.all()) {
+    await frame.scrollIntoViewIfNeeded();
+    await expect(frame).toHaveAttribute("data-chart-state", "ready");
+  }
+}
 test.beforeEach(async ({ page }) => {
   const messages: string[] = [];
   errors.set(page, messages);
@@ -18,6 +26,7 @@ test.afterEach(({ page }) => {
 test("draws all chart surfaces and supports desktop, mobile, and theme changes", async ({
   page,
 }) => {
+  await loadAllCharts(page);
   const canvases = page.locator("canvas");
   expect(await canvases.count()).toBeGreaterThanOrEqual(10);
   for (const canvas of await canvases.all()) {
@@ -76,6 +85,7 @@ test("draws all chart surfaces and supports desktop, mobile, and theme changes",
 });
 
 test("keeps captured zero bars visible and missing observations empty", async ({ page }) => {
+  await page.getByRole("group", { name: /Observed users by UTC day/ }).scrollIntoViewIfNeeded();
   const canvas = page.getByRole("img", { name: /Observed users by UTC day/ });
   const bars = await canvas.evaluate((element) => {
     const chart = window.__chartJs.getChart(element as HTMLCanvasElement)!;
@@ -126,7 +136,19 @@ test("toggles datasets, restores an empty chart, and cleans up on remount", asyn
   await page.getByRole("button", { name: "Toggle charts" }).click();
   expect(await page.evaluate(() => Object.keys(window.__chartJs.instances).length)).toBe(0);
   await page.getByRole("button", { name: "Toggle charts" }).click();
+  await loadAllCharts(page);
   await expect
     .poll(() => page.evaluate(() => Object.keys(window.__chartJs.instances).length))
     .toBeGreaterThanOrEqual(10);
+});
+
+test("defers offscreen canvases and keeps their space stable when they load", async ({ page }) => {
+  const frame = page.locator("[data-chart-label]").last();
+  await expect(frame).toHaveAttribute("data-chart-state", "deferred");
+  expect(await frame.locator("canvas").count()).toBe(0);
+  const height = await frame.evaluate((element) => element.getBoundingClientRect().height);
+  await frame.scrollIntoViewIfNeeded();
+  await expect(frame).toHaveAttribute("data-chart-state", "ready");
+  await expect(frame.locator("canvas")).toBeVisible();
+  expect(await frame.evaluate((element) => element.getBoundingClientRect().height)).toBe(height);
 });

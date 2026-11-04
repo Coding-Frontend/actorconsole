@@ -8,13 +8,25 @@ import { z } from "zod";
  */
 export const pricingModelSchema = z.literal("PAY_PER_EVENT");
 
-export const payPerEventConfigSchema = z.object({
-  eventPriceUsd: z.number().nonnegative(),
-  eventTitle: z.string().min(1),
-  eventDescription: z.string().optional(),
-  isOneTimeEvent: z.boolean().optional(),
-  isPrimaryEvent: z.boolean().optional(),
-});
+export const payPerEventConfigSchema = z
+  .object({
+    eventPriceUsd: z.number().nonnegative().optional(),
+    eventTieredPricingUsd: z
+      .record(
+        z.string().regex(/^[A-Z][A-Z0-9_]*$/),
+        z.object({ tieredEventPriceUsd: z.number().nonnegative() }),
+      )
+      .refine((tiers) => Object.keys(tiers).length > 0, "Add at least one subscription tier")
+      .optional(),
+    eventTitle: z.string().min(1),
+    eventDescription: z.string().optional(),
+    isOneTimeEvent: z.boolean().optional(),
+    isPrimaryEvent: z.boolean().optional(),
+  })
+  .refine(
+    (event) => (event.eventPriceUsd !== undefined) !== (event.eventTieredPricingUsd !== undefined),
+    "Choose either a flat event price or subscription tier prices",
+  );
 
 export const actorPricingSchema = z.object({
   model: pricingModelSchema,

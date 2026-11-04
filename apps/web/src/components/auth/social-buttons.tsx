@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Github, Loader2, ShieldCheck } from "lucide-react";
+import { GitBranch, Loader2, ShieldCheck } from "lucide-react";
 import {
   signInWithGitHub,
   signInWithGoogle,
@@ -228,7 +228,7 @@ export function SocialButtons({ callbackUrl = "/dashboard" }: { callbackUrl?: st
         {loading === "github" ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Github className="h-4 w-4" />
+          <GitBranch aria-hidden="true" className="h-4 w-4" />
         )}
         Continue with GitHub
       </Button>

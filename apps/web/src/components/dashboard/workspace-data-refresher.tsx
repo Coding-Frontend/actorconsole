@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { refreshWorkspaceActors } from "@/lib/actor-refresh";
+import { pendingActorRefresh, refreshWorkspaceActors } from "@/lib/actor-refresh";
 
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60_000;
 
@@ -31,25 +31,46 @@ export function WorkspaceDataRefresher({
       const start = async () => {
         if (controller.signal.aborted) return;
         let lastStartedAt = automaticAttempts.get(workspaceId) ?? 0;
-        try { lastStartedAt = Number(window.localStorage.getItem(storageKey) ?? 0); }
-        catch { /* Storage-restricted browsers retain a per-document cooldown. */ }
+        try {
+          lastStartedAt = Number(window.localStorage.getItem(storageKey) ?? 0);
+        } catch {
+          /* Storage-restricted browsers retain a per-document cooldown. */
+        }
         const elapsed = Date.now() - lastStartedAt;
-        if (Number.isFinite(elapsed) && elapsed >= 0 && elapsed < AUTO_REFRESH_INTERVAL_MS) return;
+        if (
+          !pendingActorRefresh(workspaceId) &&
+          Number.isFinite(elapsed) &&
+          elapsed >= 0 &&
+          elapsed < AUTO_REFRESH_INTERVAL_MS
+        )
+          return;
         automaticAttempts.set(workspaceId, Date.now());
-        if (automaticAttempts.size > 100) automaticAttempts.delete(automaticAttempts.keys().next().value!);
-        try { window.localStorage.setItem(storageKey, String(Date.now())); }
-        catch { /* Optional timestamp only; credentials are never stored here. */ }
-        await refreshWorkspaceActors({ signal: controller.signal }).catch(() => undefined);
+        if (automaticAttempts.size > 100)
+          automaticAttempts.delete(automaticAttempts.keys().next().value!);
+        try {
+          window.localStorage.setItem(storageKey, String(Date.now()));
+        } catch {
+          /* Optional timestamp only; credentials are never stored here. */
+        }
+        const state = await refreshWorkspaceActors({
+          signal: controller.signal,
+          workspaceId,
+        }).catch(() => undefined);
+        if (state === "pending" && !controller.signal.aborted)
+          timeout = window.setTimeout(() => void refresh(), 5_000);
       };
       if (navigator.locks) {
-        await navigator.locks.request(storageKey, { ifAvailable: true }, async (lock) => {
-          if (lock) await start();
-        }).catch(() => undefined);
+        await navigator.locks
+          .request(storageKey, { ifAvailable: true }, async (lock) => {
+            if (lock) await start();
+          })
+          .catch(() => undefined);
       } else await start();
     };
     const schedule = () => {
       window.clearTimeout(timeout);
-      if (document.visibilityState === "visible") timeout = window.setTimeout(() => void refresh(), 1_500);
+      if (document.visibilityState === "visible")
+        timeout = window.setTimeout(() => void refresh(), 1_500);
     };
     schedule();
     document.addEventListener("visibilitychange", schedule);

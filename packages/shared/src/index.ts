@@ -39,3 +39,4 @@ export * from "./actor-intelligence";
 export * from "./watch-signals";
 export * from "./billing-entitlements";
 export * from "./bounded-cache";
+export * from "./actor-listing";

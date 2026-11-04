@@ -2,6 +2,32 @@ import { describe, expect, it } from "vitest";
 import { actorPricingSchema } from "./pricing.js";
 
 describe("actorPricingSchema", () => {
+  it("preserves all subscription tiers without manufacturing a flat price", () => {
+    const event = {
+      eventTitle: "Result",
+      eventTieredPricingUsd: {
+        FREE: { tieredEventPriceUsd: 0.01 },
+        GOLD: { tieredEventPriceUsd: 0.005 },
+      },
+      isPrimaryEvent: true,
+    };
+    expect(
+      actorPricingSchema.parse({ model: "PAY_PER_EVENT", events: { result: event } }).events.result,
+    ).toEqual(event);
+  });
+  it.each([
+    {},
+    { eventPriceUsd: 0.01, eventTieredPricingUsd: { FREE: { tieredEventPriceUsd: 0.01 } } },
+    { eventTieredPricingUsd: {} },
+    { eventTieredPricingUsd: { GOLD: { tieredEventPriceUsd: -1 } } },
+  ])("rejects invalid or ambiguous event prices %#", (price) => {
+    expect(
+      actorPricingSchema.safeParse({
+        model: "PAY_PER_EVENT",
+        events: { result: { eventTitle: "Result", ...price } },
+      }).success,
+    ).toBe(false);
+  });
   it("accepts a pay-per-event configuration with at least one charge event", () => {
     const result = actorPricingSchema.safeParse({
       model: "PAY_PER_EVENT",

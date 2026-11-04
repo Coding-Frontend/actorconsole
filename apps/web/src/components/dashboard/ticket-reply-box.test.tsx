@@ -8,6 +8,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   refresh.mockReset();
+  window.sessionStorage.clear();
 });
 describe("support replies", () => {
   it("preserves a newer unsent reply after the previous reply succeeds", async () => {
@@ -19,7 +20,7 @@ describe("support replies", () => {
         }),
     );
     vi.stubGlobal("fetch", fetcher);
-    render(<TicketReplyBox ticketId="local-ticket" />);
+    render(<TicketReplyBox ticketId="local-ticket" userId="test-user" />);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Original reply" } });
     fireEvent.click(screen.getByRole("button", { name: "Send reply" }));
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Newer reply" } });
@@ -37,7 +38,7 @@ describe("support replies", () => {
       })
       .mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetcher);
-    render(<TicketReplyBox ticketId="local-ticket" />);
+    render(<TicketReplyBox ticketId="local-ticket" userId="test-user" />);
     fireEvent.click(screen.getByRole("button", { name: "Close ticket" }));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: "Close ticket" }),

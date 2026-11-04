@@ -15,7 +15,10 @@ export interface ActorPricing {
 }
 
 export interface PayPerEventConfig {
-  eventPriceUsd: number;
+  eventPriceUsd?: number;
+  eventTieredPricingUsd?: Record<string, { tieredEventPriceUsd: number }>;
   eventTitle: string;
   eventDescription?: string;
+  isOneTimeEvent?: boolean;
+  isPrimaryEvent?: boolean;
 }

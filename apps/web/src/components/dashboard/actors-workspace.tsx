@@ -35,7 +35,14 @@ import { Panel } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionViewMode, ViewModeToggle } from "@/components/ui/view-mode-toggle";
 import { ItemsPerPageSelect } from "@/components/ui/items-per-page";
-import { refreshWorkspaceActors, WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
+import {
+  ACTOR_REFRESH_PROGRESS_EVENT,
+  pendingActorRefresh,
+  refreshWorkspaceActors,
+  WORKSPACE_DATA_REFRESHED_EVENT,
+  type ActorRefreshProgress,
+} from "@/lib/actor-refresh";
+import { useWorkspaceAccess } from "@/components/dashboard/workspace-access-context";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
 import {
   DashboardAsyncState,
@@ -600,6 +607,18 @@ export function ActorsWorkspace({
   // window.location during render caused React hydration error #418 whenever
   // a filtered Actors URL was opened directly.
   const earnings = useIntelligence<WorkspaceEarningsData>("/earnings");
+  const { access } = useWorkspaceAccess();
+  const workspaceId = access?.workspaceId ?? undefined;
+  const [syncProgress, setSyncProgress] = useState<ActorRefreshProgress | null>(null);
+  useEffect(() => {
+    setSyncProgress(pendingActorRefresh(workspaceId));
+    const update = (event: Event) => {
+      const detail = (event as CustomEvent<ActorRefreshProgress & { workspaceId?: string }>).detail;
+      if (detail?.workspaceId === workspaceId) setSyncProgress(detail);
+    };
+    window.addEventListener(ACTOR_REFRESH_PROGRESS_EVENT, update);
+    return () => window.removeEventListener(ACTOR_REFRESH_PROGRESS_EVENT, update);
+  }, [workspaceId]);
   const earningsByActor = new Map(earnings.data?.items.map((actor) => [actor.id, actor.earnings]));
   const initialQuery = initialParams.q?.trim() ?? "";
   const initialPage = Math.max(1, Number(initialParams.page) || 1);
@@ -801,11 +820,16 @@ export function ActorsWorkspace({
     try {
       const state = await refreshWorkspaceActors({
         signal: controller.signal,
+        workspaceId,
         onQueued: () => setSyncMessage("Syncing actors from Apify…"),
       });
       if (controller.signal.aborted) return;
       if (state === "completed") {
         setSyncMessage("Actors refreshed from Apify.");
+      } else if (state === "pending") {
+        setSyncMessage(
+          "Your sync is still running in the background. Progress is saved; you can leave this page and return.",
+        );
       } else {
         setSyncMessage(null);
         setSyncError(
@@ -1037,7 +1061,11 @@ export function ActorsWorkspace({
                 className={syncing ? "motion-safe:animate-spin" : undefined}
                 aria-hidden="true"
               />
-              {syncing ? "Refreshing…" : "Refresh from Apify"}
+              {syncing
+                ? "Refreshing…"
+                : syncProgress && !["completed", "failed"].includes(syncProgress.state)
+                  ? "Check sync progress"
+                  : "Refresh from Apify"}
             </Button>
             <ViewModeToggle value={view} onValueChange={updateView} label="Actors view" />
             <div className="hidden xl:block">
@@ -1086,6 +1114,28 @@ export function ActorsWorkspace({
           <p className="text-sm text-muted-foreground" role="status">
             {syncMessage}
           </p>
+        ) : null}
+        {syncProgress ? (
+          <div role="status" className="rounded-md border p-3 text-sm">
+            <p className="font-medium">
+              {syncProgress.state === "completed"
+                ? "Sync complete"
+                : syncProgress.state === "failed"
+                  ? "Sync needs attention. Start a fresh sync to retry."
+                  : "Actor sync in progress"}
+            </p>
+            {!["completed", "failed"].includes(syncProgress.state) ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {typeof syncProgress.progress?.completed === "number" &&
+                typeof syncProgress.progress.total === "number"
+                  ? `${syncProgress.progress.completed} of ${syncProgress.progress.total} Actors synchronized.`
+                  : ["waiting", "queued", "delayed"].includes(syncProgress.state)
+                    ? "Queued for processing."
+                    : "Reading the latest inventory from Apify."}{" "}
+                Progress will resume when you return to this workspace.
+              </p>
+            ) : null}
+          </div>
         ) : null}
         <div className="flex items-center justify-between border-t border-border/60 pt-3">
           <p className="text-xs text-muted-foreground" aria-live="polite">
