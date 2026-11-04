@@ -1,6 +1,7 @@
 import { Prisma, type Plan } from "@prisma/client";
 import { actorInventoryAudience, workspacePlanUsage } from "@actorconsole/shared";
 import { db } from "./client.js";
+import { reconcileActorLogoRecommendations } from "./actor-logo-recommendations.js";
 
 type ImportActor = {
   id: string;
@@ -24,7 +25,7 @@ export async function admitWorkspaceActors<T extends ImportActor>(
 ) {
   const items = [...new Map(inventory.map((actor) => [actor.id, actor])).values()];
   const { monthlyUsers, monthlyUsersComplete } = actorInventoryAudience(items);
-  return db.$transaction(
+  const admission = await db.$transaction(
     async (tx) => {
       const [profile] = await tx.$queryRaw<
         Array<{ plan: Plan; apifyMonthlyUsers: number | null }>
@@ -106,6 +107,25 @@ export async function admitWorkspaceActors<T extends ImportActor>(
           })),
         });
       }
+      if (items.length) {
+        // Background imports must inherit the same existing catalog matches as
+        // the API sync. Heal older unmatched rows too, without changing manual
+        // assignments. A scoped join keeps large portfolios inside the import
+        // transaction's budget instead of issuing one update per Actor.
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE Actor AS actor
+          INNER JOIN StoreActor AS catalog ON catalog.apifyActorId = actor.apifyActorId
+          SET actor.websiteIdentityId = catalog.websiteIdentityId,
+              actor.websiteConfidence = catalog.websiteConfidence,
+              actor.websiteMethod = catalog.websiteMethod,
+              actor.websiteEvidence = catalog.websiteEvidence,
+              actor.websiteClassifiedAt = catalog.websiteClassifiedAt,
+              actor.websiteClassificationError = catalog.websiteClassificationError
+          WHERE actor.userId = ${userId} AND actor.businessProfileId = ${businessProfileId}
+            AND actor.websiteIdentityId IS NULL AND actor.websiteAdminOverride = false
+            AND actor.apifyRemovedAt IS NULL AND catalog.websiteIdentityId IS NOT NULL
+        `);
+      }
       const selectedIds = new Set([...trackedIds, ...admitted.map((actor) => actor.id)]);
       await tx.businessProfile.update({
         where: { id: businessProfileId },
@@ -133,4 +153,8 @@ export async function admitWorkspaceActors<T extends ImportActor>(
     },
     { maxWait: 10_000, timeout: 30_000 },
   );
+  // The inventory transaction can be committed before reconciling a large
+  // portfolio. All API and worker import paths now offer already-active logos.
+  await reconcileActorLogoRecommendations({ userId, businessProfileId });
+  return admission;
 }

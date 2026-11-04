@@ -39,6 +39,7 @@ const {
   mockFindFirstBusinessProfile,
   mockFindUniqueRunSnapshot,
   mockAnalyticsEvents,
+  mockReconcileActorLogoRecommendations,
 } = vi.hoisted(() => ({
   mockFindManyActors: vi.fn(),
   mockFindFirstActor: vi.fn(),
@@ -74,10 +75,13 @@ const {
   mockFindFirstBusinessProfile: vi.fn(),
   mockFindUniqueRunSnapshot: vi.fn(),
   mockAnalyticsEvents: vi.fn(),
+  mockReconcileActorLogoRecommendations: vi.fn().mockResolvedValue({ created: 0 }),
 }));
 
 vi.mock("@actorconsole/db", () => ({
   admitWorkspaceActors: (...args: unknown[]) => mockAdmitWorkspaceActors(...args),
+  reconcileActorLogoRecommendations: (...args: unknown[]) =>
+    mockReconcileActorLogoRecommendations(...args),
   db: {
     analyticsEvent: { findMany: mockAnalyticsEvents },
     businessProfile: { findFirst: (...args: unknown[]) => mockFindFirstBusinessProfile(...args) },
@@ -193,12 +197,22 @@ describe("Actor routes", () => {
       { userId: "u1", businessProfileId: "other", name: "actors.synced" },
       { userId: "u1", businessProfileId: null, name: "account.security" },
     ];
-    mockAnalyticsEvents.mockImplementation(async ({ where }) => events.filter((event) =>
-      event.userId === where.userId && (where.businessProfileId === undefined || event.businessProfileId === where.businessProfileId)));
-    const response = await buildApp("PRO", { authMethod: "api-key" }).request("/actors/analytics/events");
+    mockAnalyticsEvents.mockImplementation(async ({ where }) =>
+      events.filter(
+        (event) =>
+          event.userId === where.userId &&
+          (where.businessProfileId === undefined ||
+            event.businessProfileId === where.businessProfileId),
+      ),
+    );
+    const response = await buildApp("PRO", { authMethod: "api-key" }).request(
+      "/actors/analytics/events",
+    );
     expect(response.status).toBe(200);
     expect((await response.json()).data).toEqual([events[0]]);
-    expect(mockAnalyticsEvents).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1", businessProfileId: "bp1" } }));
+    expect(mockAnalyticsEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "u1", businessProfileId: "bp1" } }),
+    );
   });
   beforeEach(() => {
     vi.clearAllMocks();
@@ -582,12 +596,27 @@ describe("Actor routes", () => {
     });
 
     it("shows a scoped saved summary when Apify no longer retains the run", async () => {
-      mockGetUserApifyClient.mockResolvedValue({ getRun: vi.fn().mockResolvedValue(null), rawClient: vi.fn() });
-      mockFindUniqueRunSnapshot.mockResolvedValue({ apifyRunId: "run-1", status: "FAILED", startedAt: new Date("2026-08-31T10:00:00Z"), usageCostUsd: "0.0016" });
+      mockGetUserApifyClient.mockResolvedValue({
+        getRun: vi.fn().mockResolvedValue(null),
+        rawClient: vi.fn(),
+      });
+      mockFindUniqueRunSnapshot.mockResolvedValue({
+        apifyRunId: "run-1",
+        status: "FAILED",
+        startedAt: new Date("2026-08-31T10:00:00Z"),
+        usageCostUsd: "0.0016",
+      });
       const response = await buildApp().request("/actors/by-id/a1/runs/run-1?section=logs");
       expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ data: { storageUnavailable: true, run: { id: "run-1", status: "FAILED", usageTotalUsd: 0.0016 } } });
-      expect(mockFindUniqueRunSnapshot).toHaveBeenCalledWith({ where: { actorId_apifyRunId: { actorId: "a1", apifyRunId: "run-1" } } });
+      expect(await response.json()).toMatchObject({
+        data: {
+          storageUnavailable: true,
+          run: { id: "run-1", status: "FAILED", usageTotalUsd: 0.0016 },
+        },
+      });
+      expect(mockFindUniqueRunSnapshot).toHaveBeenCalledWith({
+        where: { actorId_apifyRunId: { actorId: "a1", apifyRunId: "run-1" } },
+      });
     });
 
     it("keeps unknown runs unavailable when no scoped snapshot exists", async () => {

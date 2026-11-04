@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { db, Prisma } from "@actorconsole/db";
+import { db, Prisma, reconcileActorLogoRecommendations } from "@actorconsole/db";
 import { downloadLogoSource, storeWebsiteLogo } from "@actorconsole/logo-catalog";
 import { requireAdmin } from "../middleware/admin.js";
 import { enqueue } from "../lib/queue.js";
@@ -35,7 +35,7 @@ async function activateLogo(websiteId: string, logoId: string, adminId: string |
   });
   if (!logo) throw new Error("Logo candidate was not found");
   const actors = await db.actor.findMany({
-    where: { websiteIdentityId: websiteId },
+    where: { websiteIdentityId: websiteId, apifyRemovedAt: null },
     select: { id: true, userId: true, businessProfileId: true },
   });
   await db.$transaction(async (tx) => {
@@ -58,19 +58,8 @@ async function activateLogo(websiteId: string, logoId: string, adminId: string |
       where: { id: websiteId },
       data: { currentLogoId: logoId, status: "ACTIVE", logoError: null },
     });
+    await reconcileActorLogoRecommendations({ websiteIdentityId: websiteId }, tx);
     if (actors.length) {
-      await tx.actorLogoRecommendation.updateMany({
-        where: {
-          actorId: { in: actors.map((actor) => actor.id) },
-          status: "PENDING",
-          logoId: { not: logoId },
-        },
-        data: { status: "SUPERSEDED", error: null },
-      });
-      await tx.actorLogoRecommendation.createMany({
-        data: actors.map((actor) => ({ actorId: actor.id, logoId })),
-        skipDuplicates: true,
-      });
       const workspaces = new Map<
         string,
         { userId: string; businessProfileId: string; count: number }
@@ -245,7 +234,10 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
     if (!(file instanceof File))
       return c.json({ ok: false, error: { code: "file_required" } }, 400);
     if (file.size > 5 * 1024 * 1024)
-      return c.json({ ok: false, error: { code: "payload_too_large", message: "Logo source exceeds 5 MiB" } }, 413);
+      return c.json(
+        { ok: false, error: { code: "payload_too_large", message: "Logo source exceeds 5 MiB" } },
+        413,
+      );
     const stored = await storeWebsiteLogo(website.id, Buffer.from(await file.arrayBuffer()));
     const logo = await db.websiteLogo.upsert({
       where: {
@@ -301,6 +293,7 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
         },
       }),
     ]);
+    await reconcileActorLogoRecommendations({ websiteIdentityId: websiteId });
     return c.json({ ok: true, data: { updated: actorIds.length + workspaceActorIds.length } });
   })
   .post(
@@ -322,6 +315,7 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
         }),
         db.websiteIdentity.update({ where: { id: sourceWebsiteId }, data: { status: "ARCHIVED" } }),
       ]);
+      await reconcileActorLogoRecommendations({ websiteIdentityId: targetId });
       return c.json({ ok: true });
     },
   )
@@ -361,6 +355,9 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
         data: reset,
       }),
     ]);
+    await reconcileActorLogoRecommendations({
+      OR: [{ id: { in: workspaceActorIds } }, { apifyActorId: { in: apifyActorIds } }],
+    });
     const jobId = await enqueue(
       "catalog",
       { catalog: "websites" },

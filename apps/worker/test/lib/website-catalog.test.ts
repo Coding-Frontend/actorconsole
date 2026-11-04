@@ -32,6 +32,9 @@ const logoCatalog = vi.hoisted(() => ({
   storeWebsiteLogo: vi.fn(),
   verifyWebsiteLogoStorage: vi.fn(),
 }));
+const reconcileActorLogoRecommendations = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ created: 0 }),
+);
 
 const db = vi.hoisted(() => ({
   storeCatalogSync: {
@@ -160,7 +163,11 @@ const db = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("@actorconsole/db", () => ({ db, Prisma: { DbNull: null } }));
+vi.mock("@actorconsole/db", () => ({
+  db,
+  Prisma: { DbNull: null },
+  reconcileActorLogoRecommendations,
+}));
 vi.mock("@actorconsole/logo-catalog", () => logoCatalog);
 
 import { classifyWebsiteCatalog, enrichWebsiteLogos } from "../../src/lib/website-catalog.js";
@@ -213,6 +220,7 @@ describe("website catalog backfill", () => {
     const second = await classifyWebsiteCatalog({ batchSize: 500 });
     expect(second.processedCount).toBe(50_001);
     expect(db.storeActor.update).toHaveBeenCalledTimes(writeCount);
+    expect(reconcileActorLogoRecommendations).toHaveBeenCalledTimes(2);
   }, 60_000);
 
   it("resumes after the last persisted Actor checkpoint", async () => {
@@ -438,13 +446,10 @@ describe("website catalog backfill", () => {
       status: "ACTIVE",
       logoError: null,
     });
-    expect(db.actorLogoRecommendation.createMany).toHaveBeenCalledWith({
-      data: [
-        { actorId: "actor_1", logoId: "logo_1" },
-        { actorId: "actor_2", logoId: "logo_1" },
-      ],
-      skipDuplicates: true,
-    });
+    expect(reconcileActorLogoRecommendations).toHaveBeenCalledWith(
+      { websiteIdentityId: "website_google-maps" },
+      db,
+    );
     expect(db.notification.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({

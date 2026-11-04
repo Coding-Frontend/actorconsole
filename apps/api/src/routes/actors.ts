@@ -1,7 +1,12 @@
 import { Hono, type Handler } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { admitWorkspaceActors, db, Prisma } from "@actorconsole/db";
+import {
+  admitWorkspaceActors,
+  db,
+  Prisma,
+  reconcileActorLogoRecommendations,
+} from "@actorconsole/db";
 import {
   updateActorCopySchema,
   inferActorLanguage,
@@ -1471,6 +1476,10 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         });
       }),
     );
+    await reconcileActorLogoRecommendations({
+      userId: session.userId,
+      businessProfileId: session.businessProfileId,
+    });
     // Plan-limit cache key includes the actor count; an upsert that
     // adds a new actor must invalidate it.
     await cacheSet(actorCountKey, admission.trackedCount, 60);
@@ -1486,7 +1495,11 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
         ),
       );
     }
-    trackEvent("actors.synced", { userId: session.userId, businessProfileId: session.businessProfileId, properties: { count: upserts.length } });
+    trackEvent("actors.synced", {
+      userId: session.userId,
+      businessProfileId: session.businessProfileId,
+      properties: { count: upserts.length },
+    });
     await recordUserAudit(c, session, "actors.sync", "actors", { count: upserts.length });
     return c.json({
       ok: true,
@@ -2096,7 +2109,8 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
     const name = stringQuery(c.req.query("name"), "name", 100);
     const where: any = { userId: session.userId };
     if (session.authMethod === "api-key") {
-      if (!session.businessProfileId) throw new AppError("workspace_required", "Select a workspace first", 403);
+      if (!session.businessProfileId)
+        throw new AppError("workspace_required", "Select a workspace first", 403);
       where.businessProfileId = session.businessProfileId;
     }
     if (name) where.name = name;
