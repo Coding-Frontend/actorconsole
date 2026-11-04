@@ -16,6 +16,7 @@ import {
   PlugZap,
   UploadCloud,
   SlidersHorizontal,
+  ShieldCheck,
   Sparkles,
   TerminalSquare,
   TrendingUp,
@@ -46,6 +47,7 @@ export interface DashboardNavigationGroup {
 
 export const accountNavigation: DashboardNavigationItem[] = [
   { id: "account-profile", href: "/dashboard/profile", label: "Profile", icon: UserRound },
+  { id: "account-security", href: "/dashboard/security", label: "Security", icon: ShieldCheck },
   {
     id: "account-notifications",
     href: "/dashboard/notification-preferences",

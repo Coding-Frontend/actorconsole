@@ -27,6 +27,7 @@ describe("workspace access routes", () => {
     "/billing",
     "/onboarding",
     "/profile",
+    "/security",
     "/data-export",
     "/account",
     "/upgrade",
