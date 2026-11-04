@@ -18,6 +18,29 @@ describe("ActorActions", () => {
     vi.clearAllMocks();
   });
 
+  it("labels a website fallback as a local preview with a path to apply it", () => {
+    render(
+      <ActorActions
+        actorId="actor-id"
+        apifyActorId="apify-id"
+        apifyUsername="builder"
+        actorName="maps"
+        title="Maps Actor"
+        description={null}
+        imageUrl="/api/website-logo-assets/logo_1"
+        imageSource="website"
+        categories={[]}
+        pricingEvents={{}}
+      />,
+    );
+    expect(screen.getByText("Website logo preview")).toBeTruthy();
+    expect(screen.getByText(/Shown only in ActorConsole/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Review and apply logos" }).getAttribute("href")).toBe(
+      "/dashboard/actors?logoStatus=pending",
+    );
+    expect(screen.queryByText("Apify thumbnail")).toBeNull();
+  });
+
   it("shows optimization and pricing together without per-Actor automation tabs", () => {
     render(
       <ActorActions
@@ -125,7 +148,6 @@ describe("ActorActions", () => {
     expect(await screen.findByRole("button", { name: "Generate variants" })).toBeTruthy();
     expect(screen.getAllByText(/Store categories/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-
   });
 
   it("shows grouped category metadata and submits correction feedback", async () => {

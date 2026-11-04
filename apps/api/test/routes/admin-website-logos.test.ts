@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onErrorHandler } from "../../src/middleware/error.js";
 
-const { db, tx } = vi.hoisted(() => {
+const { db, tx, reconcileActorLogoRecommendations } = vi.hoisted(() => {
   const transactionClient = {
     websiteIdentity: { findUnique: vi.fn(), update: vi.fn() },
     websiteLogo: { update: vi.fn() },
@@ -11,6 +11,7 @@ const { db, tx } = vi.hoisted(() => {
   };
   return {
     tx: transactionClient,
+    reconcileActorLogoRecommendations: vi.fn().mockResolvedValue({ created: 0 }),
     db: {
       websiteLogo: { findFirst: vi.fn(), count: vi.fn(), upsert: vi.fn() },
       websiteIdentity: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
@@ -23,7 +24,11 @@ const { db, tx } = vi.hoisted(() => {
   };
 });
 
-vi.mock("@actorconsole/db", () => ({ db, Prisma: { DbNull: "DB_NULL" } }));
+vi.mock("@actorconsole/db", () => ({
+  db,
+  Prisma: { DbNull: "DB_NULL" },
+  reconcileActorLogoRecommendations,
+}));
 vi.mock("@actorconsole/logo-catalog", () => ({
   downloadLogoSource: vi.fn(),
   storeWebsiteLogo: vi.fn(),
@@ -79,8 +84,14 @@ describe("Admin website logo routes", () => {
   it("rejects a file above the 5 MiB image cap before normalization or database writes", async () => {
     db.websiteIdentity.findUnique.mockResolvedValue({ id: "website_1" });
     const body = new FormData();
-    body.set("file", new File([new Uint8Array(5 * 1024 * 1024 + 1)], "fixture.png", { type: "image/png" }));
-    const response = await request("/admin/website-logos/website_1/upload", { method: "POST", body });
+    body.set(
+      "file",
+      new File([new Uint8Array(5 * 1024 * 1024 + 1)], "fixture.png", { type: "image/png" }),
+    );
+    const response = await request("/admin/website-logos/website_1/upload", {
+      method: "POST",
+      body,
+    });
     expect(response.status).toBe(413);
     expect(storeWebsiteLogo).not.toHaveBeenCalled();
     expect(db.websiteLogo.upsert).not.toHaveBeenCalled();
@@ -89,12 +100,20 @@ describe("Admin website logo routes", () => {
   it("preserves accepted uploads through the image normalizer", async () => {
     db.websiteIdentity.findUnique.mockResolvedValue({ id: "website_1" });
     vi.mocked(storeWebsiteLogo).mockResolvedValue({
-      storagePath: "website-logos/website_1/checksum.webp", checksum: "checksum", contentType: "image/webp", width: 512, height: 512, byteSize: 100,
+      storagePath: "website-logos/website_1/checksum.webp",
+      checksum: "checksum",
+      contentType: "image/webp",
+      width: 512,
+      height: 512,
+      byteSize: 100,
     });
     db.websiteLogo.upsert.mockResolvedValue({ id: "logo_1" });
     const body = new FormData();
     body.set("file", new File(["fabricated image"], "fixture.png", { type: "image/png" }));
-    const response = await request("/admin/website-logos/website_1/upload", { method: "POST", body });
+    const response = await request("/admin/website-logos/website_1/upload", {
+      method: "POST",
+      body,
+    });
     expect(response.status).toBe(200);
     expect(storeWebsiteLogo).toHaveBeenCalledWith("website_1", Buffer.from("fabricated image"));
   });
@@ -105,19 +124,9 @@ describe("Admin website logo routes", () => {
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ ok: true, data: { affectedActors: 3 } });
-    expect(tx.actorLogoRecommendation.createMany).toHaveBeenCalledWith({
-      data: [
-        { actorId: "actor_1", logoId: "logo_2" },
-        { actorId: "actor_2", logoId: "logo_2" },
-        { actorId: "actor_3", logoId: "logo_2" },
-      ],
-      skipDuplicates: true,
-    });
-    expect(tx.actorLogoRecommendation.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ status: "PENDING", logoId: { not: "logo_2" } }),
-        data: { status: "SUPERSEDED", error: null },
-      }),
+    expect(reconcileActorLogoRecommendations).toHaveBeenCalledWith(
+      { websiteIdentityId: "website_1" },
+      tx,
     );
     expect(tx.notification.createMany).toHaveBeenCalledWith({
       data: expect.arrayContaining([

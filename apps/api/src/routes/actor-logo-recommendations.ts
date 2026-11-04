@@ -20,6 +20,7 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
       actor: {
         userId: session.userId,
         ...businessProfileScope(session),
+        apifyRemovedAt: null,
         ...(session.authMethod === "api-key" && session.apiKeyActorIds?.length
           ? { apifyActorId: { in: session.apiKeyActorIds } }
           : {}),
@@ -28,7 +29,7 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
     const [items, total] = await Promise.all([
       db.actorLogoRecommendation.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         skip: (page - 1) * limit,
         take: limit,
         include: {
@@ -69,7 +70,7 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
       where: {
         id: c.req.param("id"),
         status: "PENDING",
-        actor: { userId: session.userId, ...businessProfileScope(session) },
+        actor: { userId: session.userId, ...businessProfileScope(session), apifyRemovedAt: null },
       },
       include: { actor: { select: { apifyActorId: true } } },
     });
@@ -90,12 +91,31 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
       where: {
         id: c.req.param("id"),
         status: "PENDING",
-        actor: { userId: session.userId, ...businessProfileScope(session) },
+        actor: { userId: session.userId, ...businessProfileScope(session), apifyRemovedAt: null },
       },
-      include: { actor: true, logo: true },
+      include: {
+        actor: { include: { websiteIdentity: { select: { status: true, currentLogoId: true } } } },
+        logo: true,
+      },
     });
     if (!item) throw new AppError("not_found", "Logo recommendation not found", 404);
     assertApiKeyActorScope(session, item.actor.apifyActorId);
+    if (
+      item.actor.websiteIdentityId !== item.logo.websiteIdentityId ||
+      item.actor.websiteIdentity?.status !== "ACTIVE" ||
+      item.actor.websiteIdentity.currentLogoId !== item.logoId ||
+      item.logo.reviewStatus !== "APPROVED"
+    ) {
+      await db.actorLogoRecommendation.update({
+        where: { id: item.id },
+        data: { status: "SUPERSEDED", error: null },
+      });
+      throw new AppError(
+        "logo_recommendation_superseded",
+        "This logo recommendation is no longer current. Refresh the logo recommendations.",
+        409,
+      );
+    }
     const apify = session.businessProfileId
       ? await getUserApifyClient(session.userId, session.businessProfileId)
       : await getUserApifyClient(session.userId);
@@ -120,6 +140,9 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
           body: bytes,
         },
       });
+      if (!result.verified || !result.pictureUrl) {
+        throw new Error("Apify did not verify the updated thumbnail. Try applying the logo again.");
+      }
       await db.$transaction([
         db.actor.update({
           where: { id: item.actorId },

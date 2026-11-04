@@ -32,7 +32,10 @@ vi.mock("../../src/lib/user-audit.js", () => ({
 }));
 
 import { actorLogoRecommendationRoutes } from "../../src/routes/actor-logo-recommendations.js";
-import { requireActorApiKeyCapability, requireApiKeyMethodScope } from "../../src/middleware/api-key-scope.js";
+import {
+  requireActorApiKeyCapability,
+  requireApiKeyMethodScope,
+} from "../../src/middleware/api-key-scope.js";
 
 function app(actorIds?: string[], scopes = ["actors:read", "actors:write"]) {
   const instance = new Hono();
@@ -43,7 +46,9 @@ function app(actorIds?: string[], scopes = ["actors:read", "actors:write"]) {
       email: "owner@example.com",
       plan: "PRO",
       businessProfileId: "workspace_1",
-      ...(actorIds ? { authMethod: "api-key", apiKeyActorIds: actorIds, apiKeyScopes: scopes } : {}),
+      ...(actorIds
+        ? { authMethod: "api-key", apiKeyActorIds: actorIds, apiKeyScopes: scopes }
+        : {}),
     });
     await next();
   });
@@ -64,9 +69,13 @@ const recommendation = {
     title: "Google Maps Scraper",
     actorName: "google-maps-scraper",
     currentImageUrl: null,
+    websiteIdentityId: "website_1",
+    websiteIdentity: { status: "ACTIVE", currentLogoId: "logo_1" },
   },
   logo: {
     id: "logo_1",
+    websiteIdentityId: "website_1",
+    reviewStatus: "APPROVED",
     storagePath:
       "website-logos/google-maps/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp",
     checksum: "a".repeat(64),
@@ -123,7 +132,10 @@ describe("Actor logo recommendation routes", () => {
   it("uploads the approved logo through Apify and records it as applied", async () => {
     getUserApifyClient.mockResolvedValue({ updateActorMetadata });
     readWebsiteLogo.mockResolvedValue(Buffer.from("logo"));
-    updateActorMetadata.mockResolvedValue({ pictureUrl: "https://api.apify.com/logo.webp" });
+    updateActorMetadata.mockResolvedValue({
+      pictureUrl: "https://api.apify.com/logo.webp",
+      verified: true,
+    });
     const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
       method: "POST",
     });
@@ -170,6 +182,54 @@ describe("Actor logo recommendation routes", () => {
     expect(getUserApifyClient).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { websiteIdentityId: "other_website" },
+    { websiteIdentity: { status: "ACTIVE", currentLogoId: "new_logo" } },
+    { websiteIdentity: { status: "ARCHIVED", currentLogoId: "logo_1" } },
+  ])("rejects a stale recommendation before uploading: %j", async (actorChange) => {
+    db.actorLogoRecommendation.findFirst.mockResolvedValue({
+      ...recommendation,
+      actor: { ...recommendation.actor, ...actorChange },
+    });
+    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
+      method: "POST",
+    });
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("logo_recommendation_superseded");
+    expect(readWebsiteLogo).not.toHaveBeenCalled();
+    expect(getUserApifyClient).not.toHaveBeenCalled();
+  });
+
+  it("does not apply a logo that is awaiting review", async () => {
+    db.actorLogoRecommendation.findFirst.mockResolvedValue({
+      ...recommendation,
+      logo: { ...recommendation.logo, reviewStatus: "PENDING" },
+    });
+    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
+      method: "POST",
+    });
+    expect(response.status).toBe(409);
+    expect(updateActorMetadata).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { pictureUrl: "https://api.apify.com/logo.webp", verified: false },
+    { pictureUrl: null, verified: true },
+  ])("does not record an unverified thumbnail as applied: %j", async (result) => {
+    getUserApifyClient.mockResolvedValue({ updateActorMetadata });
+    readWebsiteLogo.mockResolvedValue(Buffer.from("logo"));
+    updateActorMetadata.mockResolvedValue(result);
+    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
+      method: "POST",
+    });
+    expect(response.status).toBe(502);
+    expect(db.actor.update).not.toHaveBeenCalled();
+    expect(db.actorLogoRecommendation.update).toHaveBeenCalledWith({
+      where: { id: recommendation.id },
+      data: { error: expect.stringContaining("did not verify") },
+    });
+  });
+
   it("filters both recommendation rows and count to the credential's selected Actors", async () => {
     db.actorLogoRecommendation.findMany.mockImplementation(async ({ where }) =>
       where.actor.apifyActorId?.in.includes("apify_actor_1") ? [recommendation] : [],
@@ -183,35 +243,47 @@ describe("Actor logo recommendation routes", () => {
     expect((await response.json()).data).toMatchObject({ items: [], total: 0 });
     const where = {
       status: "PENDING",
-      actor: { userId: "user_1", businessProfileId: "workspace_1", apifyActorId: { in: ["other_actor"] } },
+      actor: {
+        userId: "user_1",
+        businessProfileId: "workspace_1",
+        apifyRemovedAt: null,
+        apifyActorId: { in: ["other_actor"] },
+      },
     };
-    expect(db.actorLogoRecommendation.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+    expect(db.actorLogoRecommendation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    );
     expect(db.actorLogoRecommendation.count).toHaveBeenCalledWith({ where });
   });
 
-  it.each(["apply", "dismiss"])("denies %s outside the selected Actors before any side effect", async (action) => {
-    const response = await app(["other_actor"]).request(
-      `/actors/logo-recommendations/recommendation_1/${action}`,
-      { method: "POST" },
-    );
+  it.each(["apply", "dismiss"])(
+    "denies %s outside the selected Actors before any side effect",
+    async (action) => {
+      const response = await app(["other_actor"]).request(
+        `/actors/logo-recommendations/recommendation_1/${action}`,
+        { method: "POST" },
+      );
 
-    expect(response.status).toBe(403);
-    expect((await response.json()).error.code).toBe("api_key_actor_denied");
-    expect(getUserApifyClient).not.toHaveBeenCalled();
-    expect(readWebsiteLogo).not.toHaveBeenCalled();
-    expect(updateActorMetadata).not.toHaveBeenCalled();
-    expect(db.actor.update).not.toHaveBeenCalled();
-    expect(db.actorLogoRecommendation.update).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe("api_key_actor_denied");
+      expect(getUserApifyClient).not.toHaveBeenCalled();
+      expect(readWebsiteLogo).not.toHaveBeenCalled();
+      expect(updateActorMetadata).not.toHaveBeenCalled();
+      expect(db.actor.update).not.toHaveBeenCalled();
+      expect(db.actorLogoRecommendation.update).not.toHaveBeenCalled();
+    },
+  );
 
   it("allows an included Actor while retaining the mutation capability check", async () => {
     const permitted = await app(["apify_actor_1"]).request(
-      "/actors/logo-recommendations/recommendation_1/dismiss", { method: "POST" },
+      "/actors/logo-recommendations/recommendation_1/dismiss",
+      { method: "POST" },
     );
     expect(permitted.status).toBe(200);
     db.actorLogoRecommendation.update.mockClear();
     const denied = await app(["apify_actor_1"], ["actors:read"]).request(
-      "/actors/logo-recommendations/recommendation_1/dismiss", { method: "POST" },
+      "/actors/logo-recommendations/recommendation_1/dismiss",
+      { method: "POST" },
     );
     expect(denied.status).toBe(403);
     expect(db.actorLogoRecommendation.update).not.toHaveBeenCalled();

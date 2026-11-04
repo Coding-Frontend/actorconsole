@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { db, Prisma } from "@actorconsole/db";
+import { db, Prisma, reconcileActorLogoRecommendations } from "@actorconsole/db";
 import {
   CORE_WEBSITE_IDENTITIES,
   classifyActorWebsite,
@@ -443,6 +443,9 @@ export async function classifyWebsiteCatalog(
       }
       result.processedCount += 1;
     }
+    // Reconcile even unchanged classifications: an Actor may have arrived
+    // after its website's logo was activated, or inherited a manual assignment.
+    await reconcileActorLogoRecommendations();
     // Rule changes can move Actors away from an automatically-created domain
     // identity. Archive the now-empty identity so filenames or stale domains
     // are not offered to administrators or sent to logo enrichment forever.
@@ -474,7 +477,7 @@ async function activateTrustedLogo(input: {
   logoId: string;
 }) {
   const actors = await db.actor.findMany({
-    where: { websiteIdentityId: input.website.id },
+    where: { websiteIdentityId: input.website.id, apifyRemovedAt: null },
     select: { id: true, userId: true, businessProfileId: true },
   });
   await db.$transaction(async (tx) => {
@@ -486,19 +489,8 @@ async function activateTrustedLogo(input: {
       where: { id: input.website.id },
       data: { currentLogoId: input.logoId, status: "ACTIVE", logoError: null },
     });
+    await reconcileActorLogoRecommendations({ websiteIdentityId: input.website.id }, tx);
     if (!actors.length) return;
-    await tx.actorLogoRecommendation.updateMany({
-      where: {
-        actorId: { in: actors.map((actor) => actor.id) },
-        status: "PENDING",
-        logoId: { not: input.logoId },
-      },
-      data: { status: "SUPERSEDED", error: null },
-    });
-    await tx.actorLogoRecommendation.createMany({
-      data: actors.map((actor) => ({ actorId: actor.id, logoId: input.logoId })),
-      skipDuplicates: true,
-    });
     const workspaces = new Map<
       string,
       { userId: string; businessProfileId: string; count: number }
