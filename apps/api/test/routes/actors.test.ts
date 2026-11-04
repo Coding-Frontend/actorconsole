@@ -1783,6 +1783,9 @@ describe("Actor routes", () => {
   describe("POST /actors/:apifyActorId/rewrite-copy", () => {
     it("returns AI-generated copy variants", async () => {
       mockGetUserApifyClient.mockResolvedValueOnce({
+        getActorBasicInfo: vi
+          .fn()
+          .mockResolvedValue({ seoTitle: "Current SEO", seoDescription: null }),
         getActor: vi.fn().mockResolvedValueOnce({
           id: "ap1",
           title: "Test Actor",
@@ -1815,6 +1818,12 @@ describe("Actor routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.data.variants).toBeDefined();
+      expect(body.data.currentCopy).toEqual({
+        title: "Test Actor",
+        description: "A test actor",
+        seoTitle: "Current SEO",
+        seoDescription: null,
+      });
       expect(mockRewriteActorCopy).toHaveBeenCalledWith(
         expect.not.objectContaining({ currentCategories: expect.anything() }),
       );
@@ -1871,6 +1880,7 @@ describe("Actor routes", () => {
     it("updates copy while ignoring legacy category fields", async () => {
       const updateActorMetadata = vi.fn().mockResolvedValueOnce({
         actor: { title: "Updated" },
+        verified: true,
       });
       mockGetUserApifyClient.mockResolvedValueOnce({ updateActorMetadata });
       mockFindFirstActor.mockResolvedValueOnce({
@@ -1893,6 +1903,7 @@ describe("Actor routes", () => {
       expect(body.ok).toBe(true);
       expect(updateActorMetadata).toHaveBeenCalledWith("ap1", {
         title: "Updated Title",
+        expectedCopy: undefined,
       });
       expect(mockUpdateActor).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1999,10 +2010,6 @@ describe("Actor routes", () => {
       expect(response.status).toBe(200);
       expect(appendActorPricing).toHaveBeenCalledWith("ap1", {
         pricingModel: "PAY_PER_EVENT",
-        minimalMaxTotalChargeUsd: 0.5,
-        isPPEPlatformUsagePaidByUser: true,
-        isPriceChangeNotificationSuppressed: false,
-        apifyMarginPercentage: 0.2,
         reasonForChange: "Add the result and Actor-start events",
         pricingPerEvent: {
           actorChargeEvents: {
