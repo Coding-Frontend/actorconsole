@@ -1,3 +1,6 @@
+vi.mock("@/components/charts/chartjs-chart", async () => ({
+  ChartJsChart: (await import("@/components/charts/chartjs-renderer")).ChartJsRenderer,
+}));
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InteractiveBarChart } from "./interactive-bar-chart";
