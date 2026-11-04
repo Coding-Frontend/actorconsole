@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useFinancialTable } from "./use-financial-table";
+import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
 
 vi.mock("@/components/dashboard/workspace-apify-connection-context", () => ({
   useWorkspaceApifyConnection: () => ({ workspaceId: "bp1" }),
@@ -16,6 +17,67 @@ const details = {
 };
 
 describe("financial report details", () => {
+  it("clears server-rendered rows immediately when switching workspaces", () => {
+    const seeded = {
+      ...details,
+      initialPage: {
+        items: [],
+        total: 50,
+        page: 1,
+        pageSize: 25,
+        snapshotId: "original",
+        sort: "direct" as const,
+        direction: "desc" as const,
+      },
+    };
+    const { result } = renderHook(() =>
+      useFinancialTable("costs", seeded, "", 1, 25, "direct", "desc"),
+    );
+    expect(result.current.data?.total).toBe(50);
+    act(() => window.dispatchEvent(new Event(WORKSPACE_CHANGED_EVENT)));
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it("renders the initial page without another request and fetches subsequent pages", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              items: [{ key: "second" }],
+              total: 50,
+              page: 2,
+              pageSize: 25,
+              snapshotId: "original",
+            },
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const seeded = {
+      ...details,
+      initialPage: {
+        items: [],
+        total: 50,
+        page: 1,
+        pageSize: 25,
+        snapshotId: "original",
+        sort: "direct" as const,
+        direction: "desc" as const,
+      },
+    };
+    const { result, rerender } = renderHook(
+      ({ page }) => useFinancialTable("costs", seeded, "", page, 25, "direct", "desc"),
+      { initialProps: { page: 1 } },
+    );
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data?.total).toBe(50);
+    expect(fetchMock).not.toHaveBeenCalled();
+    rerender({ page: 2 });
+    await waitFor(() => expect(result.current.data?.page).toBe(2));
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("reuses an expired snapshot's replacement for subsequent pagination", async () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL) =>
