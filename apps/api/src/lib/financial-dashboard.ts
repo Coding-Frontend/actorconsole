@@ -73,6 +73,9 @@ async function prepare(options: Options) {
           : "total";
   const rows = financialTableRows(data, options.kind, table);
   const snapshotId = randomUUID();
+  const initialSort =
+    options.kind === "usage" ? "runs" : options.kind === "costs" ? "direct" : "revenue";
+  const initialRows = sortFinancialRows(rows, "", initialSort, "desc").slice(0, 25);
   // Pin default ranges to the report's actual UTC dates, including when the
   // next detail request arrives after midnight or a snapshot has expired.
   const snapshot = {
@@ -154,6 +157,15 @@ async function prepare(options: Options) {
       snapshotId,
       query: snapshot.criteria,
       workspaceId: options.session.businessProfileId ?? null,
+      initialPage: {
+        items: initialRows,
+        total: rows.length,
+        page: 1,
+        pageSize: 25,
+        snapshotId,
+        sort: initialSort,
+        direction: "desc",
+      },
     },
     usageTotals,
     items: data.items.map((actor) => ({ ...actor, usageDaily: [] })),
