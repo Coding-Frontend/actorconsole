@@ -32,6 +32,7 @@ const pageTitles: Array<[string, string]> = [
   ["/dashboard/notifications", "Notifications"],
   ["/dashboard/support", "Support"],
   ["/dashboard/profile", "Profile"],
+  ["/dashboard/security", "Security"],
   ["/dashboard/notification-preferences", "Notification preferences"],
   ["/dashboard/billing", "Billing"],
   ["/dashboard/data-export", "Data export"],
@@ -63,21 +64,21 @@ export function DashboardTopbar({
           .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "Overview"));
 
   return (
-    <header className="dashboard-topbar app-shell-header-row border-border/80 bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30 flex min-w-0 items-center border-b backdrop-blur-xl">
+    <header className="dashboard-topbar app-shell-header-row sticky top-0 z-30 flex min-w-0 items-center border-b border-border/80 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
       <div className="flex w-full min-w-0 items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {onMenuToggle && (
             <button
               type="button"
               onClick={onMenuToggle}
-              className="workbench-control border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 md:hidden"
+              className="workbench-control inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
               aria-label="Toggle sidebar"
             >
               <Menu className="h-5 w-5" />
             </button>
           )}
           <div className="min-w-0">
-            <p className="data-stamp text-muted-foreground hidden uppercase tracking-[0.1em] sm:block">
+            <p className="data-stamp hidden uppercase tracking-[0.1em] text-muted-foreground sm:block">
               {isAllWorkspacesPath(pathname)
                 ? `All Workspaces / ${pathname === ALL_WORKSPACES_PUBLISHING_PATH ? "Publishing" : "Earnings"}`
                 : "Workspace / Live"}
@@ -94,15 +95,15 @@ export function DashboardTopbar({
               onClick={onCmdK}
               aria-label="Search workspace (Command K)"
               className={cn(
-                "dashboard-workspace-search workbench-control border-border bg-card hidden h-9 shrink-0 items-center justify-center gap-2 rounded-sm border px-2 shadow-sm sm:inline-flex",
-                "text-muted-foreground hover:border-signal-blue/50 hover:text-foreground focus-visible:ring-ring text-xs transition-[border-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2",
+                "dashboard-workspace-search workbench-control hidden h-9 shrink-0 items-center justify-center gap-2 rounded-sm border border-border bg-card px-2 shadow-sm sm:inline-flex",
+                "hover:border-signal-blue/50 text-xs text-muted-foreground transition-[border-color,color,box-shadow] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               )}
             >
               <Search className="h-3.5 w-3.5 shrink-0" />
               <span className="dashboard-workspace-search-label flex-1 text-left">
                 Search workspace
               </span>
-              <kbd className="dashboard-workspace-search-shortcut border-border bg-muted/70 items-center gap-0.5 rounded-[3px] border px-1.5 py-0.5 font-mono text-[9px] font-medium">
+              <kbd className="dashboard-workspace-search-shortcut items-center gap-0.5 rounded-[3px] border border-border bg-muted/70 px-1.5 py-0.5 font-mono text-[9px] font-medium">
                 <Command className="h-2.5 w-2.5" />K
               </kbd>
             </button>

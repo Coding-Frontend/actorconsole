@@ -54,7 +54,7 @@ export function DashboardBreadcrumbs({
   return (
     <nav
       aria-label="Breadcrumb"
-      className={cn("text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs", className)}
+      className={cn("flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground", className)}
     >
       {items.map((item, index) => (
         <span key={`${item.label}-${index}`} className="inline-flex min-w-0 items-center gap-1.5">
@@ -64,7 +64,7 @@ export function DashboardBreadcrumbs({
           {item.href ? (
             <Link
               href={item.href}
-              className="hover:text-foreground truncate underline-offset-4 hover:underline"
+              className="truncate underline-offset-4 hover:text-foreground hover:underline"
             >
               {item.label}
             </Link>
@@ -207,14 +207,14 @@ export function DashboardFilterSummary({
 }) {
   return (
     <div
-      className="border-border/60 bg-muted/20 flex flex-wrap items-center gap-2 rounded-sm border px-3 py-2 text-xs"
+      className="flex flex-wrap items-center gap-2 rounded-sm border border-border/60 bg-muted/20 px-3 py-2 text-xs"
       role="status"
     >
-      <span className="text-muted-foreground font-semibold">{label}</span>
+      <span className="font-semibold text-muted-foreground">{label}</span>
       {items.filter(Boolean).map((item) => (
         <span
           key={item}
-          className="border-border bg-card text-foreground rounded-sm border px-2 py-1 font-mono text-[10px]"
+          className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-[10px] text-foreground"
         >
           {item}
         </span>
@@ -223,7 +223,7 @@ export function DashboardFilterSummary({
         <button
           type="button"
           onClick={onReset}
-          className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1"
+          className="ml-auto inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" /> Reset
         </button>
@@ -246,14 +246,14 @@ export function DashboardTableToolbar({
   return (
     <div
       className={cn(
-        "border-border flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5",
+        "flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5",
         className,
       )}
     >
       <div className="min-w-0">
         <h2 className="font-display-tight text-xl">{title}</h2>
         {description ? (
-          <p className="text-muted-foreground mt-1 text-xs leading-5">{description}</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {children ? <div className="flex flex-wrap items-center gap-2">{children}</div> : null}
@@ -310,7 +310,7 @@ export function PageActionMenu({
         <DropdownMenu.Content
           align="end"
           sideOffset={6}
-          className="border-border bg-card text-card-foreground z-50 min-w-52 max-w-[calc(100vw-1rem)] overflow-hidden rounded-sm border p-1.5 shadow-2xl"
+          className="z-50 min-w-52 max-w-[calc(100vw-1rem)] overflow-hidden rounded-sm border border-border bg-card p-1.5 text-card-foreground shadow-2xl"
         >
           {items.map(({ label: itemLabel, icon, href, onSelect, disabled, destructive }) => {
             const className = cn(
@@ -369,35 +369,35 @@ export function DashboardPageHeader({
   return (
     <header
       className={cn(
-        "border-border/80 bg-card relative overflow-hidden rounded-sm border shadow-sm",
+        "relative overflow-hidden rounded-sm border border-border/80 bg-card shadow-sm",
         className,
       )}
     >
-      <span className="bg-signal-orange absolute inset-y-0 left-0 w-1" aria-hidden="true" />
+      <span className="absolute inset-y-0 left-0 w-1 bg-signal-orange" aria-hidden="true" />
       <div className="flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6 lg:px-7">
         <div className="min-w-0 max-w-3xl">
           {breadcrumbs?.length ? (
             <DashboardBreadcrumbs items={breadcrumbs} className="mb-3" />
           ) : null}
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <p className="text-signal-orange font-mono text-[10px] font-semibold uppercase tracking-[0.13em]">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-signal-orange">
               {context}
             </p>
             {status}
           </div>
           <h2 className="font-display-tight text-[28px] leading-[1.05] sm:text-[32px]">{title}</h2>
           {description ? (
-            <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-6">{description}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
           ) : null}
         </div>
         {primaryAction || secondaryActions.length ? (
           <div
-            className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto"
+            className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center [&>*]:min-h-11 sm:[&>*]:min-h-0"
             aria-label="Page actions"
           >
             {secondaryActions.length ? <PageActionMenu items={secondaryActions} /> : null}
             {primaryAction ? (
-              <div className="min-w-0 flex-1 sm:flex-none [&>*]:w-full sm:[&>*]:w-auto">
+              <div className="min-w-0 [&>*]:h-auto [&>*]:min-h-11 [&>*]:w-full [&>*]:whitespace-normal [&>*]:py-3 sm:[&>*]:h-10 sm:[&>*]:min-h-0 sm:[&>*]:w-auto sm:[&>*]:whitespace-nowrap sm:[&>*]:py-2">
                 {primaryAction}
               </div>
             ) : null}
@@ -428,21 +428,21 @@ export function SelectionActionBar({
   return (
     <div
       className={cn(
-        "border-signal-blue/30 bg-card/95 sticky bottom-3 z-20 flex flex-col gap-3 rounded-sm border px-4 py-3 shadow-2xl backdrop-blur-xl lg:bottom-auto lg:top-[calc(var(--app-shell-header-height,4rem)+0.75rem)] lg:flex-row lg:items-center lg:justify-between",
+        "border-signal-blue/30 sticky bottom-3 z-20 flex flex-col gap-3 rounded-sm border bg-card/95 px-4 py-3 shadow-2xl backdrop-blur-xl lg:bottom-auto lg:top-[calc(var(--app-shell-header-height,4rem)+0.75rem)] lg:flex-row lg:items-center lg:justify-between",
         className,
       )}
       role="region"
       aria-label="Selection actions"
     >
       <div className="flex min-w-0 items-start gap-3">
-        <span className="bg-signal-blue mt-1 h-8 w-1 shrink-0 rounded-full" aria-hidden="true" />
+        <span className="mt-1 h-8 w-1 shrink-0 rounded-full bg-signal-blue" aria-hidden="true" />
         <div className="min-w-0">
           <p className="text-sm font-semibold">
             {count} {noun}
             {count === 1 ? "" : "s"} selected
           </p>
           {description ? (
-            <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
           ) : null}
         </div>
       </div>
@@ -498,20 +498,20 @@ export function ResponsiveFilterBar({
         <Filter className="h-4 w-4" />
         {mobileLabel}
         {activeCount > 0 ? (
-          <span className="bg-signal-blue/15 text-signal-blue rounded-sm px-1.5 font-mono text-[10px]">
+          <span className="bg-signal-blue/15 rounded-sm px-1.5 font-mono text-[10px] text-signal-blue">
             {activeCount}
           </span>
         ) : null}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="bottom-0 top-auto max-h-[82vh] w-full max-w-none translate-y-0 rounded-b-none rounded-t-md p-0 xl:hidden">
-          <DialogHeader className="border-border border-b px-5 py-4 text-left">
+          <DialogHeader className="border-b border-border px-5 py-4 text-left">
             <DialogTitle>{mobileLabel}</DialogTitle>
           </DialogHeader>
           <div className="scroll-soft flex flex-col gap-3 overflow-y-auto p-5 [&>*]:w-full">
             {renderFilters()}
           </div>
-          <div className="border-border bg-card sticky bottom-0 border-t p-4">
+          <div className="sticky bottom-0 border-t border-border bg-card p-4">
             <Button variant="signal" className="w-full" onClick={() => setOpen(false)}>
               Show results
             </Button>
@@ -534,17 +534,17 @@ export function AdvancedSettings({
   defaultOpen?: boolean;
 }) {
   return (
-    <details className="border-border bg-muted/15 group rounded-sm border" open={defaultOpen}>
-      <summary className="focus-visible:ring-ring flex cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-sm border border-border bg-muted/15" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">{title}</p>
           {description ? (
-            <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
           ) : null}
         </div>
-        <ChevronDown className="text-muted-foreground h-4 w-4 transition-transform group-open:rotate-180" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
-      <div className="border-border border-t p-4">{children}</div>
+      <div className="border-t border-border p-4">{children}</div>
     </details>
   );
 }
