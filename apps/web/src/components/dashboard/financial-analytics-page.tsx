@@ -49,6 +49,27 @@ import {
 import type { FinancialDashboardKind } from "@/lib/financial-dashboard";
 import { DEFAULT_PAGE_SIZE } from "@/lib/page-size";
 import { usePageDataPending } from "@/lib/page-data-state";
+import { useFinancialTable } from "@/lib/use-financial-table";
+
+import {
+  dailyFinancialLedgerRows,
+  weeklyFinancialLedgerRows,
+  usagePeriodRows,
+  financialDateKey,
+  financialWeekKey,
+  actorFinancialTotalRows,
+  type FinancialTableRow as TableRow,
+  type FinancialSortKey as SortKey,
+  type ActorTableView,
+} from "@actorconsole/shared/financial-report";
+export {
+  aggregateFinancialLedger,
+  dailyFinancialLedgerRows,
+  weeklyFinancialLedgerRows,
+  usagePeriodRows,
+  financialDateKey,
+  financialWeekKey,
+} from "@actorconsole/shared/financial-report";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -60,71 +81,10 @@ const money = new Intl.NumberFormat("en-US", {
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 const DAY_MS = 86_400_000;
 
-type FinancialLedger = NonNullable<UsageCostsPayload["revenue"]>["ledger"];
-type SortKey =
-  | "name"
-  | "date"
-  | "runs"
-  | "success"
-  | "failed"
-  | "results"
-  | "users"
-  | "direct"
-  | "allocated"
-  | "revenue"
-  | "profit"
-  | "margin"
-  | "share";
-
-interface TableRow {
-  key: string;
-  actorId: string;
-  apifyActorId: string;
-  name: string;
-  slug: string;
-  date: string | null;
-  runs: number;
-  successfulRuns: number;
-  failedRuns: number;
-  results: number;
-  activeUsers: number | null;
-  directCostUsd: number | null;
-  allocatedCostUsd: number | null;
-  revenueUsd: number | null;
-  netProfitUsd: number | null;
-  margin: number | null;
-  costSource: string | null;
-  costShare: number | null;
-  previousRevenueUsd?: number | null;
-  previousNetProfitUsd?: number | null;
-  previousRuns?: number | null;
-  actorDays?: number;
-  costCoveredDays?: number;
-  allocatedCoveredDays?: number;
-  revenueCoveredDays?: number;
-}
-
-type ActorTableView = "total" | "daily" | "weekly";
-
 function utcTodayOffset(days = 0) {
   const date = new Date();
   date.setUTCHours(0, 0, 0, 0);
   date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-export function financialDateKey(value: string | Date) {
-  return new Date(value).toISOString().slice(0, 10);
-}
-
-export function financialWeekKey(value: string | Date) {
-  const date = new Date(
-    typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
-      ? `${value}T00:00:00.000Z`
-      : value,
-  );
-  const daysSinceMonday = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
   return date.toISOString().slice(0, 10);
 }
 
@@ -432,184 +392,6 @@ function downloadCsv(kind: FinancialDashboardKind, rows: TableRow[]) {
   URL.revokeObjectURL(url);
 }
 
-export function aggregateFinancialLedger(rows: FinancialLedger): TableRow[] {
-  const grouped = new Map<string, TableRow>();
-  for (const row of rows) {
-    const current = grouped.get(row.actorId) ?? {
-      key: row.actorId,
-      actorId: row.actorId,
-      apifyActorId: row.apifyActorId,
-      name: row.title ?? row.actorName,
-      slug: `${row.username}/${row.actorName}`,
-      date: null,
-      runs: 0,
-      successfulRuns: 0,
-      failedRuns: 0,
-      results: 0,
-      activeUsers: 0,
-      directCostUsd: 0,
-      allocatedCostUsd: 0,
-      revenueUsd: 0,
-      netProfitUsd: 0,
-      margin: null,
-      costSource: null,
-      costShare: null,
-    };
-    current.runs += row.runs;
-    current.successfulRuns += Number(row.successfulRuns ?? 0);
-    current.failedRuns += Number(row.failedRuns ?? 0);
-    current.results += row.results;
-    current.activeUsers = (current.activeUsers ?? 0) + (row.activeUsers ?? 0);
-    current.directCostUsd =
-      current.directCostUsd == null || row.directCostUsd == null
-        ? null
-        : current.directCostUsd + row.directCostUsd;
-    current.allocatedCostUsd =
-      current.allocatedCostUsd == null || row.allocatedCostUsd == null
-        ? null
-        : current.allocatedCostUsd + row.allocatedCostUsd;
-    current.revenueUsd =
-      current.revenueUsd == null || row.revenueUsd == null
-        ? null
-        : current.revenueUsd + row.revenueUsd;
-    current.netProfitUsd =
-      current.netProfitUsd == null || row.netProfitUsd == null
-        ? null
-        : current.netProfitUsd + row.netProfitUsd;
-    current.costSource = row.costSource;
-    grouped.set(row.actorId, current);
-  }
-  return [...grouped.values()].map((row) => ({
-    ...row,
-    margin:
-      row.revenueUsd && row.netProfitUsd != null ? (row.netProfitUsd / row.revenueUsd) * 100 : null,
-  }));
-}
-
-export function dailyFinancialLedgerRows(rows: FinancialLedger): TableRow[] {
-  return rows.map((row) => ({
-    key: `${row.actorId}:${row.date}`,
-    actorId: row.actorId,
-    apifyActorId: row.apifyActorId,
-    name: row.title ?? row.actorName,
-    slug: `${row.username}/${row.actorName}`,
-    date: row.date,
-    runs: row.runs,
-    successfulRuns: Number(row.successfulRuns ?? 0),
-    failedRuns: Number(row.failedRuns ?? 0),
-    results: row.results,
-    activeUsers: row.activeUsers,
-    directCostUsd: row.directCostUsd,
-    allocatedCostUsd: row.allocatedCostUsd,
-    revenueUsd: row.revenueUsd,
-    netProfitUsd: row.netProfitUsd,
-    margin: row.margin,
-    costSource: row.costSource,
-    costShare: null,
-  }));
-}
-
-export function weeklyFinancialLedgerRows(rows: FinancialLedger): TableRow[] {
-  const weeklyRows = rows.map((row) => ({ ...row, date: financialWeekKey(row.date) }));
-  const grouped = new Map<string, FinancialLedger>();
-  for (const row of weeklyRows) {
-    const key = `${row.actorId}:${row.date}`;
-    const current = grouped.get(key) ?? [];
-    current.push(row);
-    grouped.set(key, current);
-  }
-  return [...grouped.entries()].map(([key, weekRows]) => ({
-    ...aggregateFinancialLedger(weekRows)[0]!,
-    key,
-    date: weekRows[0]!.date,
-  }));
-}
-
-export function usagePeriodRows(
-  actors: UsageCostsPayload["items"],
-  from: string,
-  to: string,
-  tableView: "daily" | "weekly",
-): TableRow[] {
-  const grouped = new Map<string, TableRow>();
-  for (const actor of actors) {
-    for (const usage of actor.usageDaily) {
-      const day = financialDateKey(usage.date);
-      if (day < from || day > to) continue;
-      const period = tableView === "weekly" ? financialWeekKey(day) : day;
-      const key = `${actor.id}:${period}`;
-      const row = grouped.get(key) ?? {
-        key,
-        actorId: actor.id,
-        apifyActorId: actor.apifyActorId,
-        name: actor.title ?? actor.actorName,
-        slug: `${actor.username}/${actor.actorName}`,
-        date: period,
-        runs: 0,
-        successfulRuns: 0,
-        failedRuns: 0,
-        results: 0,
-        activeUsers: null,
-        directCostUsd: null,
-        allocatedCostUsd: null,
-        revenueUsd: null,
-        netProfitUsd: null,
-        margin: null,
-        costSource: null,
-        costShare: null,
-      };
-      row.runs += usage.runs;
-      row.successfulRuns += Number(usage.successfulRuns ?? 0);
-      row.failedRuns += Number(usage.failedRuns ?? 0);
-      row.results += Number(usage.resultCount ?? 0);
-      grouped.set(key, row);
-    }
-  }
-  return [...grouped.values()];
-}
-
-function actorFinancialTotalRows(
-  actors: NonNullable<UsageCostsPayload["revenue"]>["actors"],
-): TableRow[] {
-  return actors.map((actor) => {
-    const actorDays = actor.actorDays ?? 0;
-    const costCoveredDays = actor.costCoveredDays ?? (actor.costAvailable ? actorDays || 1 : 0);
-    const allocatedCoveredDays =
-      actor.allocatedCoveredDays ?? (actor.allocatedCostAvailable ? actorDays || 1 : 0);
-    const revenueCoveredDays = actor.revenueCoveredDays ?? actorDays;
-    const hasDirectCost = costCoveredDays > 0;
-    const hasAllocatedCost = allocatedCoveredDays > 0;
-    const hasRevenue = revenueCoveredDays > 0;
-    return {
-      key: actor.id,
-      actorId: actor.id,
-      apifyActorId: actor.apifyActorId,
-      name: actor.title ?? actor.actorName,
-      slug: `${actor.username}/${actor.actorName}`,
-      date: null,
-      runs: actor.runs,
-      successfulRuns: actor.successfulRuns ?? 0,
-      failedRuns: actor.failedRuns ?? 0,
-      results: actor.results,
-      activeUsers: actor.activeUsersCoveredDays === 0 ? null : actor.activeUsers,
-      directCostUsd: hasDirectCost ? actor.costUsd : null,
-      allocatedCostUsd: hasAllocatedCost ? actor.allocatedCostUsd : null,
-      revenueUsd: hasRevenue ? actor.revenueUsd : null,
-      netProfitUsd: hasAllocatedCost && hasRevenue ? actor.netProfitUsd : null,
-      margin: hasAllocatedCost && hasRevenue ? actor.margin : null,
-      costSource: hasDirectCost ? "actor-range" : "unavailable",
-      costShare: null,
-      previousRevenueUsd: actor.previousRevenueUsd,
-      previousNetProfitUsd: actor.previousNetProfitUsd,
-      previousRuns: actor.previousRuns,
-      actorDays,
-      costCoveredDays,
-      allocatedCoveredDays,
-      revenueCoveredDays,
-    };
-  });
-}
-
 export function FinancialAnalyticsPage({
   kind,
   payload,
@@ -633,6 +415,17 @@ export function FinancialAnalyticsPage({
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const remoteTable = useFinancialTable(
+    kind,
+    payload.details,
+    query,
+    page,
+    pageSize,
+    sortKey,
+    sortDirection,
+  );
 
   const filters = payload.filters;
   const selectedFrom = filters?.from ?? utcTodayOffset(-29);
@@ -790,20 +583,25 @@ export function FinancialAnalyticsPage({
     const result = typeof a === "string" ? a.localeCompare(String(b)) : Number(a) - Number(b);
     return sortDirection === "asc" ? result : -result;
   });
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const visibleRows = sortedRows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const rowCount = payload.details ? (remoteTable.data?.total ?? 0) : sortedRows.length;
+  const totalPages = Math.max(1, Math.ceil(rowCount / pageSize));
+  const safePage = payload.details ? (remoteTable.data?.page ?? page) : Math.min(page, totalPages);
+  const visibleRows = payload.details
+    ? (remoteTable.data?.items ?? [])
+    : sortedRows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-  const usageTotals = usageTotalRows.reduce(
-    (total, row) => ({
-      runs: total.runs + row.runs,
-      successful: total.successful + row.successfulRuns,
-      failed: total.failed + row.failedRuns,
-      results: total.results + row.results,
-      users: total.users + (row.activeUsers ?? 0),
-    }),
-    { runs: 0, successful: 0, failed: 0, results: 0, users: 0 },
-  );
+  const usageTotals =
+    payload.usageTotals ??
+    usageTotalRows.reduce(
+      (total, row) => ({
+        runs: total.runs + row.runs,
+        successful: total.successful + row.successfulRuns,
+        failed: total.failed + row.failedRuns,
+        results: total.results + row.results,
+        users: total.users + (row.activeUsers ?? 0),
+      }),
+      { runs: 0, successful: 0, failed: 0, results: 0, users: 0 },
+    );
   const successRate = usageTotals.runs ? (usageTotals.successful / usageTotals.runs) * 100 : 0;
 
   const currentFinancial = revenue?.comparison.current;
@@ -1194,18 +992,20 @@ export function FinancialAnalyticsPage({
             detail="Current Apify billing cycle"
             icon={CircleDollarSign}
           />
-          <MetricCard
-            label="Previous-period spend"
-            value={
-              previousFinancial?.allocatedCoveredDays
-                ? money.format(previousFinancial.allocatedCostUsd)
-                : previousFinancial?.costCoveredDays
-                  ? money.format(previousFinancial.costUsd)
-                  : "Unavailable"
-            }
-            detail="Matching preceding date range"
-            icon={CalendarDays}
-          />
+          {compare ? (
+            <MetricCard
+              label="Previous-period spend"
+              value={
+                previousFinancial?.allocatedCoveredDays
+                  ? money.format(previousFinancial.allocatedCostUsd)
+                  : previousFinancial?.costCoveredDays
+                    ? money.format(previousFinancial.costUsd)
+                    : "Unavailable"
+              }
+              detail="Matching preceding date range"
+              icon={CalendarDays}
+            />
+          ) : null}
           <MetricCard
             label="Direct Actor cost"
             value={currentFinancial?.costCoveredDays ? money.format(directCost) : "Unavailable"}
@@ -1406,14 +1206,31 @@ export function FinancialAnalyticsPage({
               type="button"
               variant="outline"
               size="sm"
-              disabled={!sortedRows.length}
-              onClick={() => downloadCsv(kind, sortedRows)}
+              disabled={!rowCount || exporting || remoteTable.loading}
+              onClick={async () => {
+                setExporting(true);
+                setExportError(null);
+                try {
+                  downloadCsv(kind, payload.details ? await remoteTable.allRows() : sortedRows);
+                } catch (error) {
+                  setExportError(
+                    error instanceof Error ? error.message : "Could not export report",
+                  );
+                } finally {
+                  setExporting(false);
+                }
+              }}
             >
-              <Download className="h-4 w-4" /> Export CSV
+              <Download className="h-4 w-4" /> {exporting ? "Exporting…" : "Export CSV"}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
+          {exportError ? (
+            <p role="alert" className="mb-3 text-sm text-destructive">
+              {exportError}
+            </p>
+          ) : null}
           {kind === "costs" && revenue?.ledgerTruncated && tableView !== "total" && !selectedDay ? (
             <div className="border-signal-blue/35 bg-signal-blue/8 mb-4 rounded-sm border px-4 py-3 text-xs leading-5">
               Showing the newest {ledger.length.toLocaleString("en-US")} of{" "}
@@ -1421,7 +1238,24 @@ export function FinancialAnalyticsPage({
               Select a date to load its complete Actor breakdown.
             </div>
           ) : null}
-          {visibleRows.length ? (
+          {remoteTable.loading ? (
+            <div
+              role="status"
+              className="flex h-48 items-center justify-center text-sm text-muted-foreground"
+            >
+              Loading report details…
+            </div>
+          ) : remoteTable.error ? (
+            <div
+              role="alert"
+              className="flex h-48 flex-col items-center justify-center gap-3 text-sm"
+            >
+              <p>{remoteTable.error}</p>
+              <Button variant="outline" onClick={remoteTable.retry}>
+                Retry report details
+              </Button>
+            </div>
+          ) : visibleRows.length ? (
             <>
               <div className="space-y-3 md:hidden">
                 {visibleRows.map((row) => (
@@ -1512,7 +1346,9 @@ export function FinancialAnalyticsPage({
                                   <Delta
                                     current={row.netProfitUsd}
                                     previous={
-                                      tableView === "total" ? row.previousNetProfitUsd : null
+                                      compare && tableView === "total"
+                                        ? row.previousNetProfitUsd
+                                        : null
                                     }
                                   />
                                 </dd>
@@ -1539,7 +1375,9 @@ export function FinancialAnalyticsPage({
                               {row.runs}
                               <Delta
                                 current={row.runs}
-                                previous={tableView === "total" ? row.previousRuns : null}
+                                previous={
+                                  compare && tableView === "total" ? row.previousRuns : null
+                                }
                               />
                             </dd>
                           </div>
@@ -1690,7 +1528,11 @@ export function FinancialAnalyticsPage({
                                     : money.format(row.revenueUsd)}
                                   <Delta
                                     current={row.revenueUsd}
-                                    previous={tableView === "total" ? row.previousRevenueUsd : null}
+                                    previous={
+                                      compare && tableView === "total"
+                                        ? row.previousRevenueUsd
+                                        : null
+                                    }
                                   />
                                 </td>
                                 <td className="px-3 py-3 text-right font-mono">
@@ -1700,7 +1542,9 @@ export function FinancialAnalyticsPage({
                                   <Delta
                                     current={row.netProfitUsd}
                                     previous={
-                                      tableView === "total" ? row.previousNetProfitUsd : null
+                                      compare && tableView === "total"
+                                        ? row.previousNetProfitUsd
+                                        : null
                                     }
                                   />
                                 </td>
@@ -1714,7 +1558,9 @@ export function FinancialAnalyticsPage({
                               {kind === "revenue" ? (
                                 <Delta
                                   current={row.runs}
-                                  previous={tableView === "total" ? row.previousRuns : null}
+                                  previous={
+                                    compare && tableView === "total" ? row.previousRuns : null
+                                  }
                                 />
                               ) : null}
                             </td>
@@ -1736,7 +1582,7 @@ export function FinancialAnalyticsPage({
               <Pagination
                 page={safePage}
                 pageSize={pageSize}
-                total={sortedRows.length}
+                total={rowCount}
                 onPageChange={setPage}
                 onPageSizeChange={setPageSize}
               />

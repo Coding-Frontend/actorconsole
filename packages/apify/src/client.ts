@@ -294,7 +294,14 @@ export class ApifyClientWrapper {
         limit: opts.limit ?? 100,
         ...(opts.offset !== undefined ? { offset: opts.offset } : {}),
       });
-      return list.items.map(toActorSummary);
+      return list.items.map((item) => ({
+        ...toActorSummary(item),
+        listingMetadataAvailable: {
+          title: Object.prototype.hasOwnProperty.call(item, "title"),
+          description: Object.prototype.hasOwnProperty.call(item, "description"),
+          pictureUrl: Object.prototype.hasOwnProperty.call(item, "pictureUrl"),
+        },
+      }));
     });
   }
 

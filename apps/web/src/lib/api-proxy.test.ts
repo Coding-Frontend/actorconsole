@@ -9,8 +9,45 @@ import { proxyApiRequest } from "./api-proxy";
 
 describe("proxyApiRequest", () => {
   afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it.each([
+    { method: "POST", path: ["actors", "fixture", "rewrite-copy"], status: 200 },
+    { method: "GET", path: ["actors", "fixture", "rewrite-copy"], status: 502 },
+    { method: "POST", path: ["actors", "fixture", "copy"], status: 502 },
+  ])("allows a 35-second copy generation while retaining ordinary deadlines ($method $path)", async ({ method, path, status }) => {
+    vi.useFakeTimers();
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((delay) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), delay);
+      return controller.signal;
+    });
+    let started!: () => void;
+    const forwarding = new Promise<void>((resolve) => { started = resolve; });
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((_url, init: RequestInit) => new Promise<Response>((resolve, reject) => {
+      const timer = setTimeout(() => resolve(Response.json({ ok: true, data: { variants: ["generated"] } })), 35_000);
+      init.signal?.addEventListener("abort", () => { clearTimeout(timer); reject(init.signal?.reason); }, { once: true });
+      started();
+    })));
+    const pending = proxyApiRequest(new Request(`https://actorconsole.test/api/${path.join("/")}`, { method, ...(method === "POST" ? { body: "{}" } : {}) }), path);
+    await forwarding;
+    await vi.advanceTimersByTimeAsync(35_000);
+    const response = await pending;
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject(status === 200 ? { data: { variants: ["generated"] } } : { error: { code: "upstream_unavailable" } });
+  });
+
+  it("returns a JSON retry error when copy generation exhausts its bounded allowance", async () => {
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(AbortSignal.abort(new DOMException("Timed out", "TimeoutError")));
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((_url, init: RequestInit) => Promise.reject(init.signal?.reason)));
+    const response = await proxyApiRequest(new Request("https://actorconsole.test/api/actors/fixture/rewrite-copy", { method: "POST", body: "{}" }), ["actors", "fixture", "rewrite-copy"]);
+    expect(response.status).toBe(504);
+    expect(await response.json()).toMatchObject({ error: { code: "upstream_timeout", message: "Copy generation took too long. Please try again." } });
   });
 
   it("preserves immutable caching for versioned website logo assets", async () => {

@@ -1,8 +1,16 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => "/dashboard/actors",
 }));
 
 vi.mock("@/lib/actor-refresh", async (importOriginal) => ({
@@ -12,8 +20,18 @@ vi.mock("@/lib/actor-refresh", async (importOriginal) => ({
 
 import { refreshWorkspaceActors, WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
 
+import { WorkspaceApifyConnectionProvider } from "./workspace-apify-connection-context";
+import type { ReactNode } from "react";
+function render(ui: ReactNode) {
+  return rtlRender(
+    <WorkspaceApifyConnectionProvider workspaceId="bp1">{ui}</WorkspaceApifyConnectionProvider>,
+  );
+}
+
 import { ActorsWorkspace } from "./actors-workspace";
-import { LogoRecommendations } from "./logo-recommendations";
+import { BulkLogoReview } from "./bulk-logo-review";
+import { WorkspaceApifyConnectionBanner } from "./workspace-apify-connection-banner";
+import { DASHBOARD_STATUS_CHANGED_EVENT } from "./dashboard-navigation";
 
 describe("ActorsWorkspace", () => {
   beforeEach(() => {
@@ -114,6 +132,26 @@ describe("ActorsWorkspace", () => {
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
   }
+
+  it("shares one connection request between the banner and Actors, including simultaneous invalidation events", async () => {
+    const fetchMock = mockActorList();
+    render(
+      <>
+        <WorkspaceApifyConnectionBanner workspaceId="bp1" />
+        <ActorsWorkspace />
+      </>,
+    );
+    await screen.findByText("1278 Actors matching");
+    const statusCalls = () =>
+      fetchMock.mock.calls.filter(([url]) => String(url).includes("/apify/status"));
+    expect(statusCalls()).toHaveLength(1);
+    act(() => {
+      window.dispatchEvent(new Event(WORKSPACE_DATA_REFRESHED_EVENT));
+      window.dispatchEvent(new Event(DASHBOARD_STATUS_CHANGED_EVENT));
+    });
+    await waitFor(() => expect(statusCalls()).toHaveLength(2));
+    expect(statusCalls()[1]![0]).toContain("/apify/status");
+  });
 
   it("shows sync progress and reloads the count after reconciliation completes", async () => {
     let total = 1278;
@@ -313,6 +351,10 @@ describe("ActorsWorkspace", () => {
 
   it("replaces a local preview with the verified thumbnail immediately after applying a logo", async () => {
     let applied = false;
+    let finishReviewRefresh!: () => void;
+    const reviewRefresh = new Promise<void>((resolve) => {
+      finishReviewRefresh = resolve;
+    });
     const pictureUrl = "https://images.apify.com/verified.webp";
     vi.stubGlobal(
       "fetch",
@@ -328,14 +370,24 @@ describe("ActorsWorkspace", () => {
           return new Response(JSON.stringify({ ok: true, data: { pictureUrl } }));
         }
         if (url.includes("/logo-recommendations")) {
+          if (applied) await reviewRefresh;
           return new Response(
             JSON.stringify({
               data: {
+                workspaceId: "workspace-1",
+                total: applied ? 0 : 1,
+                page: 1,
+                limit: 10,
+                summary: {
+                  counts: { PENDING: applied ? 0 : 1, APPLIED: applied ? 1 : 0, DISMISSED: 0 },
+                  websites: [],
+                },
                 items: applied
                   ? []
                   : [
                       {
                         id: "rec_1",
+                        status: "PENDING",
                         error: null,
                         proposedImageUrl: "/api/website-logo-assets/logo_1",
                         actor: {
@@ -389,20 +441,25 @@ describe("ActorsWorkspace", () => {
     );
     const { container } = render(
       <>
-        <LogoRecommendations />
+        <BulkLogoReview />
         <ActorsWorkspace />
       </>,
     );
     await screen.findAllByText("Local preview");
-    fireEvent.click(await screen.findByRole("button", { name: "Review logos" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply to Apify" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Select Maps for logo review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply 1 logo to Apify" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply 1 logo" }));
     await waitFor(() =>
       expect(
         container.querySelector('[data-picture-source="actor"]')?.getAttribute("data-picture-url"),
       ).toBe(pictureUrl),
     );
     expect(screen.queryByText("Local preview")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Review logos" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Select Maps for logo review" })).toBeTruthy();
+    finishReviewRefresh();
+    await waitFor(() =>
+      expect(screen.queryByRole("checkbox", { name: "Select Maps for logo review" })).toBeNull(),
+    );
   });
 
   it("clears selected Actors when the active workspace changes", async () => {

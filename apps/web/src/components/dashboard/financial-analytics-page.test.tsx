@@ -1,6 +1,6 @@
 vi.mock("@/components/charts/chartjs-chart", () => ({ ChartJsChart: () => null }));
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { UsageCostsPayload } from "./usage-costs-analytics";
 
 const navigation = vi.hoisted(() => ({ replace: vi.fn(), search: "" }));
@@ -50,6 +50,7 @@ const baseRow = {
 describe("financial Actor-day presentation", () => {
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
     navigation.replace.mockReset();
     navigation.search = "";
   });
@@ -150,6 +151,34 @@ describe("financial Actor-day presentation", () => {
     );
     expect(financialChartDay({ payload: { period: "2026-08-11" } })).toBe("2026-08-11");
     expect(financialChartDay({ period: "2026-08" })).toBeNull();
+  });
+
+  it("renders summary cards before details and keeps summaries usable when details fail", async () => {
+    const payload = analyticsPayload();
+    payload.details = {
+      snapshotId: "snapshot",
+      query: "from=2026-08-10&to=2026-08-10",
+      workspaceId: "bp1",
+    };
+    payload.items = payload.items.map((actor) => ({ ...actor, usageDaily: [] }));
+    payload.revenue = { ...payload.revenue!, actors: [], ledger: [] };
+    let resolve!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((done) => {
+            resolve = done;
+          }),
+      ),
+    );
+    render(<FinancialAnalyticsPage kind="costs" payload={payload} />);
+    expect(screen.getAllByText("Account spend").length).toBeGreaterThan(0);
+    expect(screen.getByText("Loading report details…")).toBeTruthy();
+    await act(async () => resolve(new Response("unavailable", { status: 503 })));
+    expect(await screen.findByText("Could not load report details")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry report details" })).toBeTruthy();
+    expect(screen.getByText("Direct Actor cost")).toBeTruthy();
   });
 
   it("renders cost comparisons, service categories, and unavailable coverage honestly", () => {

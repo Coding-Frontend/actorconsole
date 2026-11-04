@@ -21,6 +21,7 @@ export async function loadFinancialDashboard(
   copyParam("compare");
   copyParam("day");
   copyParam("table");
+  apiParams.set("format", "summary");
 
   const response = await authenticatedServerFetch(
     `/actors/${kind}${apiParams.size ? `?${apiParams.toString()}` : ""}`,

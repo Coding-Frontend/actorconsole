@@ -61,6 +61,8 @@ export interface ApifyActorSummary {
   title: string | null;
   description: string | null;
   pictureUrl: string | null;
+  /** Fields actually present in an owned-Actor inventory response. */
+  listingMetadataAvailable?: { title: boolean; description: boolean; pictureUrl: boolean };
   isPublic: boolean;
   isDeprecated?: boolean;
   notice?: "NONE" | "RESIDENTIAL_PROXY_REQUIRED" | "UNDER_MAINTENANCE" | null;

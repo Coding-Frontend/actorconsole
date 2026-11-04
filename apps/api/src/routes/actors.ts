@@ -12,6 +12,7 @@ import {
   inferActorLanguage,
   extractKeywords,
   actorPricingSchema,
+  actorListingUpdate,
 } from "@actorconsole/shared";
 import {
   APIFY_ACCOUNT_MISMATCH_CODE,
@@ -43,6 +44,10 @@ import {
   assertApiKeyUnscoped,
 } from "../middleware/api-key-scope.js";
 import { loadWorkspaceFinancialReport } from "../lib/financial-report.js";
+import {
+  loadFinancialDashboardSummary,
+  loadFinancialDashboardTable,
+} from "../lib/financial-dashboard.js";
 import { businessProfileScope } from "../lib/business-profile.js";
 import type { AppEnv } from "../app.js";
 
@@ -711,6 +716,23 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
   .get(
     "/usage-costs",
     (financialReportHandler = async (c) => {
+      const kind = c.req.path.split("/").at(-1);
+      if (kind === "usage" || kind === "costs" || kind === "revenue") {
+        const format = c.req.query("format");
+        if (format === "summary" || format === "table") {
+          const options = {
+            session: c.get("session"),
+            kind,
+            query: (key: string) => c.req.query(key),
+            requestId: c.req.header("x-request-id") ?? null,
+          } satisfies Parameters<typeof loadFinancialDashboardSummary>[0];
+          return c.json(
+            await (format === "summary"
+              ? loadFinancialDashboardSummary(options)
+              : loadFinancialDashboardTable(options)),
+          );
+        }
+      }
       return c.json(
         await loadWorkspaceFinancialReport({
           session: c.get("session"),
@@ -1459,31 +1481,25 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
             apifyActorId: a.id,
             username: a.username,
             actorName: a.name,
-            title: a.title,
-            description: a.description,
-            currentImageUrl: a.pictureUrl,
+            ...actorListingUpdate(a),
             currentPricing: activePricingInfo(a.pricingInfos) as Prisma.InputJsonValue | undefined,
             ...(a.storeVisibilityAvailable ? { storeIsPublic: a.isPublic } : {}),
             ...(a.storeDeprecationAvailable ? { storeIsDeprecated: a.isDeprecated ?? false } : {}),
             ...(a.storeNoticeAvailable ? { storeNotice: a.notice ?? "NONE" } : {}),
             ...(a.storeStatusAvailable ? { storeStatusSyncedAt: new Date() } : {}),
-            hasDescription: Boolean(a.description?.trim()),
             hasCategories: Boolean(a.categories?.length),
             ...websiteClassification,
           },
           update: {
             username: a.username,
             actorName: a.name,
-            title: a.title,
-            description: a.description,
-            currentImageUrl: a.pictureUrl,
+            ...actorListingUpdate(a),
             currentPricing: activePricingInfo(a.pricingInfos) as Prisma.InputJsonValue | undefined,
             ...(a.storeVisibilityAvailable ? { storeIsPublic: a.isPublic } : {}),
             ...(a.storeDeprecationAvailable ? { storeIsDeprecated: a.isDeprecated ?? false } : {}),
             ...(a.storeNoticeAvailable ? { storeNotice: a.notice ?? "NONE" } : {}),
             ...(a.storeStatusAvailable ? { storeStatusSyncedAt: new Date() } : {}),
-            hasDescription: Boolean(a.description?.trim()),
-            hasCategories: Boolean(a.categories?.length),
+            ...(Array.isArray(a.categories) ? { hasCategories: a.categories.length > 0 } : {}),
             ...websiteClassification,
           },
         });

@@ -8,6 +8,7 @@ const { db, getUserApifyClient, readWebsiteLogo, recordUserAudit, updateActorMet
       actorLogoRecommendation: {
         findMany: vi.fn(),
         count: vi.fn(),
+        groupBy: vi.fn(),
         findFirst: vi.fn(),
         update: vi.fn(),
       },
@@ -89,6 +90,7 @@ describe("Actor logo recommendation routes", () => {
     vi.clearAllMocks();
     db.actorLogoRecommendation.findMany.mockResolvedValue([recommendation]);
     db.actorLogoRecommendation.count.mockResolvedValue(1);
+    db.actorLogoRecommendation.groupBy.mockResolvedValue([{ status: "PENDING", _count: 1 }]);
     db.actorLogoRecommendation.findFirst.mockResolvedValue(recommendation);
     db.actorLogoRecommendation.update.mockResolvedValue(recommendation);
     db.actor.update.mockResolvedValue({ id: "actor_1" });
@@ -111,6 +113,102 @@ describe("Actor logo recommendation routes", () => {
         }),
       }),
     );
+  });
+
+  it("returns scoped status totals and deduplicated website filters for the bulk review page", async () => {
+    db.actorLogoRecommendation.groupBy.mockResolvedValue([
+      { status: "PENDING", _count: 33 },
+      { status: "APPLIED", _count: 12 },
+      { status: "DISMISSED", _count: 4 },
+    ]);
+    db.actorLogoRecommendation.findMany
+      .mockResolvedValueOnce([recommendation])
+      .mockResolvedValueOnce([{ logo: recommendation.logo }, { logo: recommendation.logo }]);
+    const response = await app(["apify_actor_1"]).request(
+      "/actors/logo-recommendations?summary=true&q=maps&websiteId=website_1&thumbnail=missing",
+    );
+    expect(response.status).toBe(200);
+    const data = (await response.json()).data;
+    expect(data.workspaceId).toBe("workspace_1");
+    expect(data.summary.counts).toEqual({ PENDING: 33, APPLIED: 12, DISMISSED: 4 });
+    expect(data.summary.websites).toEqual([recommendation.logo.websiteIdentity]);
+    expect(db.actorLogoRecommendation.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          actor: expect.objectContaining({
+            userId: "user_1",
+            businessProfileId: "workspace_1",
+            apifyActorId: { in: ["apify_actor_1"] },
+            OR: [{ currentImageUrl: null }, { currentImageUrl: "" }],
+          }),
+          logo: { websiteIdentityId: "website_1" },
+        }),
+      }),
+    );
+    const options = db.actorLogoRecommendation.findMany.mock.calls[1]![0];
+    expect(options.where.actor).toMatchObject({
+      userId: "user_1",
+      businessProfileId: "workspace_1",
+      apifyActorId: { in: ["apify_actor_1"] },
+    });
+    expect(options.where.OR).toBeUndefined();
+    expect(options.where.logo).toBeUndefined();
+  });
+
+  it("enumerates only scoped pending IDs using a stable selection cursor", async () => {
+    const response = await app(["apify_actor_1"]).request(
+      "/actors/logo-recommendations/selection?after=before&limit=1&websiteId=website_1",
+    );
+    expect(response.status).toBe(200);
+    const data = (await response.json()).data;
+    expect(data.workspaceId).toBe("workspace_1");
+    expect(data.nextCursor).toBe("recommendation_1");
+    expect(db.actorLogoRecommendation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { gt: "before" },
+          status: "PENDING",
+          logo: { websiteIdentityId: "website_1" },
+          actor: expect.objectContaining({
+            userId: "user_1",
+            businessProfileId: "workspace_1",
+            apifyActorId: { in: ["apify_actor_1"] },
+          }),
+        }),
+        orderBy: { id: "asc" },
+        take: 1,
+        select: { id: true, actor: { select: { id: true, actorName: true, title: true } } },
+      }),
+    );
+    expect(getUserApifyClient).not.toHaveBeenCalled();
+  });
+
+  it("filters Actors with existing thumbnails separately from missing thumbnails", async () => {
+    await app().request("/actors/logo-recommendations?thumbnail=existing&status=APPLIED");
+    expect(db.actorLogoRecommendation.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: "APPLIED",
+        actor: expect.objectContaining({
+          currentImageUrl: { not: null },
+          NOT: { currentImageUrl: "" },
+        }),
+      }),
+    });
+  });
+
+  it.each(["status=unknown", "thumbnail=unknown", "summary=yes", "q=", "websiteId="])(
+    "validates bulk review query %s",
+    async (query) => {
+      const response = await app().request(`/actors/logo-recommendations?${query}`);
+      expect(response.status).toBe(400);
+      expect(db.actorLogoRecommendation.findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects selecting a completed history tab", async () => {
+    const response = await app().request("/actors/logo-recommendations/selection?status=APPLIED");
+    expect(response.status).toBe(400);
+    expect(db.actorLogoRecommendation.findMany).not.toHaveBeenCalled();
   });
 
   it("keeps a recommendation pending when publishing credentials are unavailable", async () => {

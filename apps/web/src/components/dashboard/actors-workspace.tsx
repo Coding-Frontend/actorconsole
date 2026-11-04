@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorkspaceApifyConnection } from "./workspace-apify-connection-context";
+
 import { navigateInApp } from "@/lib/client-navigation";
 
 import type { ActorEarnings } from "@actorconsole/shared/actor-earnings";
@@ -118,11 +120,6 @@ type OptimizationSummary = {
   proposedScore: number | null;
   improvementPoints: number | null;
   improvementPercent: number | null;
-};
-
-type ApiStatus = {
-  connected: boolean;
-  apiKeyConfigured?: boolean;
 };
 
 type ActorSort = "updated-desc" | "updated-asc" | "name-asc" | "name-desc";
@@ -638,7 +635,7 @@ export function ActorsWorkspace({
   const [pageSize, setPageSize] = useState(() => normalizePageSize(initialParams.limit));
   const [records, setRecords] = useState<ActorRecord[]>([]);
   const [total, setTotal] = useState(0);
-  const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
+  const { status: apiStatus } = useWorkspaceApifyConnection();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -657,7 +654,6 @@ export function ActorsWorkspace({
   const [selectingAll, setSelectingAll] = useState(false);
   const requestId = useRef(0);
   const recordsRef = useRef<ActorRecord[]>([]);
-  const hasLoadedApiStatus = useRef(false);
   const syncController = useRef<AbortController | null>(null);
   const hasActiveFilters = Boolean(query || readiness !== "all" || pendingLogosOnly);
 
@@ -715,22 +711,8 @@ export function ActorsWorkspace({
       });
       if (nextQuery) params.set("q", nextQuery);
       if (pendingLogosOnly) params.set("logoStatus", "pending");
-      const loadApiStatus = !hasLoadedApiStatus.current;
 
       try {
-        if (loadApiStatus) {
-          void fetch(`${API_BASE_URL}/apify/status`, {
-            cache: "no-store",
-            credentials: "include",
-          })
-            .then(async (statusResponse) => {
-              if (!statusResponse.ok || currentRequest !== requestId.current) return;
-              const statusBody = (await statusResponse.json()) as { data: ApiStatus };
-              setApiStatus(statusBody.data);
-              hasLoadedApiStatus.current = true;
-            })
-            .catch(() => undefined);
-        }
         const actorsResponse = await fetch(
           `${API_BASE_URL}/actors/dashboard-list?${params.toString()}`,
           {
@@ -800,10 +782,8 @@ export function ActorsWorkspace({
       // page. Invalidate pending responses and the old workspace's count.
       requestId.current += 1;
       recordsRef.current = [];
-      hasLoadedApiStatus.current = false;
       setRecords([]);
       setTotal(0);
-      setApiStatus(null);
       setLoading(true);
       if (page !== 1) {
         setPage(1);

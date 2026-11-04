@@ -669,6 +669,132 @@ describe("Actor routes", () => {
   });
 
   describe("usage and costs", () => {
+    const dashboardActor = (id: string, runs: number) => ({
+      id,
+      apifyActorId: `owner~${id}`,
+      title: `Actor ${id}`,
+      actorName: id,
+      username: "owner",
+      lastRunSyncAt: new Date("2026-08-10T12:00:00Z"),
+      usageDaily: [
+        {
+          date: new Date("2026-08-10T00:00:00Z"),
+          runs,
+          successfulRuns: runs,
+          failedRuns: 0,
+          resultCount: runs * 10,
+          usageCostUsd: runs / 10,
+        },
+      ],
+    });
+
+    it("sends slim summaries with unchanged totals and paginates the complete detail history", async () => {
+      const actors = Array.from({ length: 300 }, (_, index) =>
+        dashboardActor(String(index).padStart(3, "0"), index + 1),
+      );
+      mockFindManyActors.mockResolvedValue(actors);
+      const criteria = "from=2026-08-10&to=2026-08-10&table=daily";
+      const legacy = await (await buildApp().request(`/actors/costs?${criteria}`)).json();
+      const summary = await (
+        await buildApp().request(`/actors/costs?format=summary&${criteria}`)
+      ).json();
+      expect(summary.data.revenue.comparison).toEqual(legacy.data.revenue.comparison);
+      expect(summary.data.report).toEqual(legacy.data.report);
+      expect(summary.data.items.every((actor: any) => actor.usageDaily.length === 0)).toBe(true);
+      expect(summary.data.revenue.ledger).toEqual([]);
+      expect(summary.data.revenue.actors).toEqual([]);
+      expect(summary.data.details.initialPage.total).toBe(300);
+      expect(summary.data.details.initialPage.items).toHaveLength(25);
+      expect(summary.data.details.initialPage.items[0].runs).toBe(300);
+      expect(JSON.stringify(summary).length).toBeLessThan(JSON.stringify(legacy).length / 2);
+      const queries = mockFindManyActors.mock.calls.length;
+      const params = `${summary.data.details.query}&format=table&snapshotId=${summary.data.details.snapshotId}&pageSize=2`;
+      const first = await (
+        await buildApp().request(`/actors/costs?${params}&sort=runs&direction=desc`)
+      ).json();
+      expect(first.data.total).toBe(300);
+      expect(first.data.items.map((row: any) => row.runs)).toEqual([300, 299]);
+      const second = await (
+        await buildApp().request(`/actors/costs?${params}&sort=runs&direction=desc&page=2`)
+      ).json();
+      expect(second.data.items.map((row: any) => row.runs)).toEqual([298, 297]);
+      const filtered = await (
+        await buildApp().request(`/actors/costs?${params}&q=Actor%20000`)
+      ).json();
+      expect(filtered.data.total).toBe(1);
+      expect(filtered.data.items[0].actorId).toBe("000");
+      expect(mockFindManyActors).toHaveBeenCalledTimes(queries);
+      expect(mockGetUserApifyClient).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { businessProfileId: "bp2" },
+      { userId: "u2" },
+      { apiKeyActorIds: ["owner~allowed"] },
+    ])(
+      "does not reuse another workspace, user, or Actor-scoped key's snapshot (%j)",
+      async (session) => {
+        mockFindManyActors.mockResolvedValueOnce([dashboardActor("private", 5)]);
+        const summary = await (
+          await buildApp().request("/actors/revenue?format=summary&from=2026-08-10&to=2026-08-10")
+        ).json();
+        const response = await buildApp("PRO", session).request(
+          `/actors/revenue?format=table&${summary.data.details.query}&snapshotId=${summary.data.details.snapshotId}`,
+        );
+        expect((await response.json()).data.items).toEqual([]);
+        expect(mockFindManyActors).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it("skips unused account billing and comparison history for focused Usage", async () => {
+      mockFindManyActors.mockResolvedValue([dashboardActor("a1", 7)]);
+      const response = await buildApp().request(
+        "/actors/usage?format=summary&from=2026-08-10&to=2026-08-10&compare=false&actorIds=a1",
+      );
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.usageTotals).toEqual({
+        runs: 7,
+        successful: 7,
+        failed: 0,
+        results: 70,
+        users: 0,
+      });
+      expect(mockFindManyActors.mock.calls[0]![0].select.usageDaily.where.date.gte).toEqual(
+        new Date("2026-08-10T00:00:00Z"),
+      );
+      expect(mockFindManyInsightSnapshots).toHaveBeenCalledOnce();
+      expect(mockCacheGet).not.toHaveBeenCalled();
+      expect(mockFindUniqueWorkspaceFinancialCache).not.toHaveBeenCalled();
+    });
+
+    it("expires table snapshots and rebuilds without using another filter's rows", async () => {
+      mockFindManyActors.mockResolvedValue([dashboardActor("a1", 2)]);
+      const summary = await (
+        await buildApp().request("/actors/costs?format=summary&from=2026-08-10&to=2026-08-10")
+      ).json();
+      mockFindManyActors.mockResolvedValue([]);
+      const table = await (
+        await buildApp().request(
+          `/actors/costs?format=table&from=2026-08-11&to=2026-08-11&snapshotId=${summary.data.details.snapshotId}`,
+        )
+      ).json();
+      expect(table.data.items).toEqual([]);
+      expect(mockFindManyActors).toHaveBeenCalledTimes(2);
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(Date.now() + 120_001);
+        const expired = await (
+          await buildApp().request(
+            `/actors/costs?format=table&${summary.data.details.query}&snapshotId=${summary.data.details.snapshotId}`,
+          )
+        ).json();
+        expect(expired.data.items).toEqual([]);
+        expect(mockFindManyActors).toHaveBeenCalledTimes(3);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("defaults financial dashboards to a rolling 30-day daily range", async () => {
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
@@ -1349,6 +1475,15 @@ describe("Actor routes", () => {
   });
 
   describe("POST /actors/sync", () => {
+    it.each([false, true])("preserves omitted listing fields and accepts explicit removals (available=%s)", async (available) => {
+      const saved = { title: "Reviewed title", description: "Reviewed description", currentImageUrl: "https://images.test/applied.webp", hasDescription: true };
+      mockGetUserApifyClient.mockResolvedValueOnce({ listMyActors: vi.fn().mockResolvedValueOnce([{ id: "ap1", name: "actor1", username: "user1", title: null, description: null, pictureUrl: null, listingMetadataAvailable: { title: available, description: available, pictureUrl: available } }]) });
+      mockUpsert.mockImplementationOnce(async ({ update }) => Object.assign(saved, update));
+      const response = await buildApp().request("/actors/sync", { method: "POST" });
+      expect(response.status).toBe(200);
+      expect(saved).toMatchObject(available ? { title: null, description: null, currentImageUrl: null, hasDescription: false } : { title: "Reviewed title", description: "Reviewed description", currentImageUrl: "https://images.test/applied.webp", hasDescription: true });
+    });
+
     it("reconciles an empty Apify inventory and resets the active actor count", async () => {
       mockGetUserApifyClient.mockResolvedValueOnce({ listMyActors: vi.fn().mockResolvedValue([]) });
       const res = await buildApp().request("/actors/sync", { method: "POST" });
