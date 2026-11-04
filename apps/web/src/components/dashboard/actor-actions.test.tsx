@@ -36,7 +36,7 @@ describe("ActorActions", () => {
     expect(screen.getByText("Website logo preview")).toBeTruthy();
     expect(screen.getByText(/Shown only in ActorConsole/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Review and apply logos" }).getAttribute("href")).toBe(
-      "/dashboard/actors?logoStatus=pending",
+      "/dashboard/actors/logos",
     );
     expect(screen.queryByText("Apify thumbnail")).toBeNull();
   });
