@@ -1,18 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import {
   Activity,
   Bug,
@@ -212,7 +202,7 @@ export function ActorInsightsHistory({
               <CardTitle className="flex items-center gap-2 text-sm">
                 <RefreshCw className="h-4 w-4" /> Daily Apify Insights sync
               </CardTitle>
-              <p className="text-muted-foreground mt-1 text-xs">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Monitoring, acquisition, Actor quality, and monetization are reconciled every day.
               </p>
             </div>
@@ -220,13 +210,13 @@ export function ActorInsightsHistory({
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             {lastSyncAt
               ? `Last checked ${new Date(lastSyncAt).toLocaleString()}`
               : "Initial sync is queued."}
           </p>
           {visibleSyncError ? (
-            <p className="border-destructive/30 bg-destructive/5 text-destructive mt-3 rounded-md border p-3 text-xs">
+            <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
               {visibleSyncError}
             </p>
           ) : null}
@@ -274,7 +264,7 @@ export function ActorInsightsHistory({
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Run reliability by actual day</CardTitle>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   Successful and failed runs retain their Apify event date.
                 </p>
               </CardHeader>
@@ -286,66 +276,16 @@ export function ActorInsightsHistory({
                   options={{ compact: true }}
                   chartClassName="h-72 min-w-0"
                 >
-                  {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={points} margin={{ left: -18, right: 4 }}>
-                        <CartesianGrid
-                          vertical={false}
-                          stroke="var(--color-border)"
-                          strokeOpacity={0.5}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          minTickGap={28}
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <YAxis
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <Tooltip content={<ChartTooltip series={runSeries} />} />
-                        <Bar
-                          dataKey="succeededRuns"
-                          name="Succeeded"
-                          hide={!visibleSeries.has("succeededRuns")}
-                          stackId="runs"
-                          fill="var(--color-signal-green)"
-                          radius={[3, 3, 0, 0]}
-                          label={dataLabelsVisible}
-                        />
-                        <Bar
-                          dataKey="failedRuns"
-                          name="Failed"
-                          hide={!visibleSeries.has("failedRuns")}
-                          stackId="runs"
-                          fill="var(--color-signal-orange)"
-                          radius={[3, 3, 0, 0]}
-                          label={dataLabelsVisible}
-                        />
-                        <Bar
-                          dataKey="abortedRuns"
-                          name="Aborted"
-                          hide={!visibleSeries.has("abortedRuns")}
-                          stackId="runs"
-                          fill="var(--color-muted-foreground)"
-                          label={dataLabelsVisible}
-                        />
-                        <Bar
-                          dataKey="timedOutRuns"
-                          name="Timed out"
-                          hide={!visibleSeries.has("timedOutRuns")}
-                          stackId="runs"
-                          fill="var(--color-destructive)"
-                          radius={[3, 3, 0, 0]}
-                          label={dataLabelsVisible}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  {(state) => (
+                    <ChartJsChart
+                      ariaLabel="Run reliability by actual day"
+                      data={points}
+                      xKey="label"
+                      series={runSeries.map((item) => ({ ...item, stack: "runs" }))}
+                      type="bar"
+                      state={state}
+                      yAxis={{ integer: true }}
+                    />
                   )}
                 </ChartFrame>
               </CardContent>
@@ -353,7 +293,7 @@ export function ActorInsightsHistory({
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Success rate & active users</CardTitle>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   Stored daily so prior dates remain available after Console rolls over.
                 </p>
               </CardHeader>
@@ -365,60 +305,17 @@ export function ActorInsightsHistory({
                   options={{ compact: true }}
                   chartClassName="h-72 min-w-0"
                 >
-                  {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={points} margin={{ left: -18, right: 4 }}>
-                        <CartesianGrid
-                          vertical={false}
-                          stroke="var(--color-border)"
-                          strokeOpacity={0.5}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          minTickGap={28}
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <YAxis
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <Tooltip content={<ChartTooltip series={successSeries} />} />
-                        <Area
-                          type="monotone"
-                          dataKey="successPercent"
-                          name="Success %"
-                          hide={!visibleSeries.has("successPercent")}
-                          stroke="var(--color-signal-green)"
-                          fill="var(--color-signal-green)"
-                          fillOpacity={0.12}
-                          strokeWidth={2}
-                          label={
-                            dataLabelsVisible
-                              ? { fill: "var(--color-foreground)", fontSize: 10 }
-                              : false
-                          }
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="activeUsers"
-                          name="Active users"
-                          hide={!visibleSeries.has("activeUsers")}
-                          stroke="var(--color-signal-blue)"
-                          fill="transparent"
-                          strokeWidth={2}
-                          label={
-                            dataLabelsVisible
-                              ? { fill: "var(--color-foreground)", fontSize: 10 }
-                              : false
-                          }
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                  {(state) => (
+                    <ChartJsChart
+                      ariaLabel="Success rate and active users by actual day"
+                      data={points}
+                      xKey="label"
+                      series={successSeries.map((item, index) => ({
+                        ...item,
+                        type: index === 0 ? "area" : "line",
+                      }))}
+                      state={state}
+                    />
                   )}
                 </ChartFrame>
               </CardContent>
@@ -429,7 +326,7 @@ export function ActorInsightsHistory({
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Acquisition sources · current month</CardTitle>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   {change(
                     currentDiscovery.numUniqueViewingUsers,
                     discovery?.previous?.numUniqueViewingUsers,
@@ -449,7 +346,7 @@ export function ActorInsightsHistory({
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Bug className="h-4 w-4" /> Consented user-run debugging
                 </CardTitle>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   Live Console summary only. ActorConsole does not store run IDs or user identities;
                   Apify limits this feed to {debugging.retentionDays} days.
                 </p>
@@ -462,7 +359,7 @@ export function ActorInsightsHistory({
                   </Badge>
                 ))}
                 {debugging.latestFinishedAt ? (
-                  <span className="text-muted-foreground self-center text-xs">
+                  <span className="self-center text-xs text-muted-foreground">
                     Latest {new Date(debugging.latestFinishedAt).toLocaleString()}
                   </span>
                 ) : null}
@@ -496,9 +393,9 @@ function InsightTile({
   return (
     <Card>
       <CardContent className="flex items-center gap-3 p-4">
-        <Icon className="text-signal-orange h-4 w-4" />
+        <Icon className="h-4 w-4 text-signal-orange" />
         <div>
-          <p className="text-muted-foreground text-xs">{label}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
           <p className="text-xl font-semibold tabular-nums">{value}</p>
         </div>
       </CardContent>
@@ -514,7 +411,7 @@ function TrafficList({ title, items }: { title: string; items: TrafficItem[] }) 
         {items.slice(0, 6).map((item) => (
           <div key={item.origin} className="flex items-center justify-between gap-3 text-sm">
             <span className="truncate">{item.origin ?? "Direct"}</span>
-            <span className="text-muted-foreground tabular-nums">
+            <span className="tabular-nums text-muted-foreground">
               {percentage(item.trafficPercent)}
             </span>
           </div>

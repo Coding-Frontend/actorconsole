@@ -2,16 +2,8 @@
 
 import { useMemo, useState } from "react";
 
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,7 +58,7 @@ export function ActorQualityPanel({
               </span>
               <span className="text-2xl tabular-nums">{percent(snapshotScore)}</span>
             </CardTitle>
-            <p className="text-muted-foreground text-xs">
+            <p className="text-xs text-muted-foreground">
               Latest saved Apify Insights score
               {snapshotPercentile != null
                 ? ` · better than ${percent(snapshotPercentile)} of comparable Actors`
@@ -75,7 +67,7 @@ export function ActorQualityPanel({
             </p>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground text-xs leading-5">
+            <p className="text-xs leading-5 text-muted-foreground">
               Detailed README and schema checks will appear after the next successful Console
               quality sync.
             </p>
@@ -111,7 +103,7 @@ export function ActorQualityPanel({
           </span>
           <span className="text-2xl tabular-nums">{percent(scores.actorQuality)}</span>
         </CardTitle>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           Better than {percent(scores.actorQualityPercentile)} of comparable Actors.
         </p>
       </CardHeader>
@@ -120,11 +112,11 @@ export function ActorQualityPanel({
           {checks.map(([label, value]) => (
             <div
               key={label}
-              className="border-border/60 bg-muted/15 flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
+              className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/15 px-3 py-2 text-xs"
             >
               <CheckCircle2
                 className={
-                  (value ?? 0) > 0 ? "text-signal-green h-4 w-4" : "text-muted-foreground h-4 w-4"
+                  (value ?? 0) > 0 ? "h-4 w-4 text-signal-green" : "h-4 w-4 text-muted-foreground"
                 }
               />
               <span>{label}</span>
@@ -143,7 +135,7 @@ export function ActorQualityPanel({
                   className="border-signal-orange/20 bg-signal-orange/[0.04] rounded-md border p-3"
                 >
                   <p className="text-sm font-medium">{item.title}</p>
-                  <p className="text-muted-foreground mt-1 text-xs">{item.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
                 </div>
               ))}
             </div>
@@ -247,7 +239,7 @@ export function ActorRevenuePerformance({ analytics }: { analytics: OwnerAnalyti
           <CardTitle className="flex items-center gap-2 text-sm">
             <CircleDollarSign className="h-4 w-4" /> Actor revenue & performance
           </CardTitle>
-          <p className="text-muted-foreground mt-1 text-xs">
+          <p className="mt-1 text-xs text-muted-foreground">
             Owner-only Apify analytics across the current and previous calendar months.
           </p>
         </div>
@@ -286,102 +278,25 @@ export function ActorRevenuePerformance({ analytics }: { analytics: OwnerAnalyti
           />
         </div>
         {points.length ? (
-          <div className="bg-muted/10 min-h-72 min-w-0 rounded-md px-2 pt-4">
+          <div className="min-h-72 min-w-0 rounded-md bg-muted/10 px-2 pt-4">
             <ChartFrame
               ariaLabel="Actor revenue, cost, and profit trend"
               series={series}
               options={{ compact: true }}
               chartClassName="h-72 min-w-0"
             >
-              {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={displayPoints}
-                    margin={{ top: 4, right: 8, left: -12, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="actorRevenueFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                          offset="0%"
-                          stopColor="var(--color-signal-green)"
-                          stopOpacity={0.25}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="var(--color-signal-green)"
-                          stopOpacity={0.02}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="var(--color-border)"
-                      strokeOpacity={0.5}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={34}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <YAxis
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      width={52}
-                      tickFormatter={(value) => usd(Number(value))}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <Tooltip content={<ChartTooltip series={series} />} />
-                    <Area
-                      type="monotone"
-                      dataKey="displayRevenue"
-                      name={series[0].label}
-                      hide={!visibleSeries.has("displayRevenue")}
-                      stroke="var(--color-signal-green)"
-                      fill="url(#actorRevenueFill)"
-                      strokeWidth={2}
-                      label={
-                        dataLabelsVisible
-                          ? { fill: "var(--color-foreground)", fontSize: 10 }
-                          : false
-                      }
-                      isAnimationActive={false}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="displayCost"
-                      name={series[1].label}
-                      hide={!visibleSeries.has("displayCost")}
-                      stroke="var(--color-signal-blue)"
-                      fill="transparent"
-                      strokeWidth={2}
-                      label={
-                        dataLabelsVisible
-                          ? { fill: "var(--color-foreground)", fontSize: 10 }
-                          : false
-                      }
-                      isAnimationActive={false}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="displayProfit"
-                      name={series[2].label}
-                      hide={!visibleSeries.has("displayProfit")}
-                      stroke="var(--color-signal-orange)"
-                      fill="transparent"
-                      strokeWidth={2}
-                      label={
-                        dataLabelsVisible
-                          ? { fill: "var(--color-foreground)", fontSize: 10 }
-                          : false
-                      }
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              {(state) => (
+                <ChartJsChart
+                  ariaLabel="Actor revenue, cost, and profit trend"
+                  data={displayPoints}
+                  xKey="label"
+                  series={series.map((item, index) => ({
+                    ...item,
+                    type: index === 0 ? "area" : "line",
+                  }))}
+                  state={state}
+                  yAxis={{ formatValue: usd }}
+                />
               )}
             </ChartFrame>
           </div>
@@ -417,14 +332,14 @@ function AnalyticsTile({
   tone?: "green" | "orange";
 }) {
   return (
-    <div className="border-border/60 bg-muted/15 rounded-md border p-3">
-      <p className="text-muted-foreground text-xs">{label}</p>
+    <div className="rounded-md border border-border/60 bg-muted/15 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p
         className={
           tone === "green"
-            ? "text-signal-green mt-1 text-xl font-semibold tabular-nums"
+            ? "mt-1 text-xl font-semibold tabular-nums text-signal-green"
             : tone === "orange"
-              ? "text-signal-orange mt-1 text-xl font-semibold tabular-nums"
+              ? "mt-1 text-xl font-semibold tabular-nums text-signal-orange"
               : "mt-1 text-xl font-semibold tabular-nums"
         }
       >
