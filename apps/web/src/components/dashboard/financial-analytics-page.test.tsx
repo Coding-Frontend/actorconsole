@@ -1,3 +1,4 @@
+vi.mock("@/components/charts/chartjs-chart", () => ({ ChartJsChart: () => null }));
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { UsageCostsPayload } from "./usage-costs-analytics";
@@ -144,7 +145,7 @@ describe("financial Actor-day presentation", () => {
     ]);
   });
 
-  it("resolves a UTC day from Recharts chart and bar click payloads", () => {
+  it("resolves a UTC day from chart and bar click payloads", () => {
     expect(financialChartDay({ activePayload: [{ payload: { period: "2026-08-10" } }] })).toBe(
       "2026-08-10",
     );

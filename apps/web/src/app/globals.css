@@ -62,7 +62,7 @@
     --color-chalk: #d8d2c8;
     --color-paper: #fffdfa;
 
-    /* SVG chart libraries consume resolved colors rather than HSL channels. */
+    /* Chart renderers consume resolved colors rather than HSL channels. */
     --color-foreground: hsl(var(--foreground));
     --color-muted-foreground: hsl(var(--muted-foreground));
     --color-border: hsl(var(--border));
@@ -273,21 +273,6 @@
     .dashboard-filter-rail {
       position: relative;
     }
-  }
-
-  /* Recharts renders legend and axis labels as inline SVG/text styles. Keep
-     those labels on the semantic theme tokens so dark mode never falls back
-     to the library's default black/gray text. */
-  .recharts-cartesian-axis-tick-value,
-  .recharts-label-list text {
-    fill: var(--color-muted-foreground) !important;
-  }
-
-  .recharts-legend-item-text,
-  .recharts-default-legend,
-  .recharts-tooltip-item-text,
-  .recharts-tooltip-label {
-    color: var(--color-muted-foreground) !important;
   }
 }
 
@@ -1746,7 +1731,7 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
 }
 
 .scroll-soft::-webkit-scrollbar-thumb {
-  @apply bg-border rounded;
+  @apply rounded bg-border;
 }
 
 .scroll-soft::-webkit-scrollbar-thumb:hover {

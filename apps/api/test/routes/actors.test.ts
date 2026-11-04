@@ -703,6 +703,9 @@ describe("Actor routes", () => {
       expect(summary.data.items.every((actor: any) => actor.usageDaily.length === 0)).toBe(true);
       expect(summary.data.revenue.ledger).toEqual([]);
       expect(summary.data.revenue.actors).toEqual([]);
+      expect(summary.data.details.initialPage.total).toBe(300);
+      expect(summary.data.details.initialPage.items).toHaveLength(25);
+      expect(summary.data.details.initialPage.items[0].runs).toBe(300);
       expect(JSON.stringify(summary).length).toBeLessThan(JSON.stringify(legacy).length / 2);
       const queries = mockFindManyActors.mock.calls.length;
       const params = `${summary.data.details.query}&format=table&snapshotId=${summary.data.details.snapshotId}&pageSize=2`;

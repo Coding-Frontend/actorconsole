@@ -20,6 +20,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { Sparkline } from "@/components/admin/sparkline";
+import { PlanDistributionChart } from "@/components/admin/plan-distribution-chart";
 import { AdminApiError } from "@/components/admin/admin-pagination";
 
 export default async function AdminDashboardPage() {
@@ -45,12 +46,12 @@ export default async function AdminDashboardPage() {
 
   if (!overview) {
     return (
-      <Card className="border-destructive/30 overflow-hidden">
-        <div className="bg-destructive h-0.5" />
+      <Card className="overflow-hidden border-destructive/30">
+        <div className="h-0.5 bg-destructive" />
         <CardContent className="p-8 text-center sm:p-12">
-          <AlertTriangle className="text-destructive mx-auto h-6 w-6" />
+          <AlertTriangle className="mx-auto h-6 w-6 text-destructive" />
           <h1 className="font-display-tight mt-4 text-2xl">Metrics link unavailable</h1>
-          <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-sm leading-relaxed">
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
             Metrics are temporarily unavailable. Refresh this page or sign in again.
           </p>
         </CardContent>
@@ -74,8 +75,8 @@ export default async function AdminDashboardPage() {
         title="Control room"
         description="Commercial performance, builder activity, and platform health in one operational view."
         actions={
-          <span className="border-border bg-card text-muted-foreground inline-flex h-9 items-center gap-2 rounded-md border px-3 font-mono text-[10px] uppercase tracking-[0.08em] shadow-sm">
-            <Radio className="text-signal-orange h-3.5 w-3.5" /> Live metrics
+          <span className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground shadow-sm">
+            <Radio className="h-3.5 w-3.5 text-signal-orange" /> Live metrics
           </span>
         }
       />
@@ -83,16 +84,16 @@ export default async function AdminDashboardPage() {
       {partialErrors.length ? <AdminApiError message={partialErrors.join(" · ")} /> : null}
 
       {apifyCredentialIssues.length > 0 ? (
-        <Card className="border-destructive/35 bg-destructive/[0.045] overflow-hidden">
+        <Card className="overflow-hidden border-destructive/35 bg-destructive/[0.045]">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div className="flex min-w-0 items-start gap-3">
-              <span className="border-destructive/30 bg-destructive/10 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border">
-                <KeyRound className="text-destructive h-4 w-4" />
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-destructive/30 bg-destructive/10">
+                <KeyRound className="h-4 w-4 text-destructive" />
               </span>
               <div>
                 <p className="type-kicker text-destructive">Admin integration attention</p>
                 <h2 className="font-display-tight mt-1 text-xl">Apify credentials need updating</h2>
-                <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-relaxed">
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   Active Apify credentials need attention. Shared catalog, leaderboard, and
                   scheduled sync operations may be interrupted until they are replaced.
                 </p>
@@ -157,7 +158,7 @@ export default async function AdminDashboardPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.7fr)]">
         <Card className="overflow-hidden">
-          <CardHeader className="border-border/80 border-b pb-4 sm:pb-4">
+          <CardHeader className="border-b border-border/80 pb-4 sm:pb-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="type-kicker text-signal-blue">Commercial trace</p>
@@ -186,44 +187,24 @@ export default async function AdminDashboardPage() {
         </Card>
 
         <Card className="overflow-hidden">
-          <CardHeader className="border-border/80 border-b pb-4 sm:pb-4">
+          <CardHeader className="border-b border-border/80 pb-4 sm:pb-4">
             <p className="type-kicker text-signal-orange">Customer mix</p>
             <CardTitle className="font-display-tight mt-1 text-[22px]">Plan distribution</CardTitle>
             <CardDescription>Workspaces by operating tier.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 p-5 sm:p-6">
-            {(["FREE", "PRO"] as const).map((plan, index) => {
-              const count = plan === "FREE" ? overview.plans.free : overview.plans.pro;
-              const percentage = Math.round((count / Math.max(overview.workspaces.total, 1)) * 100);
-              return (
-                <div key={plan}>
-                  <div className="mb-2 flex items-end justify-between gap-3">
-                    <div>
-                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em]">
-                        {plan}
-                      </p>
-                      <p className="text-muted-foreground mt-0.5 text-[11px]">
-                        {formatNumber(count)} workspaces
-                      </p>
-                    </div>
-                    <span className="font-display-tight text-xl tabular-nums">{percentage}%</span>
-                  </div>
-                  <div className="bg-muted h-1.5 overflow-hidden rounded-[2px]">
-                    <div
-                      className={index === 1 ? "bg-signal-orange h-full" : "bg-signal-blue h-full"}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            <PlanDistributionChart
+              free={overview.plans.free}
+              pro={overview.plans.pro}
+              total={overview.workspaces.total}
+            />
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
         <Card className="overflow-hidden">
-          <CardHeader className="border-border/80 border-b pb-4 sm:pb-4">
+          <CardHeader className="border-b border-border/80 pb-4 sm:pb-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="type-kicker text-signal-blue">Acquisition trace</p>
@@ -249,7 +230,7 @@ export default async function AdminDashboardPage() {
         </Card>
 
         <Card className="overflow-hidden">
-          <CardHeader className="border-border/80 border-b pb-4 sm:pb-4">
+          <CardHeader className="border-b border-border/80 pb-4 sm:pb-4">
             <p className="type-kicker text-signal-orange">System inventory</p>
             <CardTitle className="font-display-tight mt-1 text-[22px]">Platform volume</CardTitle>
           </CardHeader>
@@ -270,35 +251,35 @@ export default async function AdminDashboardPage() {
       </div>
 
       <Card className="overflow-hidden">
-        <div className="border-border/80 flex items-end justify-between gap-4 border-b px-5 py-4 sm:px-6">
+        <div className="flex items-end justify-between gap-4 border-b border-border/80 px-5 py-4 sm:px-6">
           <div>
             <p className="type-kicker text-signal-orange">Account ledger</p>
             <h2 className="font-display-tight mt-1 text-[22px]">Recent signups</h2>
           </div>
           <Link
             href="/admin/users"
-            className="text-muted-foreground hover:text-signal-orange focus-visible:ring-ring inline-flex items-center gap-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-signal-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Open directory <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
         <CardContent className="p-0 sm:p-0">
           {overview.recentSignups.length > 0 ? (
-            <ol className="divide-border/70 divide-y">
+            <ol className="divide-y divide-border/70">
               {overview.recentSignups.map((user: any, index: number) => (
                 <li key={user.id}>
                   <Link
                     href={`/admin/users/${user.id}`}
-                    className="hover:bg-accent/55 focus-visible:ring-ring group grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset sm:grid-cols-[32px_minmax(0,1fr)_110px_120px] sm:px-6"
+                    className="group grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[32px_minmax(0,1fr)_110px_120px] sm:px-6"
                   >
-                    <span className="text-muted-foreground font-mono text-[10px] tabular-nums">
+                    <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <span className="min-w-0">
-                      <span className="group-hover:text-signal-orange block truncate text-sm font-semibold transition-colors">
+                      <span className="block truncate text-sm font-semibold transition-colors group-hover:text-signal-orange">
                         {user.name ?? user.email}
                       </span>
-                      <span className="text-muted-foreground block truncate text-xs">
+                      <span className="block truncate text-xs text-muted-foreground">
                         {user.email}
                       </span>
                     </span>
@@ -312,7 +293,7 @@ export default async function AdminDashboardPage() {
                         ? `${user.businessProfiles.length} workspace${user.businessProfiles.length === 1 ? "" : "s"}`
                         : "No workspace"}
                     </Badge>
-                    <span className="text-muted-foreground text-right font-mono text-[10px]">
+                    <span className="text-right font-mono text-[10px] text-muted-foreground">
                       {relativeTime(user.createdAt)}
                     </span>
                   </Link>
@@ -320,7 +301,7 @@ export default async function AdminDashboardPage() {
               ))}
             </ol>
           ) : (
-            <p className="text-muted-foreground p-8 text-center text-sm">No recent signups.</p>
+            <p className="p-8 text-center text-sm text-muted-foreground">No recent signups.</p>
           )}
         </CardContent>
       </Card>
@@ -347,10 +328,10 @@ function PlatformStat({
   value: number;
 }) {
   return (
-    <div className="border-border/80 hover:bg-accent/55 group border-b border-r p-4 transition-colors odd:border-r even:border-r-0 sm:p-5 [&:nth-last-child(-n+2)]:border-b-0">
+    <div className="group border-b border-r border-border/80 p-4 transition-colors odd:border-r even:border-r-0 hover:bg-accent/55 sm:p-5 [&:nth-last-child(-n+2)]:border-b-0">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-muted-foreground text-[11px]">{label}</p>
-        <Icon className="text-signal-blue h-3.5 w-3.5" />
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <Icon className="h-3.5 w-3.5 text-signal-blue" />
       </div>
       <p className="font-display-tight text-2xl tabular-nums">{formatNumber(value)}</p>
     </div>
@@ -359,7 +340,7 @@ function PlatformStat({
 
 function ChartEmpty({ label }: { label: string }) {
   return (
-    <div className="border-border/70 bg-muted/25 text-muted-foreground flex min-h-44 items-center justify-center rounded-sm border border-dashed text-sm">
+    <div className="flex min-h-44 items-center justify-center rounded-sm border border-dashed border-border/70 bg-muted/25 text-sm text-muted-foreground">
       {label}
     </div>
   );

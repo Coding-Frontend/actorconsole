@@ -30,10 +30,15 @@ export function useFinancialTable(
   const exportController = useRef<AbortController | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const latestSnapshot = useRef<{ origin: string; id: string } | null>(null);
+  const reportOrigin = details?.snapshotId ?? null;
+  const currentOrigin = useRef(reportOrigin);
+  currentOrigin.current = reportOrigin;
+  const [invalidatedOrigin, setInvalidatedOrigin] = useState<string | null>(null);
   useEffect(() => {
     const switching = () => {
       activeRequest.current?.abort();
       exportController.current?.abort();
+      setInvalidatedOrigin(currentOrigin.current);
       setResult(null);
     };
     window.addEventListener(WORKSPACE_CHANGED_EVENT, switching);
@@ -55,9 +60,21 @@ export function useFinancialTable(
   const key = `${details?.snapshotId}:${url}`;
   // The dashboard can stay mounted while its selected workspace changes.
   const workspaceMatches =
-    !connection.workspaceId || connection.workspaceId === details?.workspaceId;
+    invalidatedOrigin !== reportOrigin &&
+    (!connection.workspaceId || connection.workspaceId === details?.workspaceId);
+  const initialPage = details?.initialPage;
+  const initialPageMatches = Boolean(
+    initialPage &&
+    !query.trim() &&
+    page === initialPage.page &&
+    pageSize === initialPage.pageSize &&
+    sort === initialPage.sort &&
+    direction === initialPage.direction,
+  );
   useEffect(() => {
-    if (!details || !workspaceMatches) return;
+    // The first page is already calculated. Render it with the summary instead
+    // of waiting for hydration and another network round trip.
+    if (!details || !workspaceMatches || initialPageMatches) return;
     const controller = new AbortController();
     activeRequest.current = controller;
     void (async () => {
@@ -89,14 +106,20 @@ export function useFinancialTable(
       }
     })();
     return () => controller.abort();
-  }, [details, key, retry, url, workspaceMatches]);
+  }, [details, initialPageMatches, key, retry, url, workspaceMatches]);
   useEffect(
     () => () => {
       exportController.current?.abort();
     },
     [details, workspaceMatches],
   );
-  const current = workspaceMatches && result?.key === key ? result : null;
+  const current = !workspaceMatches
+    ? null
+    : result?.key === key
+      ? result
+      : initialPageMatches
+        ? { key, data: initialPage }
+        : null;
   return {
     data: current?.data,
     loading: Boolean(details && (!current || search !== query)),

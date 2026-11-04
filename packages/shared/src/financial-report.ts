@@ -43,7 +43,12 @@ interface ActorUsageItem {
 
 export interface UsageCostsPayload {
   meta?: FinancialResponseMeta;
-  details?: { snapshotId: string; query: string; workspaceId: string | null };
+  details?: {
+    snapshotId: string;
+    query: string;
+    workspaceId: string | null;
+    initialPage?: FinancialTablePage & { sort: FinancialSortKey; direction: "asc" | "desc" };
+  };
   usageTotals?: {
     runs: number;
     successful: number;

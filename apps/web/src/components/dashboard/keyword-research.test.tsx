@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { KeywordResearch } from "./keyword-research";
 import { filterKeywordResults, keywordFunnel, type KeywordResult } from "./keyword-research-model";
 
+vi.mock("@/components/charts/chartjs-chart", () => ({ ChartJsChart: () => null }));
+
 const results: KeywordResult[] = [
   {
     id: "first",

@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CollectionViewMode, ViewModeToggle } from "@/components/ui/view-mode-toggle";
 import { SelectionActionBar } from "@/components/dashboard/dashboard-workbench";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
 import { CompareDrawer } from "@/components/comparison/compare-drawer";
 import { dashboardActorComparisonHref } from "@/components/comparison/comparison-paths";
 import { cn } from "@/lib/utils";
@@ -76,12 +77,12 @@ function researchTakeaway(meta: SearchMeta | null, resultCount: number) {
 
 function Metric({ label, value, note }: { label: string; value: string; note: string }) {
   return (
-    <div className="border-border/75 bg-background min-w-0 border px-4 py-3.5">
-      <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.12em]">
+    <div className="min-w-0 border border-border/75 bg-background px-4 py-3.5">
+      <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </p>
-      <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">{value}</p>
-      <p className="text-muted-foreground mt-1 text-xs">{note}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{note}</p>
     </div>
   );
 }
@@ -276,7 +277,7 @@ export function KeywordResearch({ actors }: Props) {
         role="search"
       >
         <div className="relative min-w-0 flex-1">
-          <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="keyword-search-input"
             value={q}
@@ -298,13 +299,13 @@ export function KeywordResearch({ actors }: Props) {
       </form>
 
       {saved.length > 0 ? (
-        <section aria-label="Saved keywords" className="border-border/70 border-t pt-5">
+        <section aria-label="Saved keywords" className="border-t border-border/70 pt-5">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-foreground flex items-center gap-2 text-sm font-semibold">
-              <BookmarkCheck className="text-signal-orange h-4 w-4" /> Watchlist{" "}
-              <span className="text-muted-foreground font-normal">{saved.length}</span>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <BookmarkCheck className="h-4 w-4 text-signal-orange" /> Watchlist{" "}
+              <span className="font-normal text-muted-foreground">{saved.length}</span>
             </h2>
-            <span className="text-muted-foreground hidden text-xs sm:inline">
+            <span className="hidden text-xs text-muted-foreground sm:inline">
               Select a keyword to refresh its signals
             </span>
           </div>
@@ -312,16 +313,16 @@ export function KeywordResearch({ actors }: Props) {
             {saved.map((watch) => (
               <div
                 key={watch.id}
-                className="border-border bg-background inline-flex items-center border text-xs"
+                className="inline-flex items-center border border-border bg-background text-xs"
               >
                 <button
                   type="button"
                   onClick={() => void runSearch(watch.keyword)}
-                  className="text-foreground hover:bg-muted px-3 py-2 font-medium"
+                  className="px-3 py-2 font-medium text-foreground hover:bg-muted"
                 >
                   {watch.keyword}
                   {watch.latestResultCount > 0 ? (
-                    <span className="text-muted-foreground ml-2 tabular-nums">
+                    <span className="ml-2 tabular-nums text-muted-foreground">
                       {watch.latestResultCount}
                     </span>
                   ) : null}
@@ -330,7 +331,7 @@ export function KeywordResearch({ actors }: Props) {
                   type="button"
                   onClick={() => void toggleSaved(watch.keyword)}
                   disabled={saving}
-                  className="text-muted-foreground hover:text-foreground border-border border-l px-2 py-2"
+                  className="border-l border-border px-2 py-2 text-muted-foreground hover:text-foreground"
                   aria-label={`Remove ${watch.keyword} from watchlist`}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -343,20 +344,20 @@ export function KeywordResearch({ actors }: Props) {
 
       {loading ? (
         <div
-          className="border-border/70 text-muted-foreground flex items-center gap-3 border-y py-8 text-sm"
+          className="flex items-center gap-3 border-y border-border/70 py-8 text-sm text-muted-foreground"
           role="status"
         >
           <Loader2 className="h-4 w-4 animate-spin" /> Researching Store listings…
         </div>
       ) : results === null ? (
-        <section className="border-border/70 bg-muted/15 border px-5 py-8 sm:px-8">
-          <p className="text-signal-orange font-mono text-[11px] uppercase tracking-[0.14em]">
+        <section className="border border-border/70 bg-muted/15 px-5 py-8 sm:px-8">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal-orange">
             Start with a market
           </p>
-          <h2 className="text-foreground mt-2 text-xl font-semibold">
+          <h2 className="mt-2 text-xl font-semibold text-foreground">
             Find the gap before you build.
           </h2>
-          <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-6">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Search a topic to see competing Actors, observed demand, opportunity scores, and the
             listings already in your workspace.
           </p>
@@ -366,7 +367,7 @@ export function KeywordResearch({ actors }: Props) {
                 type="button"
                 key={term}
                 onClick={() => void runSearch(term)}
-                className="border-border bg-card text-foreground hover:border-signal-orange/70 inline-flex items-center gap-1.5 border px-3 py-2 text-xs transition-colors"
+                className="hover:border-signal-orange/70 inline-flex items-center gap-1.5 border border-border bg-card px-3 py-2 text-xs text-foreground transition-colors"
               >
                 {term} <ArrowRight className="h-3 w-3" />
               </button>
@@ -378,11 +379,11 @@ export function KeywordResearch({ actors }: Props) {
           <section aria-label="Keyword signals">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-signal-orange font-mono text-[11px] uppercase tracking-[0.14em]">
+                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal-orange">
                   Demand snapshot
                 </p>
-                <h2 className="text-foreground mt-1 text-xl font-semibold">{searchedKeyword}</h2>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <h2 className="mt-1 text-xl font-semibold text-foreground">{searchedKeyword}</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
                   Signals from the current Store catalog and available history
                 </p>
               </div>
@@ -401,7 +402,7 @@ export function KeywordResearch({ actors }: Props) {
                 {currentWatch ? "Saved keyword" : "Save keyword"}
               </Button>
             </div>
-            <div className="bg-border/70 grid gap-px sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-px bg-border/70 sm:grid-cols-2 xl:grid-cols-4">
               <Metric
                 label="Top Store results"
                 value={format.format(results.length)}
@@ -423,57 +424,69 @@ export function KeywordResearch({ actors }: Props) {
                 note="Searches for this term here"
               />
             </div>
-            <div className="border-border/70 bg-background border-t px-4 py-4 sm:px-5">
+            <div className="border-t border-border/70 bg-background px-4 py-4 sm:px-5">
               <p className="text-sm font-semibold">What this search suggests</p>
-              <p className="text-muted-foreground mt-1 max-w-3xl text-sm leading-6">
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {researchTakeaway(meta, results.length)}
               </p>
-              <p className="text-muted-foreground mt-1 text-xs">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Scores describe this Store snapshot. They do not predict revenue.
               </p>
             </div>
           </section>
 
           {results.length > 0 ? (
-            <section className="border-border/70 border-t pt-5" aria-label="Opportunity funnel">
+            <section className="border-t border-border/70 pt-5" aria-label="Opportunity funnel">
               <div className="mb-4 flex items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-foreground text-sm font-semibold">
+                  <h2 className="text-sm font-semibold text-foreground">
                     How the results narrow down
                   </h2>
-                  <p className="text-muted-foreground mt-1 text-xs">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Each step narrows the same set of returned listings.
                   </p>
                 </div>
-                <span className="text-muted-foreground hidden font-mono text-[11px] sm:inline">
+                <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
                   TOP {results.length} RESULTS
                 </span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <ChartJsChart
+                ariaLabel="Opportunity funnel by research stage"
+                data={funnel.map((step, index) => ({
+                  ...step,
+                  color: index === 3 ? "var(--color-signal-green)" : "var(--color-signal-orange)",
+                }))}
+                xKey="label"
+                series={[
+                  {
+                    key: "count",
+                    label: "Listings",
+                    color: "var(--color-signal-orange)",
+                    colorKey: "color",
+                  },
+                ]}
+                type="bar"
+                horizontal
+                height={220}
+                showDataLabels
+                yAxis={{ min: 0, max: results.length, integer: true }}
+              />
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {funnel.map((step, index) => (
                   <div
                     key={step.label}
-                    className="border-border/70 bg-background border px-3.5 py-3"
+                    className="border border-border/70 bg-background px-3.5 py-3"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground font-mono text-[10px]">
+                      <span className="font-mono text-[10px] text-muted-foreground">
                         0{index + 1}
                       </span>
-                      <span className="text-foreground text-lg font-semibold tabular-nums">
+                      <span className="text-lg font-semibold tabular-nums text-foreground">
                         {step.count}
                       </span>
                     </div>
-                    <div className="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
-                      <div
-                        className={cn(
-                          "h-full",
-                          index === 3 ? "bg-signal-green" : "bg-signal-orange",
-                        )}
-                        style={{ width: `${(step.count / results.length) * 100}%` }}
-                      />
-                    </div>
-                    <p className="text-foreground mt-2.5 text-xs font-semibold">{step.label}</p>
-                    <p className="text-muted-foreground mt-0.5 text-[11px]">{step.detail}</p>
+                    <p className="mt-2.5 text-xs font-semibold text-foreground">{step.label}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{step.detail}</p>
                   </div>
                 ))}
               </div>
@@ -481,10 +494,10 @@ export function KeywordResearch({ actors }: Props) {
           ) : null}
 
           <section aria-label="Keyword results" className="space-y-4">
-            <div className="border-border/70 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-5">
               <div>
-                <h2 className="text-foreground text-sm font-semibold">Competing Actors</h2>
-                <p className="text-muted-foreground mt-0.5 text-xs">
+                <h2 className="text-sm font-semibold text-foreground">Competing Actors</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {visibleResults.length} of {results.length} listings shown
                 </p>
               </div>
@@ -499,7 +512,7 @@ export function KeywordResearch({ actors }: Props) {
                   >
                     <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> Filter &amp; sort
                     {minOpportunity || hideTracked || sort !== "relevance" ? (
-                      <span className="bg-signal-orange ml-1.5 h-1.5 w-1.5 rounded-full" />
+                      <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-signal-orange" />
                     ) : null}
                   </Button>
                   <ViewModeToggle
@@ -511,13 +524,13 @@ export function KeywordResearch({ actors }: Props) {
               ) : null}
             </div>
             {filtersOpen && results.length > 0 ? (
-              <div className="border-border/70 bg-muted/20 flex flex-wrap items-end gap-4 border p-4">
-                <label className="text-muted-foreground flex min-w-44 flex-col gap-1.5 text-xs">
+              <div className="flex flex-wrap items-end gap-4 border border-border/70 bg-muted/20 p-4">
+                <label className="flex min-w-44 flex-col gap-1.5 text-xs text-muted-foreground">
                   Sort by
                   <select
                     value={sort}
                     onChange={(event) => setSort(event.target.value as KeywordSort)}
-                    className="border-border bg-background text-foreground h-9 border px-2.5 text-xs"
+                    className="h-9 border border-border bg-background px-2.5 text-xs text-foreground"
                   >
                     <option value="relevance">Search relevance</option>
                     <option value="opportunity">Highest opportunity</option>
@@ -525,12 +538,12 @@ export function KeywordResearch({ actors }: Props) {
                     <option value="totalRuns">Most total runs</option>
                   </select>
                 </label>
-                <label className="text-muted-foreground flex min-w-44 flex-col gap-1.5 text-xs">
+                <label className="flex min-w-44 flex-col gap-1.5 text-xs text-muted-foreground">
                   Minimum opportunity
                   <select
                     value={minOpportunity}
                     onChange={(event) => setMinOpportunity(Number(event.target.value))}
-                    className="border-border bg-background text-foreground h-9 border px-2.5 text-xs"
+                    className="h-9 border border-border bg-background px-2.5 text-xs text-foreground"
                   >
                     <option value={0}>All scores</option>
                     <option value={40}>40+</option>
@@ -538,12 +551,12 @@ export function KeywordResearch({ actors }: Props) {
                     <option value={70}>70+</option>
                   </select>
                 </label>
-                <label className="text-foreground flex h-9 cursor-pointer items-center gap-2 text-xs">
+                <label className="flex h-9 cursor-pointer items-center gap-2 text-xs text-foreground">
                   <input
                     type="checkbox"
                     checked={hideTracked}
                     onChange={(event) => setHideTracked(event.target.checked)}
-                    className="accent-signal-orange h-4 w-4"
+                    className="h-4 w-4 accent-signal-orange"
                   />
                   Hide workspace Actors
                 </label>
@@ -562,11 +575,11 @@ export function KeywordResearch({ actors }: Props) {
               </div>
             ) : null}
             {results.length === 0 ? (
-              <div className="border-border/70 text-muted-foreground border py-10 text-center text-sm">
+              <div className="border border-border/70 py-10 text-center text-sm text-muted-foreground">
                 No Store listings matched “{searchedKeyword}”. Try a broader term.
               </div>
             ) : visibleResults.length === 0 ? (
-              <div className="border-border/70 text-muted-foreground border py-10 text-center text-sm">
+              <div className="border border-border/70 py-10 text-center text-sm text-muted-foreground">
                 No listings match these options. Clear the filters to see all results.
               </div>
             ) : view === "grid" ? (
@@ -594,9 +607,9 @@ export function KeywordResearch({ actors }: Props) {
                     />
                   ))}
                 </div>
-                <div className="border-border/70 hidden overflow-x-auto border lg:block">
+                <div className="hidden overflow-x-auto border border-border/70 lg:block">
                   <table className="w-full min-w-[850px] text-left text-xs">
-                    <thead className="bg-muted/40 text-muted-foreground border-border/70 border-b">
+                    <thead className="border-b border-border/70 bg-muted/40 text-muted-foreground">
                       <tr>
                         <th className="w-10 px-3 py-3 font-medium">
                           <span className="sr-only">Compare</span>
@@ -615,7 +628,7 @@ export function KeywordResearch({ actors }: Props) {
                         <tr
                           key={result.id}
                           className={cn(
-                            "border-border/60 border-b last:border-b-0",
+                            "border-b border-border/60 last:border-b-0",
                             compareIds.includes(result.id) && "bg-signal-orange/[0.05]",
                           )}
                         >
@@ -625,18 +638,18 @@ export function KeywordResearch({ actors }: Props) {
                               checked={compareIds.includes(result.id)}
                               onChange={() => toggleCompare(result.id)}
                               aria-label={`Compare ${result.title ?? result.name}`}
-                              className="accent-signal-orange h-4 w-4"
+                              className="h-4 w-4 accent-signal-orange"
                             />
                           </td>
                           <td className="max-w-[360px] px-3 py-3">
-                            <p className="text-foreground truncate font-semibold">
+                            <p className="truncate font-semibold text-foreground">
                               {result.title ?? result.name}
                             </p>
-                            <p className="text-muted-foreground mt-0.5 truncate font-mono text-[10px]">
+                            <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
                               @{result.username}/{result.name}
                             </p>
                             {trackedByKey.has(actorKey(result)) ? (
-                              <span className="text-signal-green mt-1 inline-block text-[10px]">
+                              <span className="mt-1 inline-block text-[10px] text-signal-green">
                                 In workspace
                               </span>
                             ) : null}
@@ -647,7 +660,7 @@ export function KeywordResearch({ actors }: Props) {
                           <td className="px-3 py-3 text-right tabular-nums">
                             {result.totalRuns == null ? "—" : format.format(result.totalRuns)}
                           </td>
-                          <td className="text-foreground px-3 py-3 text-right font-semibold tabular-nums">
+                          <td className="px-3 py-3 text-right font-semibold tabular-nums text-foreground">
                             {result.opportunityScore ?? "—"}
                           </td>
                           <td className="px-3 py-3 text-right tabular-nums">
@@ -676,9 +689,9 @@ export function KeywordResearch({ actors }: Props) {
             )}
           </section>
 
-          <div className="border-border/70 text-muted-foreground flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4 text-[11px] text-muted-foreground">
             <details className="max-w-3xl">
-              <summary className="hover:text-foreground cursor-pointer font-medium">
+              <summary className="cursor-pointer font-medium hover:text-foreground">
                 How these signals are calculated
               </summary>
               <p className="mt-2 leading-5">
@@ -688,13 +701,13 @@ export function KeywordResearch({ actors }: Props) {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/dashboard/actors"
-                className="hover:text-foreground inline-flex items-center gap-1"
+                className="inline-flex items-center gap-1 hover:text-foreground"
               >
                 Actor portfolio <ArrowRight className="h-3 w-3" />
               </Link>
               <Link
                 href="/dashboard/revenue"
-                className="hover:text-foreground inline-flex items-center gap-1"
+                className="inline-flex items-center gap-1 hover:text-foreground"
               >
                 Revenue analysis <TrendingUp className="h-3 w-3" />
               </Link>
