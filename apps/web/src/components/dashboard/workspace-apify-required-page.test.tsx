@@ -92,7 +92,7 @@ describe("analytics before connecting Apify", () => {
     );
     render(await UsagePage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Workspace analytics")).toBeTruthy();
-    expect(mocks.fetch).toHaveBeenCalledWith("/actors/usage");
+    expect(mocks.fetch).toHaveBeenCalledWith("/actors/usage?format=summary");
   });
 
   it("handles a status outage without claiming the account is disconnected", async () => {

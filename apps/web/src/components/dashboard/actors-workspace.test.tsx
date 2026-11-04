@@ -1,8 +1,16 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => "/dashboard/actors",
 }));
 
 vi.mock("@/lib/actor-refresh", async (importOriginal) => ({
@@ -12,8 +20,18 @@ vi.mock("@/lib/actor-refresh", async (importOriginal) => ({
 
 import { refreshWorkspaceActors, WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
 
+import { WorkspaceApifyConnectionProvider } from "./workspace-apify-connection-context";
+import type { ReactNode } from "react";
+function render(ui: ReactNode) {
+  return rtlRender(
+    <WorkspaceApifyConnectionProvider workspaceId="bp1">{ui}</WorkspaceApifyConnectionProvider>,
+  );
+}
+
 import { ActorsWorkspace } from "./actors-workspace";
 import { LogoRecommendations } from "./logo-recommendations";
+import { WorkspaceApifyConnectionBanner } from "./workspace-apify-connection-banner";
+import { DASHBOARD_STATUS_CHANGED_EVENT } from "./dashboard-navigation";
 
 describe("ActorsWorkspace", () => {
   beforeEach(() => {
@@ -114,6 +132,26 @@ describe("ActorsWorkspace", () => {
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
   }
+
+  it("shares one connection request between the banner and Actors, including simultaneous invalidation events", async () => {
+    const fetchMock = mockActorList();
+    render(
+      <>
+        <WorkspaceApifyConnectionBanner workspaceId="bp1" />
+        <ActorsWorkspace />
+      </>,
+    );
+    await screen.findByText("1278 Actors matching");
+    const statusCalls = () =>
+      fetchMock.mock.calls.filter(([url]) => String(url).includes("/apify/status"));
+    expect(statusCalls()).toHaveLength(1);
+    act(() => {
+      window.dispatchEvent(new Event(WORKSPACE_DATA_REFRESHED_EVENT));
+      window.dispatchEvent(new Event(DASHBOARD_STATUS_CHANGED_EVENT));
+    });
+    await waitFor(() => expect(statusCalls()).toHaveLength(2));
+    expect(statusCalls()[1]![0]).toContain("/apify/status");
+  });
 
   it("shows sync progress and reloads the count after reconciliation completes", async () => {
     let total = 1278;
