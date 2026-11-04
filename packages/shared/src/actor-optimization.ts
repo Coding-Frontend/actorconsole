@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { payPerEventConfigSchema } from "./schemas/pricing";
 
 export const APIFY_ACTOR_CATEGORIES = [
   "AGENTS",
@@ -39,19 +40,11 @@ export const ACTOR_OPTIMIZATION_FIELDS = [
 export const actorOptimizationCategorySchema = z.enum(APIFY_ACTOR_CATEGORIES);
 export const actorOptimizationFieldSchema = z.enum(ACTOR_OPTIMIZATION_FIELDS);
 
-const optimizationPricingEventSchema = z.object({
-  eventPriceUsd: z.number().nonnegative(),
-  eventTitle: z.string().min(1),
-  eventDescription: z.string().optional(),
-  isOneTimeEvent: z.boolean().optional(),
-  isPrimaryEvent: z.boolean().optional(),
-});
-
 export const actorOptimizationPricingSchema = z.object({
   model: z.literal("PAY_PER_EVENT"),
   amount: z.number().nonnegative().nullable().default(null),
   currency: z.literal("USD").default("USD"),
-  events: z.record(z.string().min(1), optimizationPricingEventSchema),
+  events: z.record(z.string().min(1), payPerEventConfigSchema),
 });
 
 export const actorListingStateSchema = z.object({

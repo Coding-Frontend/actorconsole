@@ -1475,6 +1475,15 @@ describe("Actor routes", () => {
   });
 
   describe("POST /actors/sync", () => {
+    it.each([false, true])("preserves omitted listing fields and accepts explicit removals (available=%s)", async (available) => {
+      const saved = { title: "Reviewed title", description: "Reviewed description", currentImageUrl: "https://images.test/applied.webp", hasDescription: true };
+      mockGetUserApifyClient.mockResolvedValueOnce({ listMyActors: vi.fn().mockResolvedValueOnce([{ id: "ap1", name: "actor1", username: "user1", title: null, description: null, pictureUrl: null, listingMetadataAvailable: { title: available, description: available, pictureUrl: available } }]) });
+      mockUpsert.mockImplementationOnce(async ({ update }) => Object.assign(saved, update));
+      const response = await buildApp().request("/actors/sync", { method: "POST" });
+      expect(response.status).toBe(200);
+      expect(saved).toMatchObject(available ? { title: null, description: null, currentImageUrl: null, hasDescription: false } : { title: "Reviewed title", description: "Reviewed description", currentImageUrl: "https://images.test/applied.webp", hasDescription: true });
+    });
+
     it("reconciles an empty Apify inventory and resets the active actor count", async () => {
       mockGetUserApifyClient.mockResolvedValueOnce({ listMyActors: vi.fn().mockResolvedValue([]) });
       const res = await buildApp().request("/actors/sync", { method: "POST" });
@@ -1786,6 +1795,9 @@ describe("Actor routes", () => {
   describe("POST /actors/:apifyActorId/rewrite-copy", () => {
     it("returns AI-generated copy variants", async () => {
       mockGetUserApifyClient.mockResolvedValueOnce({
+        getActorBasicInfo: vi
+          .fn()
+          .mockResolvedValue({ seoTitle: "Current SEO", seoDescription: null }),
         getActor: vi.fn().mockResolvedValueOnce({
           id: "ap1",
           title: "Test Actor",
@@ -1818,6 +1830,12 @@ describe("Actor routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.data.variants).toBeDefined();
+      expect(body.data.currentCopy).toEqual({
+        title: "Test Actor",
+        description: "A test actor",
+        seoTitle: "Current SEO",
+        seoDescription: null,
+      });
       expect(mockRewriteActorCopy).toHaveBeenCalledWith(
         expect.not.objectContaining({ currentCategories: expect.anything() }),
       );
@@ -1874,6 +1892,7 @@ describe("Actor routes", () => {
     it("updates copy while ignoring legacy category fields", async () => {
       const updateActorMetadata = vi.fn().mockResolvedValueOnce({
         actor: { title: "Updated" },
+        verified: true,
       });
       mockGetUserApifyClient.mockResolvedValueOnce({ updateActorMetadata });
       mockFindFirstActor.mockResolvedValueOnce({
@@ -1896,6 +1915,7 @@ describe("Actor routes", () => {
       expect(body.ok).toBe(true);
       expect(updateActorMetadata).toHaveBeenCalledWith("ap1", {
         title: "Updated Title",
+        expectedCopy: undefined,
       });
       expect(mockUpdateActor).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2002,10 +2022,6 @@ describe("Actor routes", () => {
       expect(response.status).toBe(200);
       expect(appendActorPricing).toHaveBeenCalledWith("ap1", {
         pricingModel: "PAY_PER_EVENT",
-        minimalMaxTotalChargeUsd: 0.5,
-        isPPEPlatformUsagePaidByUser: true,
-        isPriceChangeNotificationSuppressed: false,
-        apifyMarginPercentage: 0.2,
         reasonForChange: "Add the result and Actor-start events",
         pricingPerEvent: {
           actorChargeEvents: {

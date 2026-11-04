@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   BookOpen,
   Check,
@@ -218,7 +218,7 @@ function actorLabel(actor: ActorOption) {
 function LoadingState() {
   return (
     <div className="space-y-6" aria-label="Loading MCP access">
-      <div className="border-border/80 flex flex-col gap-5 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-5 border-b border-border/80 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-3">
           <Skeleton className="h-3 w-36" />
           <Skeleton className="h-9 w-52" />
@@ -258,8 +258,26 @@ export default function McpPage() {
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [loading, setLoading] = useState(true);
+  const [compact, setCompact] = useState(true);
+  const credentialsPanel = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, startCreating] = useTransition();
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(max-width: 1439px)");
+    const update = () => {
+      const width = credentialsPanel.current?.clientWidth ?? 0;
+      setCompact(width > 0 ? width < 1000 : (media?.matches ?? true));
+    };
+    update();
+    media?.addEventListener("change", update);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    if (credentialsPanel.current) observer?.observe(credentialsPanel.current);
+    return () => {
+      media?.removeEventListener("change", update);
+      observer?.disconnect();
+    };
+  }, [loading]);
 
   const refreshActorOptions = useCallback(async () => {
     setActorLoadState("loading");
@@ -613,7 +631,7 @@ export default function McpPage() {
       />
 
       <nav
-        className="border-border bg-card flex max-w-full items-center gap-1 overflow-x-auto rounded-sm border p-1"
+        className="flex max-w-full items-center gap-1 overflow-x-auto rounded-sm border border-border bg-card p-1"
         aria-label="MCP page sections"
       >
         <Button variant="secondary" size="sm" asChild>
@@ -658,7 +676,7 @@ export default function McpPage() {
       </section>
 
       {workspaceRestricted ? (
-        <p role="status" className="text-muted-foreground rounded-md border p-4 text-sm">
+        <p role="status" className="rounded-md border p-4 text-sm text-muted-foreground">
           MCP connection and credentials remain available. This workspace needs Pro to use actor,
           publishing, and reporting tools.{" "}
           <Link href="/dashboard/billing" className="text-signal-orange underline">
@@ -669,10 +687,10 @@ export default function McpPage() {
       {!mcpAvailable ? (
         <div className="border-signal-orange/30 bg-signal-orange/[0.04] flex flex-col gap-4 rounded-sm border p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
-            <LockKeyhole className="text-signal-orange mt-0.5 h-5 w-5 shrink-0" />
+            <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-signal-orange" />
             <div>
               <p className="font-medium">This workspace needs Pro to continue MCP access</p>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Free includes MCP for up to 50 actors and 500 monthly users. Upgrade when either
                 limit is exceeded.
               </p>
@@ -686,14 +704,14 @@ export default function McpPage() {
         </div>
       ) : null}
 
-      <Card id="credentials" className="min-w-0 scroll-mt-24">
-        <CardHeader className="border-border/80 border-b">
+      <Card ref={credentialsPanel} id="credentials" className="min-w-0 scroll-mt-24">
+        <CardHeader className="border-b border-border/80">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <KeyRound className="text-signal-orange h-4 w-4" /> MCP credentials
+                <KeyRound className="h-4 w-4 text-signal-orange" /> MCP credentials
               </CardTitle>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Workspace-bound authentication for MCP clients.
               </p>
             </div>
@@ -710,19 +728,33 @@ export default function McpPage() {
         <CardContent className="p-0 sm:p-0">
           {credentials.length === 0 ? (
             <div className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
-              <span className="bg-signal-blue/10 text-signal-blue flex h-11 w-11 items-center justify-center rounded-sm">
+              <span className="bg-signal-blue/10 flex h-11 w-11 items-center justify-center rounded-sm text-signal-blue">
                 <KeyRound className="h-5 w-5" />
               </span>
               <p className="mt-4 font-medium">No MCP credentials yet</p>
-              <p className="text-muted-foreground mt-1 max-w-sm text-sm">
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                 Issue a credential to authenticate your first coding client with this workspace.
               </p>
             </div>
+          ) : compact ? (
+            <ul aria-label="MCP credentials" className="divide-y divide-border">
+              {credentials.map((credential) => (
+                <li key={credential.id}>
+                  <CredentialCard
+                    credential={credential}
+                    actorById={actorById}
+                    onEdit={() => openEditDialog(credential)}
+                    onRotate={() => setConfirmAction({ type: "rotate", credential })}
+                    onRevoke={() => setConfirmAction({ type: "revoke", credential })}
+                  />
+                </li>
+              ))}
+            </ul>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] text-sm" aria-label="MCP credentials">
                 <caption className="sr-only">MCP credentials for this workspace</caption>
-                <thead className="bg-muted/30 text-muted-foreground border-border/60 border-b text-left text-xs">
+                <thead className="border-b border-border/60 bg-muted/30 text-left text-xs text-muted-foreground">
                   <tr>
                     <th scope="col" className="px-5 py-3 font-medium">
                       Credential
@@ -744,7 +776,7 @@ export default function McpPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-border/60 divide-y">
+                <tbody className="divide-y divide-border/60">
                   {credentials.map((credential) => (
                     <CredentialRow
                       key={credential.id}
@@ -761,19 +793,19 @@ export default function McpPage() {
           )}
           {total > 0 ? (
             <nav
-              className="border-border/80 flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 border-t border-border/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
               aria-label="MCP credential pagination"
             >
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 Showing{" "}
-                <span className="text-foreground font-medium">
+                <span className="font-medium text-foreground">
                   {((page - 1) * pageSize + 1).toLocaleString()}
                 </span>
                 –
-                <span className="text-foreground font-medium">
+                <span className="font-medium text-foreground">
                   {Math.min(page * pageSize, total).toLocaleString()}
                 </span>{" "}
-                of <span className="text-foreground font-medium">{total.toLocaleString()}</span>
+                of <span className="font-medium text-foreground">{total.toLocaleString()}</span>
               </p>
               <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
                 <ItemsPerPageSelect
@@ -796,7 +828,7 @@ export default function McpPage() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-muted-foreground min-w-16 text-center text-xs tabular-nums">
+                  <span className="min-w-16 text-center text-xs tabular-nums text-muted-foreground">
                     {page} / {totalPages}
                   </span>
                   <Button
@@ -820,9 +852,9 @@ export default function McpPage() {
       <Card id="client-setup" className="scroll-mt-24">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ServerCog className="text-signal-blue h-4 w-4" /> Client setup
+            <ServerCog className="h-4 w-4 text-signal-blue" /> Client setup
           </CardTitle>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Connect one client at a time and keep each credential independently revocable.
           </p>
         </CardHeader>
@@ -841,9 +873,9 @@ export default function McpPage() {
             ],
           ].map(([step, title, description]) => (
             <div key={step} className="bg-card p-4">
-              <p className="text-signal-orange font-mono text-[10px] font-semibold">STEP {step}</p>
+              <p className="font-mono text-[10px] font-semibold text-signal-orange">STEP {step}</p>
               <p className="mt-2 text-sm font-semibold">{title}</p>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">{description}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
             </div>
           ))}
         </CardContent>
@@ -854,7 +886,7 @@ export default function McpPage() {
           <Button size="sm" variant="outline" asChild>
             <Link href="/docs/mcp-quickstart">Open client setup guide</Link>
           </Button>
-          <p className="text-muted-foreground w-full text-xs">
+          <p className="w-full text-xs text-muted-foreground">
             After your first client request, check the credential’s Last used value above to confirm
             the connection.
           </p>
@@ -869,7 +901,7 @@ export default function McpPage() {
       >
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <div className="bg-signal-blue/10 text-signal-blue mb-2 flex h-11 w-11 items-center justify-center rounded-sm">
+            <div className="bg-signal-blue/10 mb-2 flex h-11 w-11 items-center justify-center rounded-sm text-signal-blue">
               {editingCredential ? (
                 <Pencil className="h-5 w-5" />
               ) : (
@@ -911,7 +943,7 @@ export default function McpPage() {
                 id="credential-expiry"
                 value={expiryDays}
                 onChange={(event) => setExpiryDays(event.target.value)}
-                className="border-input bg-card focus-visible:ring-ring h-10 w-full rounded-sm border px-3 text-sm outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-10 w-full rounded-sm border border-input bg-card px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!mcpAvailable || creating}
               >
                 {editingCredential?.expiresAt ? (
@@ -928,14 +960,14 @@ export default function McpPage() {
 
             <fieldset className="space-y-2" disabled={!mcpAvailable || creating}>
               <legend className="text-sm font-medium">Access level</legend>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 Choose the smallest access level your client needs.
               </p>
               <div className="grid gap-2 sm:grid-cols-3">
                 {permissionPresets.map((preset) => (
                   <label
                     key={preset.id}
-                    className={`cursor-pointer rounded-md border p-3 ${permissionPreset === preset.id ? "border-signal-orange bg-signal-orange/5" : "border-border"}`}
+                    className={`cursor-pointer rounded-md border p-3 ${permissionPreset === preset.id ? "bg-signal-orange/5 border-signal-orange" : "border-border"}`}
                   >
                     <span className="flex items-center gap-2 text-sm font-medium">
                       <input
@@ -949,7 +981,7 @@ export default function McpPage() {
                       />
                       {preset.label}
                     </span>
-                    <span className="text-muted-foreground mt-1 block text-xs leading-5">
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                       {preset.description}
                     </span>
                   </label>
@@ -971,12 +1003,12 @@ export default function McpPage() {
               <fieldset className="space-y-3" disabled={!mcpAvailable || creating}>
                 <legend className="text-sm font-medium">Individual permissions</legend>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-xs text-muted-foreground">
                     Select only the operations this client needs.
                   </span>
                   <button
                     type="button"
-                    className="text-signal-blue text-xs font-medium"
+                    className="text-xs font-medium text-signal-blue"
                     onClick={() =>
                       setSelectedPermissions(
                         selectedPermissions.length === ALL_MCP_PERMISSIONS.length
@@ -990,11 +1022,11 @@ export default function McpPage() {
                       : "Select all"}
                   </button>
                 </div>
-                <div className="border-border grid gap-1 rounded-sm border p-2 sm:grid-cols-2">
+                <div className="grid gap-1 rounded-sm border border-border p-2 sm:grid-cols-2">
                   {MCP_PERMISSIONS.map(([permission, label]) => (
                     <label
                       key={permission}
-                      className="hover:bg-muted/60 flex cursor-pointer items-center gap-2 rounded-sm px-2 py-2 text-xs"
+                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-2 text-xs hover:bg-muted/60"
                     >
                       <input
                         type="checkbox"
@@ -1006,13 +1038,13 @@ export default function McpPage() {
                               : [...current, permission],
                           )
                         }
-                        className="accent-signal-orange h-4 w-4"
+                        className="h-4 w-4 accent-signal-orange"
                       />
                       <span>{label}</span>
                     </label>
                   ))}
                 </div>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   Grant only the operations this client needs. Actor restrictions below are applied
                   in addition to these permissions.
                 </p>
@@ -1021,7 +1053,7 @@ export default function McpPage() {
 
             <fieldset className="space-y-3" disabled={!mcpAvailable || creating}>
               <legend className="text-sm font-medium">Actor access</legend>
-              <div className="border-input bg-muted/30 grid grid-cols-2 rounded-sm border p-1">
+              <div className="grid grid-cols-2 rounded-sm border border-input bg-muted/30 p-1">
                 <button
                   type="button"
                   onClick={() => setActorScope("all")}
@@ -1047,27 +1079,27 @@ export default function McpPage() {
               </div>
               {actorScope === "selected" ? (
                 actorLoadState === "loading" ? (
-                  <div className="border-border text-muted-foreground rounded-sm border border-dashed p-3 text-xs">
+                  <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
                     Loading workspace Actors…
                   </div>
                 ) : actorLoadState === "error" ? (
-                  <div className="border-border rounded-sm border border-dashed p-3 text-xs">
+                  <div className="rounded-sm border border-dashed border-border p-3 text-xs">
                     <p>Could not load the workspace Actor list.</p>
                     <button
                       type="button"
-                      className="text-signal-blue mt-2 font-medium"
+                      className="mt-2 font-medium text-signal-blue"
                       onClick={() => void refreshActorOptions()}
                     >
                       Retry Actor list
                     </button>
                   </div>
                 ) : actors.length === 0 ? (
-                  <div className="border-border text-muted-foreground rounded-sm border border-dashed p-3 text-xs">
+                  <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
                     No actors are connected to this workspace yet.
                   </div>
                 ) : (
-                  <div className="border-border max-h-44 space-y-1 overflow-y-auto rounded-sm border p-1.5">
-                    <p className="text-muted-foreground px-2 py-1 text-[11px]">
+                  <div className="max-h-44 space-y-1 overflow-y-auto rounded-sm border border-border p-1.5">
+                    <p className="px-2 py-1 text-[11px] text-muted-foreground">
                       {selectedActorIds.length} of {MAX_SCOPED_ACTORS} allowed Actors selected
                     </p>
                     {actors.map((actor) => {
@@ -1077,7 +1109,7 @@ export default function McpPage() {
                         <label
                           key={actor.apifyActorId}
                           htmlFor={inputId}
-                          className="hover:bg-muted/60 flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-2 transition-colors"
+                          className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-2 transition-colors hover:bg-muted/60"
                         >
                           <span className="sr-only">Select actor</span>
                           <input
@@ -1086,13 +1118,13 @@ export default function McpPage() {
                             checked={selected}
                             disabled={!selected && selectedActorIds.length >= MAX_SCOPED_ACTORS}
                             onChange={() => toggleActor(actor.apifyActorId)}
-                            className="accent-signal-orange mt-0.5 h-4 w-4 shrink-0"
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-signal-orange"
                           />
                           <span className="min-w-0">
                             <span className="block truncate text-xs font-medium">
                               {actorLabel(actor)}
                             </span>
-                            <span className="text-muted-foreground block truncate font-mono text-[10px]">
+                            <span className="block truncate font-mono text-[10px] text-muted-foreground">
                               {actor.username}/{actor.actorName}
                             </span>
                           </span>
@@ -1102,7 +1134,7 @@ export default function McpPage() {
                   </div>
                 )
               ) : (
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   Includes current and future actors in this workspace.
                 </p>
               )}
@@ -1159,7 +1191,7 @@ export default function McpPage() {
       >
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <div className="bg-signal-green/10 text-signal-green mb-2 flex h-11 w-11 items-center justify-center rounded-sm">
+            <div className="bg-signal-green/10 mb-2 flex h-11 w-11 items-center justify-center rounded-sm text-signal-green">
               <KeyRound className="h-5 w-5" />
             </div>
             <DialogTitle>
@@ -1167,21 +1199,21 @@ export default function McpPage() {
             </DialogTitle>
             <DialogDescription>
               Copy the new secret for{" "}
-              <span className="text-foreground font-medium">{secret?.credentialName}</span> now. For
+              <span className="font-medium text-foreground">{secret?.credentialName}</span> now. For
               safety, it will not be shown again after this dialog closes.
             </DialogDescription>
           </DialogHeader>
           <div className="border-signal-green/30 bg-signal-green/[0.04] rounded-sm border p-3">
-            <p className="data-stamp text-signal-green mb-2 uppercase tracking-[0.08em]">
+            <p className="data-stamp mb-2 uppercase tracking-[0.08em] text-signal-green">
               One-time secret
             </p>
-            <code className="bg-card block max-h-28 overflow-auto break-all rounded-sm border p-3 text-xs leading-relaxed">
+            <code className="block max-h-28 overflow-auto break-all rounded-sm border bg-card p-3 text-xs leading-relaxed">
               {secret?.value}
             </code>
           </div>
           {secret?.reason === "rotated" ? (
-            <p className="text-muted-foreground flex items-start gap-2 text-xs">
-              <CircleSlash2 className="text-signal-orange mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p className="flex items-start gap-2 text-xs text-muted-foreground">
+              <CircleSlash2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signal-orange" />
               The previous secret stopped working immediately. Update every client that used it.
             </p>
           ) : null}
@@ -1250,22 +1282,109 @@ function StatusCell({
     green: "bg-signal-green/10 text-signal-green",
   };
   return (
-    <div className="border-border/80 flex items-center gap-3 border-b p-4 last:border-b-0 sm:border-b-0 sm:border-r sm:p-5 sm:last:border-r-0">
+    <div className="flex items-center gap-3 border-b border-border/80 p-4 last:border-b-0 sm:border-b-0 sm:border-r sm:p-5 sm:last:border-r-0">
       <span
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-sm ${toneClasses[tone]}`}
       >
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="data-stamp text-muted-foreground uppercase tracking-[0.08em]">{label}</p>
+        <p className="data-stamp uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
         <div className="mt-0.5 flex min-w-0 items-baseline gap-2">
           <p className="truncate text-sm font-semibold capitalize">{value}</p>
-          <span className="text-muted-foreground hidden truncate text-[11px] lg:inline">
+          <span className="hidden truncate text-[11px] text-muted-foreground lg:inline">
             {detail}
           </span>
         </div>
       </div>
     </div>
+  );
+}
+
+type CredentialControls = {
+  credential: Credential;
+  actorById: Map<string, ActorOption>;
+  onEdit: () => void;
+  onRotate: () => void;
+  onRevoke: () => void;
+};
+
+function CredentialCard({ credential, actorById, onEdit, onRotate, onRevoke }: CredentialControls) {
+  const status = credentialStatus(credential);
+  return (
+    <article aria-label={`${credential.name} credential`} className="min-w-0 space-y-4 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h4 className="min-w-0 break-words text-sm font-semibold">{credential.name}</h4>
+        <Badge
+          variant={status === "active" ? "success" : status === "expired" ? "warning" : "secondary"}
+        >
+          {status}
+        </Badge>
+        {credential.rotatedAt ? <Badge variant="outline">Rotated</Badge> : null}
+      </div>
+      <code className="block break-all text-xs text-muted-foreground">{credential.keyPreview}</code>
+      <div className="space-y-2 text-sm">
+        <p>
+          {credential.actorIds.length
+            ? `${credential.actorIds.length} selected Actors`
+            : "All workspace Actors"}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          ActorConsole MCP only · {credential.permissions?.length || ALL_MCP_PERMISSIONS.length}{" "}
+          permissions
+        </p>
+        {credential.actorIds.length ? (
+          <details className="rounded-sm border p-3">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              View selected Actors
+            </summary>
+            <ul className="max-h-48 space-y-2 overflow-y-auto pt-3 text-xs text-muted-foreground">
+              {credential.actorIds.map((id) => (
+                <li key={id} className="break-words [overflow-wrap:anywhere]">
+                  {actorById.has(id) ? actorLabel(actorById.get(id)!) : id}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </div>
+      <dl className="grid min-w-0 grid-cols-2 gap-3 text-xs">
+        <div>
+          <dt className="text-muted-foreground">Last used</dt>
+          <dd className="mt-1 break-words">{formatDateTime(credential.lastUsedAt)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Expires</dt>
+          <dd className="mt-1 break-words">
+            {credential.expiresAt ? formatDate(credential.expiresAt) : "No expiry"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Created</dt>
+          <dd className="mt-1 break-words">{formatDate(credential.createdAt)}</dd>
+        </div>
+      </dl>
+      {status !== "revoked" ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" className="min-h-11" onClick={onEdit}>
+            <Pencil aria-hidden="true" /> Edit
+          </Button>
+          <Button variant="outline" className="min-h-11" onClick={onRotate}>
+            <RotateCcw aria-hidden="true" /> Rotate
+          </Button>
+          <Button
+            variant="outline"
+            className="col-span-2 min-h-11 text-destructive"
+            onClick={onRevoke}
+            aria-label={`Revoke ${credential.name}`}
+          >
+            <Trash2 aria-hidden="true" /> Revoke
+          </Button>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">This credential has been revoked.</p>
+      )}
+    </article>
   );
 }
 
@@ -1318,9 +1437,9 @@ function CredentialRow({
             </Badge>
           ) : null}
         </div>
-        <code className="text-muted-foreground mt-1 block text-xs">{credential.keyPreview}</code>
+        <code className="mt-1 block text-xs text-muted-foreground">{credential.keyPreview}</code>
       </td>
-      <td className="text-muted-foreground max-w-[210px] px-5 py-4 text-xs">
+      <td className="max-w-[210px] px-5 py-4 text-xs text-muted-foreground">
         <span className="flex items-start gap-1.5">
           <UsersRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{actorAccess}</span>
@@ -1333,10 +1452,10 @@ function CredentialRow({
       <td className="whitespace-nowrap px-5 py-4 text-xs font-medium">
         {formatDateTime(credential.lastUsedAt)}
       </td>
-      <td className="text-muted-foreground whitespace-nowrap px-5 py-4 text-xs">
+      <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
         {credential.expiresAt ? formatDate(credential.expiresAt) : "No expiry"}
       </td>
-      <td className="text-muted-foreground whitespace-nowrap px-5 py-4 text-xs">
+      <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
         {formatDate(credential.createdAt)}
       </td>
       <td className="px-5 py-4">
@@ -1352,7 +1471,7 @@ function CredentialRow({
               <Button
                 size="icon"
                 variant="ghost"
-                className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive h-9 w-9"
+                className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 onClick={onRevoke}
                 aria-label={`Revoke ${credential.name}`}
               >
@@ -1360,7 +1479,7 @@ function CredentialRow({
               </Button>
             </>
           ) : (
-            <span className="text-muted-foreground text-xs">No actions</span>
+            <span className="text-xs text-muted-foreground">No actions</span>
           )}
         </div>
       </td>

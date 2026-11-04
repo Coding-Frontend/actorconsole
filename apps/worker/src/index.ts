@@ -1,7 +1,7 @@
 import type { QueueJob as Job } from "@actorconsole/shared";
 import { createQueue, createWorker, getRedis, tickRecurringJobs, type RuntimeQueue as Queue } from "./lib/queue-runtime.js";
 import { DatabaseWorker } from "./lib/database-worker.js";
-import cronParser from "cron-parser";
+import { CronExpressionParser } from "cron-parser";
 import { refreshStoreWatchAlerts } from "./lib/watch-alerts.js";
 import { runOptimizationJob, type OptimizationPayload } from "./lib/actor-optimization.js";
 
@@ -29,6 +29,7 @@ import {
   analyzeActorPublishReadiness,
   type ActorPublishReadiness,
   publishingJobSchema,
+  actorListingUpdate,
 } from "@actorconsole/shared";
 import { initOpenTelemetry } from "@actorconsole/shared/telemetry";
 import { assertWorkspacePlanAccess } from "./lib/plan-access.js";
@@ -242,7 +243,7 @@ function jsonObject(value: unknown): Record<string, unknown> | null {
 
 function nextBulkPublishRun(cronExpr: string) {
   try {
-    return cronParser.parseExpression(cronExpr, { utc: true }).next().toDate();
+    return CronExpressionParser.parse(cronExpr, { utc: true }).next().toDate();
   } catch {
     return null;
   }
@@ -1038,7 +1039,8 @@ async function refreshWorkspacePublishingInventory(
               storeStatusSyncedAt: syncedAt,
             }
           : {};
-        const readinessData = {
+        const listingData = actorListingUpdate(source);
+        const readinessData: Partial<ReturnType<typeof actorReadinessData>> = {
           ...actorReadinessData(artifactReadiness),
           hasDescription: Boolean(description?.trim()),
           // Category assignment is display-only and never gates publication.
@@ -1067,6 +1069,7 @@ async function refreshWorkspacePublishingInventory(
                 }
               : {}),
         };
+        if (listingData.hasDescription === undefined) delete readinessData.hasDescription;
 
         await db.actor.upsert({
           where: {
@@ -1092,9 +1095,7 @@ async function refreshWorkspacePublishingInventory(
             userId: input.userId,
             username: source.username ?? actor.username,
             actorName: source.name ?? actor.name,
-            title: source.title ?? actor.title,
-            description,
-            currentImageUrl: source.pictureUrl ?? actor.pictureUrl,
+            ...listingData,
             ...(pricing ? { currentPricing: pricing as unknown as Prisma.InputJsonValue } : {}),
             ...statusData,
             ...readinessData,
@@ -1179,9 +1180,7 @@ async function bootstrapWorkspaceInsights(
             update: {
               username: actor.username,
               actorName: actor.name,
-              title: actor.title,
-              description: actor.description,
-              currentImageUrl: actor.pictureUrl,
+              ...actorListingUpdate(actor),
               ...(pricing ? { currentPricing: pricing as unknown as Prisma.InputJsonValue } : {}),
               ...(actor.storeStatusAvailable
                 ? {

@@ -13,6 +13,12 @@ curl --fail http://127.0.0.1:4202/api/health
 
 Adjust overridden ports. Verify worker consumption, email and a scoped workspace request. Use staging for browser tests (`E2E_BASE_URL`).
 
+## Copy-generation deadlines
+
+The synchronous `POST /api/actors/:id/rewrite-copy` route permits 210 seconds in the Next.js bridge: the AI router has a bounded 180-second budget and the route first reads the current Apify listing. Ordinary bridge requests retain their 30-second deadline. The ingress must allow at least 240 seconds for this route; the matching location is in [the web nginx example](../.deploy/nginx-web.conf). Apply that location to the installation's existing TLS server without replacing its certificates, validate with `nginx -t`, then reload nginx. The release receiver does not install nginx configuration automatically.
+
+If generation exceeds its allowance, the bridge returns a JSON 504 retry message. Generation does not apply listing changes; review and apply remain separate steps.
+
 ## Backups and rollback
 
 Load `DATABASE_URL` into the backend environment without printing it. The backup script accepts `BACKUP_DIR` and `BACKUP_RETENTION_DAYS`. Keep backups outside the public checkout, restrict access, encrypt stored copies and test restoring to a separate database.

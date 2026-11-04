@@ -1,6 +1,6 @@
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
-import cronParser from "cron-parser";
+import { CronExpressionParser } from "cron-parser";
 import {
   DatabaseQueue,
   upsertDatabaseSchedule,
@@ -43,7 +43,7 @@ class ScheduledDatabaseQueue extends DatabaseQueue implements RuntimeQueue {
     template: { name: string; data: object },
   ) {
     // Validate before persisting so a bad schedule cannot block every tick.
-    cronParser.parseExpression(repeat.pattern, { tz: repeat.tz ?? "UTC" });
+    CronExpressionParser.parse(repeat.pattern, { tz: repeat.tz ?? "UTC" });
     return upsertDatabaseSchedule(this.name, id, repeat, template);
   }
   removeJobScheduler(id: string) {
@@ -85,6 +85,6 @@ export function createWorker<T = any>(
 export async function tickRecurringJobs() {
   if (isRedisEnabled()) return;
   await tickDatabaseSchedules((pattern, timezone, after) =>
-    cronParser.parseExpression(pattern, { tz: timezone, currentDate: after }).next().toDate(),
+    CronExpressionParser.parse(pattern, { tz: timezone, currentDate: after }).next().toDate(),
   );
 }

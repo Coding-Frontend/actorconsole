@@ -138,17 +138,35 @@ export interface BulkStatusOperationDetail extends BulkStatusOperation {
 
 export const PUBLISHING_SELECTION_KEY = "actorconsole.bulk-publishing.selection.v1";
 
-export function loadPublishingSelection(): ActorItem[] {
-  if (typeof window === "undefined") return [];
+export function loadPublishingSelection(workspaceId?: string | null): ActorItem[] {
+  if (typeof window === "undefined" || !workspaceId) return [];
   try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(PUBLISHING_SELECTION_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(
+      window.sessionStorage.getItem(`${PUBLISHING_SELECTION_KEY}:${workspaceId}`) ?? "null",
+    );
+    return parsed?.workspaceId === workspaceId && Array.isArray(parsed.actors)
+      ? parsed.actors.filter(
+          (actor: ActorItem) =>
+            actor &&
+            typeof actor.id === "string" &&
+            typeof actor.apifyActorId === "string" &&
+            typeof actor.username === "string" &&
+            typeof actor.actorName === "string",
+        )
+      : [];
   } catch {
     return [];
   }
 }
 
-export function savePublishingSelection(actors: ActorItem[]) {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(PUBLISHING_SELECTION_KEY, JSON.stringify(actors));
+export function savePublishingSelection(actors: ActorItem[], workspaceId?: string | null) {
+  if (typeof window === "undefined" || !workspaceId) return;
+  try {
+    window.sessionStorage.setItem(
+      `${PUBLISHING_SELECTION_KEY}:${workspaceId}`,
+      JSON.stringify({ workspaceId, actors }),
+    );
+  } catch {
+    /* The current in-memory selection still works if browser storage is unavailable. */
+  }
 }
