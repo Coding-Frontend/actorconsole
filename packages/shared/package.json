@@ -62,6 +62,10 @@
     "./api-data": {
       "types": "./dist/api-data.d.ts",
       "import": "./dist/api-data.js"
+    },
+    "./financial-report": {
+      "types": "./dist/financial-report.d.ts",
+      "import": "./dist/financial-report.js"
     }
   },
   "scripts": {

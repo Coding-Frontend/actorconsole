@@ -36,6 +36,9 @@ vi.mock("@/components/dashboard/workspace-plan-banner", () => ({
 vi.mock("@/components/dashboard/workspace-apify-connection-banner", () => ({
   WorkspaceApifyConnectionBanner: () => null,
 }));
+vi.mock("./workspace-apify-connection-context", () => ({
+  WorkspaceApifyConnectionProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 vi.mock("./workspace-upgrade-screen", () => ({
   WorkspaceUpgradeScreen: ({ error }: { error: boolean }) => (
     <p>{error ? "Access check failed" : "Upgrade workspace"}</p>
@@ -191,12 +194,19 @@ describe("workspace access in the dashboard shell", () => {
   });
 
   it("shows an authorized workspace while optional notification badges are still loading", async () => {
-    vi.stubGlobal("fetch", vi.fn((url: string) =>
-      url.endsWith("/navigation-status")
-        ? new Promise<Response>(() => {})
-        : Promise.resolve(response(access("w1", "PRO", 193))),
-    ));
-    render(<DashboardShell><p>Actor operations</p></DashboardShell>);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url.endsWith("/navigation-status")
+          ? new Promise<Response>(() => {})
+          : Promise.resolve(response(access("w1", "PRO", 193))),
+      ),
+    );
+    render(
+      <DashboardShell>
+        <p>Actor operations</p>
+      </DashboardShell>,
+    );
 
     await screen.findByText("Full navigation");
     expect(screen.getByText("Actor operations")).toBeTruthy();
@@ -204,12 +214,19 @@ describe("workspace access in the dashboard shell", () => {
   });
 
   it("shows an access error even while optional notification badges are still loading", async () => {
-    vi.stubGlobal("fetch", vi.fn((url: string) =>
-      url.endsWith("/navigation-status")
-        ? new Promise<Response>(() => {})
-        : Promise.reject(new Error("Access unavailable")),
-    ));
-    render(<DashboardShell><p>Actor operations</p></DashboardShell>);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url.endsWith("/navigation-status")
+          ? new Promise<Response>(() => {})
+          : Promise.reject(new Error("Access unavailable")),
+      ),
+    );
+    render(
+      <DashboardShell>
+        <p>Actor operations</p>
+      </DashboardShell>,
+    );
 
     await screen.findByText("Access check failed");
     expect(screen.queryByText("Actor operations")).toBeNull();

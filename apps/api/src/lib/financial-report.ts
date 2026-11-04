@@ -30,10 +30,15 @@ export async function loadWorkspaceFinancialReport({
   session,
   query,
   requestId = null,
+  fullLedger = false,
+  focus,
 }: {
   session: UserSession;
   query: (key: string) => string | undefined;
   requestId?: string | null;
+  /** Internal dashboard projection; legacy API consumers retain their existing payload. */
+  fullLedger?: boolean;
+  focus?: "usage" | "costs" | "revenue";
 }) {
   const granularityQuery = query("granularity");
   const granularity =
@@ -59,6 +64,10 @@ export async function loadWorkspaceFinancialReport({
   const toExclusive = new Date(to.getTime() + 86_400_000);
   const previousTo = new Date(from.getTime() - 86_400_000);
   const previousFrom = new Date(previousTo.getTime() - (rangeDays - 1) * 86_400_000);
+  // Usage only displays current-period operational metrics; monetary views
+  // request the preceding period only when their comparison is enabled.
+  const includePrevious = !focus || (focus !== "usage" && query("compare") !== "false");
+  const historyFrom = includePrevious ? previousFrom : from;
   const requestedActorIds = Array.from(
     new Set(
       (query("actorIds") ?? "")
@@ -98,14 +107,14 @@ export async function loadWorkspaceFinancialReport({
       insightSyncStatus: true,
       insightSyncError: true,
       usageDaily: {
-        where: { date: { gte: previousFrom, lt: toExclusive } },
+        where: { date: { gte: historyFrom, lt: toExclusive } },
         orderBy: { date: "asc" },
         // The report loads both the selected range and its equal-length comparison
         // range. A 370-day report therefore needs at most 740 daily records,
         // while the default 30-day dashboard only reads the 60 rows it can
         // actually display. This keeps the common report bounded without
         // changing the explicit long-range behavior.
-        take: Math.min(rangeDays * 2, 740),
+        take: Math.min(rangeDays * (includePrevious ? 2 : 1), 740),
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -113,8 +122,10 @@ export async function loadWorkspaceFinancialReport({
   const usageCacheKey = `workspace:${session.businessProfileId ?? session.userId}:apify-usage:v4`;
   const [actors, accountUsageValue, persistedAccountUsage] = await Promise.all([
     actorsPromise,
-    cacheGet<Record<string, unknown>>(usageCacheKey),
-    session.businessProfileId
+    focus === "usage"
+      ? Promise.resolve(CACHE_MISS)
+      : cacheGet<Record<string, unknown>>(usageCacheKey),
+    focus !== "usage" && session.businessProfileId
       ? db.workspaceFinancialCache.findUnique({
           where: { businessProfileId: session.businessProfileId },
           select: { payload: true },
@@ -141,55 +152,56 @@ export async function loadWorkspaceFinancialReport({
     ? requestedActorIds
     : actors.map((actor) => actor.id);
   const selectedActorIdSet = new Set(selectedActorIds);
-  const dailyActorInsights = selectedActorIds.length
-    ? await db.actorInsightSnapshot.groupBy({
-        by: ["actorId", "capturedOn"],
-        where: {
-          actorId: { in: selectedActorIds },
-          capturedOn: { gte: previousFrom, lt: toExclusive },
-          OR: [
-            { totalRuns: { not: null } },
-            { resultCount: { not: null } },
-            { activeUsers: { not: null } },
-            { costUsd: { not: null } },
-            { revenueUsd: { not: null } },
-            { profitUsd: { not: null } },
-          ],
-        },
-        _sum: {
-          totalRuns: true,
-          succeededRuns: true,
-          failedRuns: true,
-          resultCount: true,
-          activeUsers: true,
-          costUsd: true,
-          revenueUsd: true,
-          profitUsd: true,
-        },
-        _count: {
-          costUsd: true,
-          revenueUsd: true,
-          profitUsd: true,
-          activeUsers: true,
-        },
-        _max: { capturedAt: true },
-        orderBy: { capturedOn: "asc" },
-      })
-    : [];
-  const workspaceDailyInsightTotals =
-    requestedActorIds.length && actors.length
-      ? await db.actorInsightSnapshot.groupBy({
+  const [dailyActorInsights, workspaceDailyInsightTotals] = await Promise.all([
+    selectedActorIds.length
+      ? db.actorInsightSnapshot.groupBy({
+          by: ["actorId", "capturedOn"],
+          where: {
+            actorId: { in: selectedActorIds },
+            capturedOn: { gte: historyFrom, lt: toExclusive },
+            OR: [
+              { totalRuns: { not: null } },
+              { resultCount: { not: null } },
+              { activeUsers: { not: null } },
+              { costUsd: { not: null } },
+              { revenueUsd: { not: null } },
+              { profitUsd: { not: null } },
+            ],
+          },
+          _sum: {
+            totalRuns: true,
+            succeededRuns: true,
+            failedRuns: true,
+            resultCount: true,
+            activeUsers: true,
+            costUsd: true,
+            revenueUsd: true,
+            profitUsd: true,
+          },
+          _count: {
+            costUsd: true,
+            revenueUsd: true,
+            profitUsd: true,
+            activeUsers: true,
+          },
+          _max: { capturedAt: true },
+          orderBy: { capturedOn: "asc" },
+        })
+      : Promise.resolve([]),
+    focus !== "usage" && requestedActorIds.length && actors.length
+      ? db.actorInsightSnapshot.groupBy({
           by: ["capturedOn"],
           where: {
             actorId: { in: actors.map((actor) => actor.id) },
-            capturedOn: { gte: previousFrom, lt: toExclusive },
+            capturedOn: { gte: historyFrom, lt: toExclusive },
             OR: [{ totalRuns: { not: null } }, { costUsd: { not: null } }],
           },
           _sum: { totalRuns: true, costUsd: true },
           _count: { costUsd: true },
           orderBy: { capturedOn: "asc" },
         })
-      : [];
+      : Promise.resolve([]),
+  ]);
   const accountUsage =
     accountUsageValue === CACHE_MISS
       ? ((persistedAccountUsage?.payload as Record<string, unknown> | undefined) ?? null)
@@ -715,13 +727,14 @@ export async function loadWorkspaceFinancialReport({
       : ledger;
   // A day drill-down is explicitly requested as a complete Actor breakdown.
   // The broad range preview remains capped so cached-first page loads stay small.
-  const ledgerResponseLimit = selectedDayKey
-    ? Number.POSITIVE_INFINITY
-    : tableGrouping === "weekly"
-      ? 5_000
-      : requestedActorIds.length
+  const ledgerResponseLimit =
+    fullLedger || selectedDayKey
+      ? Number.POSITIVE_INFINITY
+      : tableGrouping === "weekly"
         ? 5_000
-        : 250;
+        : requestedActorIds.length
+          ? 5_000
+          : 250;
   const ledgerTruncated = scopedLedger.length > ledgerResponseLimit;
   const responseLedger = ledgerTruncated ? scopedLedger.slice(-ledgerResponseLimit) : scopedLedger;
   const responseRequestId = requestId;

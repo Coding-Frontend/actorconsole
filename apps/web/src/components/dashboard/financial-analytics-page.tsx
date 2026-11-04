@@ -49,6 +49,27 @@ import {
 import type { FinancialDashboardKind } from "@/lib/financial-dashboard";
 import { DEFAULT_PAGE_SIZE } from "@/lib/page-size";
 import { usePageDataPending } from "@/lib/page-data-state";
+import { useFinancialTable } from "@/lib/use-financial-table";
+
+import {
+  dailyFinancialLedgerRows,
+  weeklyFinancialLedgerRows,
+  usagePeriodRows,
+  financialDateKey,
+  financialWeekKey,
+  actorFinancialTotalRows,
+  type FinancialTableRow as TableRow,
+  type FinancialSortKey as SortKey,
+  type ActorTableView,
+} from "@actorconsole/shared/financial-report";
+export {
+  aggregateFinancialLedger,
+  dailyFinancialLedgerRows,
+  weeklyFinancialLedgerRows,
+  usagePeriodRows,
+  financialDateKey,
+  financialWeekKey,
+} from "@actorconsole/shared/financial-report";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -60,71 +81,10 @@ const money = new Intl.NumberFormat("en-US", {
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 const DAY_MS = 86_400_000;
 
-type FinancialLedger = NonNullable<UsageCostsPayload["revenue"]>["ledger"];
-type SortKey =
-  | "name"
-  | "date"
-  | "runs"
-  | "success"
-  | "failed"
-  | "results"
-  | "users"
-  | "direct"
-  | "allocated"
-  | "revenue"
-  | "profit"
-  | "margin"
-  | "share";
-
-interface TableRow {
-  key: string;
-  actorId: string;
-  apifyActorId: string;
-  name: string;
-  slug: string;
-  date: string | null;
-  runs: number;
-  successfulRuns: number;
-  failedRuns: number;
-  results: number;
-  activeUsers: number | null;
-  directCostUsd: number | null;
-  allocatedCostUsd: number | null;
-  revenueUsd: number | null;
-  netProfitUsd: number | null;
-  margin: number | null;
-  costSource: string | null;
-  costShare: number | null;
-  previousRevenueUsd?: number | null;
-  previousNetProfitUsd?: number | null;
-  previousRuns?: number | null;
-  actorDays?: number;
-  costCoveredDays?: number;
-  allocatedCoveredDays?: number;
-  revenueCoveredDays?: number;
-}
-
-type ActorTableView = "total" | "daily" | "weekly";
-
 function utcTodayOffset(days = 0) {
   const date = new Date();
   date.setUTCHours(0, 0, 0, 0);
   date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-export function financialDateKey(value: string | Date) {
-  return new Date(value).toISOString().slice(0, 10);
-}
-
-export function financialWeekKey(value: string | Date) {
-  const date = new Date(
-    typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
-      ? `${value}T00:00:00.000Z`
-      : value,
-  );
-  const daysSinceMonday = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
   return date.toISOString().slice(0, 10);
 }
 
@@ -209,11 +169,11 @@ function MetricCard({
     <Card variant="stat">
       <CardContent className="flex items-start justify-between gap-4 p-5 sm:p-6">
         <div className="min-w-0">
-          <p className="text-muted-foreground text-xs font-medium">{label}</p>
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
           <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-          <div className="text-muted-foreground mt-1 text-xs">{detail}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
         </div>
-        <span className="bg-signal-orange/10 text-signal-orange flex h-9 w-9 shrink-0 items-center justify-center rounded-sm">
+        <span className="bg-signal-orange/10 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-signal-orange">
           <Icon className="h-4 w-4" />
         </span>
       </CardContent>
@@ -254,17 +214,17 @@ function ActorPicker({
                 ? (actors.find((actor) => actor.id === selectedIds[0])?.title ?? "1 Actor")
                 : `${selectedIds.length} Actors`}
           </span>
-          <ChevronsUpDown className="text-muted-foreground h-4 w-4" />
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
         </Button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
           align="start"
           sideOffset={6}
-          className="border-border bg-popover text-popover-foreground z-50 w-[min(360px,calc(100vw-2rem))] rounded-sm border p-3 shadow-2xl"
+          className="z-50 w-[min(360px,calc(100vw-2rem))] rounded-sm border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
         >
           <div className="relative">
-            <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -279,7 +239,7 @@ function ActorPicker({
                 <button
                   key={actor.id}
                   type="button"
-                  className="hover:bg-accent focus-visible:ring-ring flex w-full items-start gap-3 rounded-sm px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-2"
+                  className="flex w-full items-start gap-3 rounded-sm px-2.5 py-2 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() =>
                     onChange(
                       checked
@@ -297,7 +257,7 @@ function ActorPicker({
                     <span className="block truncate text-xs font-semibold">
                       {actor.title ?? actor.actorName}
                     </span>
-                    <span className="text-muted-foreground block truncate font-mono text-[10px]">
+                    <span className="block truncate font-mono text-[10px] text-muted-foreground">
                       {actor.username}/{actor.actorName}
                     </span>
                   </span>
@@ -305,11 +265,11 @@ function ActorPicker({
               );
             })}
           </div>
-          <div className="border-border mt-3 flex items-center justify-between border-t pt-3">
+          <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange([])}>
               Clear
             </Button>
-            <span className="text-muted-foreground text-[10px]">{selectedIds.length} selected</span>
+            <span className="text-[10px] text-muted-foreground">{selectedIds.length} selected</span>
           </div>
         </Popover.Content>
       </Popover.Portal>
@@ -328,7 +288,7 @@ function FilterField({
 }) {
   return (
     <div className={`flex min-w-0 flex-col gap-1.5 ${className ?? ""}`}>
-      <span className="text-muted-foreground px-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+      <span className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </span>
       {children}
@@ -354,8 +314,8 @@ function Pagination({
   const start = total ? (safePage - 1) * pageSize + 1 : 0;
   const end = Math.min(safePage * pageSize, total);
   return (
-    <div className="border-border/80 mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-muted-foreground text-xs">
+    <div className="mt-5 flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-muted-foreground">
         Showing {start.toLocaleString("en-US")}–{end.toLocaleString("en-US")} of{" "}
         {total.toLocaleString("en-US")}
       </p>
@@ -379,7 +339,7 @@ function Pagination({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="text-muted-foreground min-w-14 text-center text-xs">
+        <span className="min-w-14 text-center text-xs text-muted-foreground">
           {safePage}/{totalPages}
         </span>
         <Button
@@ -432,184 +392,6 @@ function downloadCsv(kind: FinancialDashboardKind, rows: TableRow[]) {
   URL.revokeObjectURL(url);
 }
 
-export function aggregateFinancialLedger(rows: FinancialLedger): TableRow[] {
-  const grouped = new Map<string, TableRow>();
-  for (const row of rows) {
-    const current = grouped.get(row.actorId) ?? {
-      key: row.actorId,
-      actorId: row.actorId,
-      apifyActorId: row.apifyActorId,
-      name: row.title ?? row.actorName,
-      slug: `${row.username}/${row.actorName}`,
-      date: null,
-      runs: 0,
-      successfulRuns: 0,
-      failedRuns: 0,
-      results: 0,
-      activeUsers: 0,
-      directCostUsd: 0,
-      allocatedCostUsd: 0,
-      revenueUsd: 0,
-      netProfitUsd: 0,
-      margin: null,
-      costSource: null,
-      costShare: null,
-    };
-    current.runs += row.runs;
-    current.successfulRuns += Number(row.successfulRuns ?? 0);
-    current.failedRuns += Number(row.failedRuns ?? 0);
-    current.results += row.results;
-    current.activeUsers = (current.activeUsers ?? 0) + (row.activeUsers ?? 0);
-    current.directCostUsd =
-      current.directCostUsd == null || row.directCostUsd == null
-        ? null
-        : current.directCostUsd + row.directCostUsd;
-    current.allocatedCostUsd =
-      current.allocatedCostUsd == null || row.allocatedCostUsd == null
-        ? null
-        : current.allocatedCostUsd + row.allocatedCostUsd;
-    current.revenueUsd =
-      current.revenueUsd == null || row.revenueUsd == null
-        ? null
-        : current.revenueUsd + row.revenueUsd;
-    current.netProfitUsd =
-      current.netProfitUsd == null || row.netProfitUsd == null
-        ? null
-        : current.netProfitUsd + row.netProfitUsd;
-    current.costSource = row.costSource;
-    grouped.set(row.actorId, current);
-  }
-  return [...grouped.values()].map((row) => ({
-    ...row,
-    margin:
-      row.revenueUsd && row.netProfitUsd != null ? (row.netProfitUsd / row.revenueUsd) * 100 : null,
-  }));
-}
-
-export function dailyFinancialLedgerRows(rows: FinancialLedger): TableRow[] {
-  return rows.map((row) => ({
-    key: `${row.actorId}:${row.date}`,
-    actorId: row.actorId,
-    apifyActorId: row.apifyActorId,
-    name: row.title ?? row.actorName,
-    slug: `${row.username}/${row.actorName}`,
-    date: row.date,
-    runs: row.runs,
-    successfulRuns: Number(row.successfulRuns ?? 0),
-    failedRuns: Number(row.failedRuns ?? 0),
-    results: row.results,
-    activeUsers: row.activeUsers,
-    directCostUsd: row.directCostUsd,
-    allocatedCostUsd: row.allocatedCostUsd,
-    revenueUsd: row.revenueUsd,
-    netProfitUsd: row.netProfitUsd,
-    margin: row.margin,
-    costSource: row.costSource,
-    costShare: null,
-  }));
-}
-
-export function weeklyFinancialLedgerRows(rows: FinancialLedger): TableRow[] {
-  const weeklyRows = rows.map((row) => ({ ...row, date: financialWeekKey(row.date) }));
-  const grouped = new Map<string, FinancialLedger>();
-  for (const row of weeklyRows) {
-    const key = `${row.actorId}:${row.date}`;
-    const current = grouped.get(key) ?? [];
-    current.push(row);
-    grouped.set(key, current);
-  }
-  return [...grouped.entries()].map(([key, weekRows]) => ({
-    ...aggregateFinancialLedger(weekRows)[0]!,
-    key,
-    date: weekRows[0]!.date,
-  }));
-}
-
-export function usagePeriodRows(
-  actors: UsageCostsPayload["items"],
-  from: string,
-  to: string,
-  tableView: "daily" | "weekly",
-): TableRow[] {
-  const grouped = new Map<string, TableRow>();
-  for (const actor of actors) {
-    for (const usage of actor.usageDaily) {
-      const day = financialDateKey(usage.date);
-      if (day < from || day > to) continue;
-      const period = tableView === "weekly" ? financialWeekKey(day) : day;
-      const key = `${actor.id}:${period}`;
-      const row = grouped.get(key) ?? {
-        key,
-        actorId: actor.id,
-        apifyActorId: actor.apifyActorId,
-        name: actor.title ?? actor.actorName,
-        slug: `${actor.username}/${actor.actorName}`,
-        date: period,
-        runs: 0,
-        successfulRuns: 0,
-        failedRuns: 0,
-        results: 0,
-        activeUsers: null,
-        directCostUsd: null,
-        allocatedCostUsd: null,
-        revenueUsd: null,
-        netProfitUsd: null,
-        margin: null,
-        costSource: null,
-        costShare: null,
-      };
-      row.runs += usage.runs;
-      row.successfulRuns += Number(usage.successfulRuns ?? 0);
-      row.failedRuns += Number(usage.failedRuns ?? 0);
-      row.results += Number(usage.resultCount ?? 0);
-      grouped.set(key, row);
-    }
-  }
-  return [...grouped.values()];
-}
-
-function actorFinancialTotalRows(
-  actors: NonNullable<UsageCostsPayload["revenue"]>["actors"],
-): TableRow[] {
-  return actors.map((actor) => {
-    const actorDays = actor.actorDays ?? 0;
-    const costCoveredDays = actor.costCoveredDays ?? (actor.costAvailable ? actorDays || 1 : 0);
-    const allocatedCoveredDays =
-      actor.allocatedCoveredDays ?? (actor.allocatedCostAvailable ? actorDays || 1 : 0);
-    const revenueCoveredDays = actor.revenueCoveredDays ?? actorDays;
-    const hasDirectCost = costCoveredDays > 0;
-    const hasAllocatedCost = allocatedCoveredDays > 0;
-    const hasRevenue = revenueCoveredDays > 0;
-    return {
-      key: actor.id,
-      actorId: actor.id,
-      apifyActorId: actor.apifyActorId,
-      name: actor.title ?? actor.actorName,
-      slug: `${actor.username}/${actor.actorName}`,
-      date: null,
-      runs: actor.runs,
-      successfulRuns: actor.successfulRuns ?? 0,
-      failedRuns: actor.failedRuns ?? 0,
-      results: actor.results,
-      activeUsers: actor.activeUsersCoveredDays === 0 ? null : actor.activeUsers,
-      directCostUsd: hasDirectCost ? actor.costUsd : null,
-      allocatedCostUsd: hasAllocatedCost ? actor.allocatedCostUsd : null,
-      revenueUsd: hasRevenue ? actor.revenueUsd : null,
-      netProfitUsd: hasAllocatedCost && hasRevenue ? actor.netProfitUsd : null,
-      margin: hasAllocatedCost && hasRevenue ? actor.margin : null,
-      costSource: hasDirectCost ? "actor-range" : "unavailable",
-      costShare: null,
-      previousRevenueUsd: actor.previousRevenueUsd,
-      previousNetProfitUsd: actor.previousNetProfitUsd,
-      previousRuns: actor.previousRuns,
-      actorDays,
-      costCoveredDays,
-      allocatedCoveredDays,
-      revenueCoveredDays,
-    };
-  });
-}
-
 export function FinancialAnalyticsPage({
   kind,
   payload,
@@ -633,6 +415,17 @@ export function FinancialAnalyticsPage({
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const remoteTable = useFinancialTable(
+    kind,
+    payload.details,
+    query,
+    page,
+    pageSize,
+    sortKey,
+    sortDirection,
+  );
 
   const filters = payload.filters;
   const selectedFrom = filters?.from ?? utcTodayOffset(-29);
@@ -790,20 +583,25 @@ export function FinancialAnalyticsPage({
     const result = typeof a === "string" ? a.localeCompare(String(b)) : Number(a) - Number(b);
     return sortDirection === "asc" ? result : -result;
   });
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const visibleRows = sortedRows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const rowCount = payload.details ? (remoteTable.data?.total ?? 0) : sortedRows.length;
+  const totalPages = Math.max(1, Math.ceil(rowCount / pageSize));
+  const safePage = payload.details ? (remoteTable.data?.page ?? page) : Math.min(page, totalPages);
+  const visibleRows = payload.details
+    ? (remoteTable.data?.items ?? [])
+    : sortedRows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-  const usageTotals = usageTotalRows.reduce(
-    (total, row) => ({
-      runs: total.runs + row.runs,
-      successful: total.successful + row.successfulRuns,
-      failed: total.failed + row.failedRuns,
-      results: total.results + row.results,
-      users: total.users + (row.activeUsers ?? 0),
-    }),
-    { runs: 0, successful: 0, failed: 0, results: 0, users: 0 },
-  );
+  const usageTotals =
+    payload.usageTotals ??
+    usageTotalRows.reduce(
+      (total, row) => ({
+        runs: total.runs + row.runs,
+        successful: total.successful + row.successfulRuns,
+        failed: total.failed + row.failedRuns,
+        results: total.results + row.results,
+        users: total.users + (row.activeUsers ?? 0),
+      }),
+      { runs: 0, successful: 0, failed: 0, results: 0, users: 0 },
+    );
   const successRate = usageTotals.runs ? (usageTotals.successful / usageTotals.runs) * 100 : 0;
 
   const currentFinancial = revenue?.comparison.current;
@@ -990,7 +788,7 @@ export function FinancialAnalyticsPage({
               onChange={(event) => updateUrl({ from: event.target.value, day: null })}
               aria-label="Start date"
             />
-            <span className="text-muted-foreground text-xs">to</span>
+            <span className="text-xs text-muted-foreground">to</span>
             <Input
               type="date"
               className="h-10 min-w-0 flex-1 sm:w-36"
@@ -1020,7 +818,7 @@ export function FinancialAnalyticsPage({
   const sortHeader = (key: SortKey, label: string) => (
     <button
       type="button"
-      className="hover:text-foreground inline-flex items-center gap-1.5"
+      className="inline-flex items-center gap-1.5 hover:text-foreground"
       onClick={() => {
         if (sortKey === key) setSortDirection((value) => (value === "desc" ? "asc" : "desc"));
         else {
@@ -1041,7 +839,7 @@ export function FinancialAnalyticsPage({
     <div className="space-y-5">
       <DashboardFilterRail
         label="Financial analytics filters"
-        className="border-signal-blue/20 bg-card/95 rounded-sm border"
+        className="border-signal-blue/20 rounded-sm border bg-card/95"
       >
         <CardContent className="grid gap-3 p-3 xl:grid-cols-[minmax(13rem,0.7fr)_minmax(0,3fr)] xl:items-end">
           <DashboardFilterSummary
@@ -1064,9 +862,9 @@ export function FinancialAnalyticsPage({
         </CardContent>
       </DashboardFilterRail>
 
-      <details className="border-border bg-card rounded-md border px-4 py-3 text-sm">
+      <details className="rounded-md border border-border bg-card px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium">How to read these figures</summary>
-        <div className="text-muted-foreground mt-3 grid gap-2 text-xs leading-5 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 text-xs leading-5 text-muted-foreground sm:grid-cols-2">
           {kind === "usage" ? (
             <>
               <p>
@@ -1117,10 +915,10 @@ export function FinancialAnalyticsPage({
         <Card className="border-signal-orange/50 bg-signal-orange/5">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-3">
-              <ShieldAlert className="text-signal-orange mt-0.5 h-5 w-5 shrink-0" />
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-signal-orange" />
               <div>
                 <p className="text-sm font-semibold">Console analytics need attention</p>
-                <p className="text-muted-foreground mt-1 text-xs leading-5">
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {payload.accountUsage.credentialIssue.message} API-key usage and direct Actor
                   costs remain available independently.
                 </p>
@@ -1140,10 +938,10 @@ export function FinancialAnalyticsPage({
         (revenue.coverage.revenueCoveredRows ?? revenue.coverage.rows) < revenue.coverage.rows) ? (
         <Card className="border-signal-blue/35 bg-signal-blue/5">
           <CardContent className="flex gap-3 p-5">
-            <ShieldAlert className="text-signal-blue mt-0.5 h-5 w-5 shrink-0" />
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-signal-blue" />
             <div>
               <p className="text-sm font-semibold">Partial financial coverage</p>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 Direct cost covers {revenue.coverage.costCoveredRows.toLocaleString("en-US")} of{" "}
                 {revenue.coverage.rows.toLocaleString("en-US")} Actor-days; allocated cost covers{" "}
                 {revenue.coverage.allocatedCostCoveredRows.toLocaleString("en-US")}; revenue covers{" "}
@@ -1196,18 +994,20 @@ export function FinancialAnalyticsPage({
             detail="Current Apify billing cycle"
             icon={CircleDollarSign}
           />
-          <MetricCard
-            label="Previous-period spend"
-            value={
-              previousFinancial?.allocatedCoveredDays
-                ? money.format(previousFinancial.allocatedCostUsd)
-                : previousFinancial?.costCoveredDays
-                  ? money.format(previousFinancial.costUsd)
-                  : "Unavailable"
-            }
-            detail="Matching preceding date range"
-            icon={CalendarDays}
-          />
+          {compare ? (
+            <MetricCard
+              label="Previous-period spend"
+              value={
+                previousFinancial?.allocatedCoveredDays
+                  ? money.format(previousFinancial.allocatedCostUsd)
+                  : previousFinancial?.costCoveredDays
+                    ? money.format(previousFinancial.costUsd)
+                    : "Unavailable"
+              }
+              detail="Matching preceding date range"
+              icon={CalendarDays}
+            />
+          ) : null}
           <MetricCard
             label="Direct Actor cost"
             value={currentFinancial?.costCoveredDays ? money.format(directCost) : "Unavailable"}
@@ -1299,7 +1099,7 @@ export function FinancialAnalyticsPage({
         <Card>
           <CardHeader>
             <CardTitle>Current billing-cycle service categories</CardTitle>
-            <p className="text-muted-foreground mt-1 text-xs">
+            <p className="mt-1 text-xs text-muted-foreground">
               Apify account charges grouped into compute, proxy, transfer, storage, and other
               services.
             </p>
@@ -1383,7 +1183,7 @@ export function FinancialAnalyticsPage({
                     ? "Cost by Actor"
                     : "Revenue by Actor"}
             </CardTitle>
-            <p className="text-muted-foreground mt-1 text-xs">
+            <p className="mt-1 text-xs text-muted-foreground">
               {selectedDay
                 ? kind === "revenue"
                   ? "Complete UTC-day breakdown. Open any Actor to continue in its details page."
@@ -1425,7 +1225,7 @@ export function FinancialAnalyticsPage({
               </div>
             ) : null}
             <div className="relative">
-              <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(event) => {
@@ -1440,14 +1240,31 @@ export function FinancialAnalyticsPage({
               type="button"
               variant="outline"
               size="sm"
-              disabled={!sortedRows.length}
-              onClick={() => downloadCsv(kind, sortedRows)}
+              disabled={!rowCount || exporting || remoteTable.loading}
+              onClick={async () => {
+                setExporting(true);
+                setExportError(null);
+                try {
+                  downloadCsv(kind, payload.details ? await remoteTable.allRows() : sortedRows);
+                } catch (error) {
+                  setExportError(
+                    error instanceof Error ? error.message : "Could not export report",
+                  );
+                } finally {
+                  setExporting(false);
+                }
+              }}
             >
-              <Download className="h-4 w-4" /> Export CSV
+              <Download className="h-4 w-4" /> {exporting ? "Exporting…" : "Export CSV"}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
+          {exportError ? (
+            <p role="alert" className="mb-3 text-sm text-destructive">
+              {exportError}
+            </p>
+          ) : null}
           {kind === "costs" && revenue?.ledgerTruncated && tableView !== "total" && !selectedDay ? (
             <div className="border-signal-blue/35 bg-signal-blue/8 mb-4 rounded-sm border px-4 py-3 text-xs leading-5">
               Showing the newest {ledger.length.toLocaleString("en-US")} of{" "}
@@ -1455,15 +1272,32 @@ export function FinancialAnalyticsPage({
               Select a date to load its complete Actor breakdown.
             </div>
           ) : null}
-          {visibleRows.length ? (
+          {remoteTable.loading ? (
+            <div
+              role="status"
+              className="flex h-48 items-center justify-center text-sm text-muted-foreground"
+            >
+              Loading report details…
+            </div>
+          ) : remoteTable.error ? (
+            <div
+              role="alert"
+              className="flex h-48 flex-col items-center justify-center gap-3 text-sm"
+            >
+              <p>{remoteTable.error}</p>
+              <Button variant="outline" onClick={remoteTable.retry}>
+                Retry report details
+              </Button>
+            </div>
+          ) : visibleRows.length ? (
             <>
               <div className="space-y-3 md:hidden">
                 {visibleRows.map((row) => (
-                  <article key={row.key} className="border-border rounded-sm border p-4">
+                  <article key={row.key} className="rounded-sm border border-border p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         {row.date ? (
-                          <p className="text-muted-foreground font-mono text-[10px]">
+                          <p className="font-mono text-[10px] text-muted-foreground">
                             {periodLabel(row.date, tableView)} UTC
                           </p>
                         ) : null}
@@ -1476,12 +1310,12 @@ export function FinancialAnalyticsPage({
                           {row.name}
                           {kind === "revenue" ? (
                             <>
-                              <ExternalLink className="text-muted-foreground ml-1 inline h-3 w-3" />
+                              <ExternalLink className="ml-1 inline h-3 w-3 text-muted-foreground" />
                               <span className="sr-only"> (opens Actor details in a new tab)</span>
                             </>
                           ) : null}
                         </Link>
-                        <p className="text-muted-foreground truncate font-mono text-[10px]">
+                        <p className="truncate font-mono text-[10px] text-muted-foreground">
                           {row.slug}
                         </p>
                       </div>
@@ -1546,7 +1380,9 @@ export function FinancialAnalyticsPage({
                                   <Delta
                                     current={row.netProfitUsd}
                                     previous={
-                                      tableView === "total" ? row.previousNetProfitUsd : null
+                                      compare && tableView === "total"
+                                        ? row.previousNetProfitUsd
+                                        : null
                                     }
                                   />
                                 </dd>
@@ -1573,7 +1409,9 @@ export function FinancialAnalyticsPage({
                               {row.runs}
                               <Delta
                                 current={row.runs}
-                                previous={tableView === "total" ? row.previousRuns : null}
+                                previous={
+                                  compare && tableView === "total" ? row.previousRuns : null
+                                }
                               />
                             </dd>
                           </div>
@@ -1654,7 +1492,7 @@ export function FinancialAnalyticsPage({
                       )}
                     </tr>
                   </thead>
-                  <tbody className="divide-border divide-y">
+                  <tbody className="divide-y divide-border">
                     {visibleRows.map((row) => (
                       <tr key={row.key}>
                         {tableView !== "total" && kind !== "revenue" ? (
@@ -1665,19 +1503,19 @@ export function FinancialAnalyticsPage({
                         <td className="px-4 py-3">
                           <Link
                             href={`${actorHrefPrefix}/${row.actorId}`}
-                            className="hover:text-signal-blue inline-flex items-center gap-1.5 font-semibold"
+                            className="inline-flex items-center gap-1.5 font-semibold hover:text-signal-blue"
                             target={kind === "revenue" ? "_blank" : undefined}
                             rel={kind === "revenue" ? "noreferrer" : undefined}
                           >
                             {row.name}
                             {kind === "revenue" ? (
                               <>
-                                <ExternalLink className="text-muted-foreground h-3 w-3 shrink-0" />
+                                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
                                 <span className="sr-only">(opens Actor details in a new tab)</span>
                               </>
                             ) : null}
                           </Link>
-                          <p className="text-muted-foreground mt-0.5 font-mono text-[10px]">
+                          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                             {row.slug}
                           </p>
                         </td>
@@ -1686,10 +1524,10 @@ export function FinancialAnalyticsPage({
                             <td className="px-3 py-3 text-right font-mono">
                               {row.runs.toLocaleString("en-US")}
                             </td>
-                            <td className="text-signal-green px-3 py-3 text-right font-mono">
+                            <td className="px-3 py-3 text-right font-mono text-signal-green">
                               {row.successfulRuns.toLocaleString("en-US")}
                             </td>
-                            <td className="text-signal-orange px-3 py-3 text-right font-mono">
+                            <td className="px-3 py-3 text-right font-mono text-signal-orange">
                               {row.failedRuns.toLocaleString("en-US")}
                             </td>
                             <td className="px-3 py-3 text-right font-mono">
@@ -1724,7 +1562,11 @@ export function FinancialAnalyticsPage({
                                     : money.format(row.revenueUsd)}
                                   <Delta
                                     current={row.revenueUsd}
-                                    previous={tableView === "total" ? row.previousRevenueUsd : null}
+                                    previous={
+                                      compare && tableView === "total"
+                                        ? row.previousRevenueUsd
+                                        : null
+                                    }
                                   />
                                 </td>
                                 <td className="px-3 py-3 text-right font-mono">
@@ -1734,7 +1576,9 @@ export function FinancialAnalyticsPage({
                                   <Delta
                                     current={row.netProfitUsd}
                                     previous={
-                                      tableView === "total" ? row.previousNetProfitUsd : null
+                                      compare && tableView === "total"
+                                        ? row.previousNetProfitUsd
+                                        : null
                                     }
                                   />
                                 </td>
@@ -1748,7 +1592,9 @@ export function FinancialAnalyticsPage({
                               {kind === "revenue" ? (
                                 <Delta
                                   current={row.runs}
-                                  previous={tableView === "total" ? row.previousRuns : null}
+                                  previous={
+                                    compare && tableView === "total" ? row.previousRuns : null
+                                  }
                                 />
                               ) : null}
                             </td>
@@ -1770,13 +1616,13 @@ export function FinancialAnalyticsPage({
               <Pagination
                 page={safePage}
                 pageSize={pageSize}
-                total={sortedRows.length}
+                total={rowCount}
                 onPageChange={setPage}
                 onPageSizeChange={setPageSize}
               />
             </>
           ) : (
-            <div className="text-muted-foreground flex h-48 items-center justify-center rounded-sm border border-dashed px-6 text-center text-sm">
+            <div className="flex h-48 items-center justify-center rounded-sm border border-dashed px-6 text-center text-sm text-muted-foreground">
               No Actors match this scope.
             </div>
           )}

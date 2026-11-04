@@ -25,6 +25,7 @@ import {
 } from "@actorconsole/shared/workspace-access";
 import { WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
 import { WorkspaceAccessContext } from "./workspace-access-context";
+import { WorkspaceApifyConnectionProvider } from "./workspace-apify-connection-context";
 import { WorkspaceUpgradeScreen } from "./workspace-upgrade-screen";
 import type { MimicStatus } from "@/lib/impersonation";
 import { isAllWorkspacesPath } from "@actorconsole/shared/default-dashboard";
@@ -70,8 +71,7 @@ export function DashboardShell({
       const controller = new AbortController();
       controllerRef.current = controller;
       const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)]);
-      const isCurrentRequest = () =>
-        !controller.signal.aborted && request === requestRef.current;
+      const isCurrentRequest = () => !controller.signal.aborted && request === requestRef.current;
       if (includeAccess) setAccessLoading(true);
 
       // Notification badges are optional. Commit access as soon as it arrives
@@ -180,48 +180,50 @@ export function DashboardShell({
     <WorkspaceAccessContext.Provider
       value={{ access, loading: accessLoading, error: accessError, refresh: loadNavigationStatus }}
     >
-      <div className="app-shell bg-background flex min-h-dvh w-full min-w-0">
-        <DashboardSidebar
-          mobileOpen={sidebarOpen}
-          onMobileClose={() => setSidebarOpen(false)}
-          workspacePlan={workspacePlan}
-          workspaceId={activeWorkspaceId}
-          workspaceUsage={access?.usage ?? null}
-          workspaceRestricted={workspaceRestricted}
-          navigationStatus={navigationStatus}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="bg-background sticky top-0 z-30">
-            <ImpersonationBanner status={mimicStatus} />
-            <DashboardTopbar
-              onMenuToggle={() => setSidebarOpen(true)}
-              onCmdK={() => setCmdOpen(true)}
-              unreadNotifications={Number(navigationStatus.unreadNotifications) || 0}
-            />
+      <WorkspaceApifyConnectionProvider workspaceId={defaultView ? null : activeWorkspaceId}>
+        <div className="app-shell flex min-h-dvh w-full min-w-0 bg-background">
+          <DashboardSidebar
+            mobileOpen={sidebarOpen}
+            onMobileClose={() => setSidebarOpen(false)}
+            workspacePlan={workspacePlan}
+            workspaceId={activeWorkspaceId}
+            workspaceUsage={access?.usage ?? null}
+            workspaceRestricted={workspaceRestricted}
+            navigationStatus={navigationStatus}
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="sticky top-0 z-30 bg-background">
+              <ImpersonationBanner status={mimicStatus} />
+              <DashboardTopbar
+                onMenuToggle={() => setSidebarOpen(true)}
+                onCmdK={() => setCmdOpen(true)}
+                unreadNotifications={Number(navigationStatus.unreadNotifications) || 0}
+              />
+            </div>
+            <AnnouncementBanner />
+            <PolicyAcceptanceBanner />
+            {!defaultView && <WorkspaceApifyConnectionBanner workspaceId={activeWorkspaceId} />}
+            {!defaultView && (
+              <WorkspaceDataRefresher
+                workspaceId={activeWorkspaceId}
+                disabled={workspaceRestricted}
+              />
+            )}
+            <main className="blueprint-surface app-shell-main relative min-w-0 flex-1 bg-muted/25">
+              <div className="bg-signal-blue/35 pointer-events-none absolute inset-x-0 top-0 h-px" />
+              <div className="app-shell-content-container py-4 sm:py-6 lg:py-8">{content}</div>
+            </main>
           </div>
-          <AnnouncementBanner />
-          <PolicyAcceptanceBanner />
-          {!defaultView && <WorkspaceApifyConnectionBanner workspaceId={activeWorkspaceId} />}
           {!defaultView && (
-            <WorkspaceDataRefresher
-              workspaceId={activeWorkspaceId}
-              disabled={workspaceRestricted}
+            <CommandPalette
+              open={cmdOpen}
+              onClose={() => setCmdOpen(false)}
+              workspacePlan={workspacePlan ?? "FREE"}
+              workspaceRestricted={workspaceRestricted}
             />
           )}
-          <main className="blueprint-surface app-shell-main bg-muted/25 relative min-w-0 flex-1">
-            <div className="bg-signal-blue/35 pointer-events-none absolute inset-x-0 top-0 h-px" />
-            <div className="app-shell-content-container py-4 sm:py-6 lg:py-8">{content}</div>
-          </main>
         </div>
-        {!defaultView && (
-          <CommandPalette
-            open={cmdOpen}
-            onClose={() => setCmdOpen(false)}
-            workspacePlan={workspacePlan ?? "FREE"}
-            workspaceRestricted={workspaceRestricted}
-          />
-        )}
-      </div>
+      </WorkspaceApifyConnectionProvider>
     </WorkspaceAccessContext.Provider>
   );
 }

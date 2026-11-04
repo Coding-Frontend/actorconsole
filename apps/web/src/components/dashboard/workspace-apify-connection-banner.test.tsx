@@ -3,7 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
 const mocks = vi.hoisted(() => ({ pathname: "/dashboard/keywords" }));
 vi.mock("next/navigation", () => ({ usePathname: () => mocks.pathname }));
-import { WorkspaceApifyConnectionBanner } from "./workspace-apify-connection-banner";
+import { WorkspaceApifyConnectionBanner as Banner } from "./workspace-apify-connection-banner";
+import { WorkspaceApifyConnectionProvider } from "./workspace-apify-connection-context";
+function WorkspaceApifyConnectionBanner({ workspaceId }: { workspaceId: string }) {
+  return (
+    <WorkspaceApifyConnectionProvider workspaceId={workspaceId}>
+      <Banner workspaceId={workspaceId} />
+    </WorkspaceApifyConnectionProvider>
+  );
+}
 
 const statusResponse = (data: object) => new Response(JSON.stringify({ data }));
 beforeEach(() => {

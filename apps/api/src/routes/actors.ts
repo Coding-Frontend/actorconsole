@@ -43,6 +43,10 @@ import {
   assertApiKeyUnscoped,
 } from "../middleware/api-key-scope.js";
 import { loadWorkspaceFinancialReport } from "../lib/financial-report.js";
+import {
+  loadFinancialDashboardSummary,
+  loadFinancialDashboardTable,
+} from "../lib/financial-dashboard.js";
 import { businessProfileScope } from "../lib/business-profile.js";
 import type { AppEnv } from "../app.js";
 
@@ -698,6 +702,23 @@ export const actorRoutes: Hono<AppEnv> = new Hono<AppEnv>()
   .get(
     "/usage-costs",
     (financialReportHandler = async (c) => {
+      const kind = c.req.path.split("/").at(-1);
+      if (kind === "usage" || kind === "costs" || kind === "revenue") {
+        const format = c.req.query("format");
+        if (format === "summary" || format === "table") {
+          const options = {
+            session: c.get("session"),
+            kind,
+            query: (key: string) => c.req.query(key),
+            requestId: c.req.header("x-request-id") ?? null,
+          } satisfies Parameters<typeof loadFinancialDashboardSummary>[0];
+          return c.json(
+            await (format === "summary"
+              ? loadFinancialDashboardSummary(options)
+              : loadFinancialDashboardTable(options)),
+          );
+        }
+      }
       return c.json(
         await loadWorkspaceFinancialReport({
           session: c.get("session"),
