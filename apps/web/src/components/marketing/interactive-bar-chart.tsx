@@ -1,7 +1,7 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 
 export type InteractiveBarPoint = {
   date: string;
@@ -40,11 +40,7 @@ export function InteractiveBarChart({
   ] as const;
 
   return (
-    <div
-      className="min-h-64 w-full border border-border bg-muted/10 p-2 sm:p-3"
-      role="img"
-      aria-label={`${label} by UTC day. Hover or focus the chart to inspect each value.`}
-    >
+    <div className="min-h-64 w-full border border-border bg-muted/10 p-2 sm:p-3">
       <ChartFrame
         ariaLabel={`${label} by UTC day`}
         series={series}
@@ -53,64 +49,22 @@ export function InteractiveBarChart({
         options={{ showSeriesControls: false, compact: true }}
         chartClassName="h-56 min-w-0"
       >
-        {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 12, right: 8, bottom: 0, left: -18 }}>
-              <CartesianGrid
-                stroke="hsl(var(--border))"
-                strokeDasharray="3 5"
-                vertical={false}
-                opacity={0.65}
-              />
-              <XAxis
-                dataKey="date"
-                hide={!axisLabelsVisible}
-                axisLine={false}
-                tickLine={false}
-                minTickGap={26}
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-                tickFormatter={formatDate}
-              />
-              <YAxis
-                hide={!axisLabelsVisible}
-                allowDecimals={false}
-                axisLine={false}
-                tickLine={false}
-                width={54}
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-                tickFormatter={compact}
-              />
-              <Tooltip
-                cursor={{ fill: "hsl(var(--accent))", opacity: 0.35 }}
-                content={
-                  <ChartTooltip
-                    series={series}
-                    labelFormatter={(value) => {
-                      const coverage = data.find((point) => point.date === String(value))?.coverage;
-                      const partial = coverage && coverage.known < coverage.total;
-                      return `${formatLongDate(String(value))}${partial ? ` · Partial: ${coverage.known}/${coverage.total} Actors` : ""}`;
-                    }}
-                  />
-                }
-              />
-              <Bar
-                dataKey="value"
-                name={label}
-                hide={!visibleSeries.has("value")}
-                fill={toneColors[tone]}
-                maxBarSize={44}
-                // Keep captured zeros visible without drawing bars for missing days.
-                minPointSize={(_value, index) => (data[index]?.value == null ? 0 : 3)}
-                radius={[3, 3, 0, 0]}
-                label={
-                  dataLabelsVisible
-                    ? { fill: "var(--color-foreground)", fontSize: 10, position: "top" }
-                    : false
-                }
-                isAnimationActive={false}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+        {(state) => (
+          <ChartJsChart
+            ariaLabel={`${label} by UTC day. Hover or focus the chart to inspect each value.`}
+            data={data}
+            xKey="date"
+            series={series.map((item) => ({ ...item, minBarLength: 3 }))}
+            type="bar"
+            state={state}
+            xLabelFormatter={formatDate}
+            yAxis={{ formatValue: compact, integer: true }}
+            tooltipTitle={(point) => {
+              const coverage = point.coverage;
+              const partial = coverage && coverage.known < coverage.total;
+              return `${formatLongDate(point.date)}${partial ? ` · Partial: ${coverage.known}/${coverage.total} Actors` : ""}`;
+            }}
+          />
         )}
       </ChartFrame>
     </div>

@@ -1,17 +1,8 @@
-import type { ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ObservedMetricBarChart } from "./observed-metric-bar-chart";
 
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-}));
+vi.mock("@/components/charts/chartjs-chart", () => ({ ChartJsChart: () => null }));
 
 afterEach(cleanup);
 

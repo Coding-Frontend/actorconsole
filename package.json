@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:coverage": "node scripts/test-coverage.mjs",
     "test:e2e": "playwright test",
+    "test:charts": "playwright test --config e2e/charts.config.ts",
     "test:e2e:launch": "node scripts/run-e2e.mjs",
     "db:generate": "dotenv -e .env -- pnpm --filter @actorconsole/db generate",
     "db:push": "dotenv -e .env -- pnpm --filter @actorconsole/db push",

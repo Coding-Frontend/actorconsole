@@ -1,20 +1,21 @@
-import { cloneElement, type ReactElement } from "react";
 import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InteractiveBarChart } from "./interactive-bar-chart";
+import { MockChart } from "../../../test/chartjs-mock";
 
-vi.mock("recharts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("recharts")>()),
-  // Give the real chart a fixed viewport without depending on layout in the DOM shim.
-  ResponsiveContainer: ({ children }: { children: ReactElement<{ width: number; height: number }> }) =>
-    cloneElement(children, { width: 600, height: 240 }),
+vi.mock("chart.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("chart.js")>()),
+  Chart: (await import("../../../test/chartjs-mock")).MockChart,
 }));
 
+beforeEach(() => {
+  MockChart.instances.length = 0;
+});
 afterEach(cleanup);
 
 describe("observed bar rendering", () => {
   it("leaves missing observations empty while keeping a captured zero visible", () => {
-    const { container } = render(
+    render(
       <InteractiveBarChart
         label="Active users / 30d"
         tone="blue"
@@ -27,9 +28,9 @@ describe("observed bar rendering", () => {
       />,
     );
 
-    const bars = container.querySelectorAll(".recharts-bar-rectangle path");
-    expect(bars).toHaveLength(2);
-    expect(Number(bars[0]!.getAttribute("height"))).toBe(3);
-    expect(Number(bars[1]!.getAttribute("height"))).toBeGreaterThan(3);
+    const dataset = MockChart.instances[0]!.data.datasets[0]!;
+    expect(dataset.data).toEqual([null, null, 0, 10]);
+    expect(dataset.type).toBe("bar");
+    if (dataset.type === "bar") expect(dataset.minBarLength).toBe(3);
   });
 });

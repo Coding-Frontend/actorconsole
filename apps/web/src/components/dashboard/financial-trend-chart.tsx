@@ -2,25 +2,9 @@
 
 import { useId, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
 import { RotateCcw, SlidersHorizontal } from "lucide-react";
-import {
-  ChartFrame,
-  ChartTooltip,
-  type ChartSeriesDefinition,
-} from "@/components/charts/chart-system";
+import { ChartFrame, type ChartSeriesDefinition } from "@/components/charts/chart-system";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -198,7 +182,6 @@ export function FinancialTrendChart({
     Number(showValues);
   const selectClass =
     "border-input bg-background text-foreground focus-visible:ring-ring h-10 w-full min-w-0 rounded-md border px-3 text-sm focus-visible:outline-none focus-visible:ring-2";
-  const tickColor = "var(--color-muted-foreground)";
   const axisValue = (value: number) =>
     kind === "usage"
       ? new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(
@@ -207,47 +190,6 @@ export function FinancialTrendChart({
       : Math.abs(value) >= 1000
         ? `$${new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value)}`
         : formatFinancialTrendValue(value, kind);
-  const axes = [
-    <CartesianGrid
-      key="grid"
-      vertical={false}
-      stroke="hsl(var(--border) / 0.55)"
-      strokeDasharray="3 3"
-    />,
-    <XAxis
-      key="dates"
-      dataKey="period"
-      tickFormatter={(value) => financialTrendPeriodLabel(String(value), granularity)}
-      tick={{ fontSize: 12, fill: tickColor }}
-      tickLine={false}
-      axisLine={false}
-      minTickGap={32}
-      interval="preserveStartEnd"
-      tickMargin={10}
-    />,
-    <YAxis
-      key="values"
-      width={kind === "usage" ? 48 : 76}
-      tick={{ fontSize: 12, fill: tickColor }}
-      tickLine={false}
-      axisLine={false}
-      tickFormatter={axisValue}
-      allowDecimals={kind !== "usage"}
-    />,
-    <Tooltip
-      key="tooltip"
-      content={
-        <ChartTooltip
-          series={series}
-          labelFormatter={(label) =>
-            `${financialTrendPeriodLabel(String(label), granularity, true)} · UTC${mode === "cumulative" ? " · Running total" : ""}`
-          }
-        />
-      }
-      cursor={{ stroke: tickColor, strokeDasharray: "3 3", fill: "hsl(var(--muted) / 0.35)" }}
-    />,
-    <ReferenceLine key="baseline" y={0} stroke="hsl(var(--border))" />,
-  ];
   function resetChart() {
     setView("0");
     setStyle(kind === "usage" ? "line" : "bar");
@@ -259,7 +201,7 @@ export function FinancialTrendChart({
       <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
         <div className="min-w-0">
           <CardTitle>{title}</CardTitle>
-          <p className="text-muted-foreground mt-2 text-sm">
+          <p className="mt-2 text-sm text-muted-foreground">
             {granularity === "day" ? "Daily" : granularity === "week" ? "Weekly" : "Monthly"}
             {mode === "cumulative" ? " running total" : " totals"}
             {" · "}
@@ -297,7 +239,7 @@ export function FinancialTrendChart({
               <Popover.Content
                 align="end"
                 sideOffset={8}
-                className="border-border bg-popover text-popover-foreground z-50 max-h-[min(38rem,80dvh)] w-[min(22rem,calc(100vw-2rem))] space-y-4 overflow-y-auto rounded-md border p-5 shadow-lg"
+                className="z-50 max-h-[min(38rem,80dvh)] w-[min(22rem,calc(100vw-2rem))] space-y-4 overflow-y-auto rounded-md border border-border bg-popover p-5 text-popover-foreground shadow-lg"
               >
                 <h3 className="text-base font-semibold">Chart settings</h3>
                 <fieldset className="space-y-2">
@@ -306,7 +248,7 @@ export function FinancialTrendChart({
                     <label key={key} className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
-                        className="accent-signal-blue h-4 w-4"
+                        className="h-4 w-4 accent-signal-blue"
                         checked={choice.keys.includes(key)}
                         disabled={choice.keys.length === 1 && choice.keys.includes(key)}
                         onChange={(event) => {
@@ -321,7 +263,7 @@ export function FinancialTrendChart({
                       {definitions[key].label}
                     </label>
                   ))}
-                  <p className="text-muted-foreground text-xs">
+                  <p className="text-xs text-muted-foreground">
                     Keep at least one metric selected.
                   </p>
                 </fieldset>
@@ -358,7 +300,7 @@ export function FinancialTrendChart({
                     <option value="absolute">Total for each period</option>
                     <option value="cumulative">Running total</option>
                   </select>
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-xs text-muted-foreground">
                     Running total adds each period to the periods before it.
                   </span>
                 </label>
@@ -388,7 +330,7 @@ export function FinancialTrendChart({
                     />
                   </label>
                   {!labelsAllowed && (
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-xs text-muted-foreground">
                       Use a shorter range or group by week/month to keep values readable. Exact
                       values are always available below.
                     </p>
@@ -408,7 +350,7 @@ export function FinancialTrendChart({
                     aria-label="Compare summaries with previous period"
                   />
                 </label>
-                <div className="border-border space-y-2 border-t pt-4">
+                <div className="space-y-2 border-t border-border pt-4">
                   <label htmlFor={`${id}-inspect`} className="grid gap-1.5 text-sm">
                     Inspect Actors on a date
                     <Input
@@ -421,7 +363,7 @@ export function FinancialTrendChart({
                       aria-label="Inspect one UTC date"
                     />
                   </label>
-                  <p className="text-muted-foreground text-xs">
+                  <p className="text-xs text-muted-foreground">
                     Filters the Actor table below. Dates use UTC.
                   </p>
                   {selectedDay && (
@@ -439,7 +381,7 @@ export function FinancialTrendChart({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground mb-4 max-w-[75ch] text-sm leading-6">
+        <p className="mb-4 max-w-[75ch] text-sm leading-6 text-muted-foreground">
           {choice.description}
         </p>
         <div
@@ -467,99 +409,43 @@ export function FinancialTrendChart({
           chartClassName="h-[280px] min-w-0 sm:h-[330px]"
         >
           {() => (
-            <ResponsiveContainer width="100%" height="100%" debounce={0}>
-              {style === "line" ? (
-                <LineChart
-                  data={points}
-                  accessibilityLayer
-                  margin={{ top: 20, right: 16, bottom: 12, left: 0 }}
-                >
-                  {axes}
-                  {series.map((item) => (
-                    <Line
-                      key={item.key}
-                      dataKey={item.key}
-                      name={item.label}
-                      stroke={item.color}
-                      strokeWidth={2}
-                      strokeDasharray={
-                        series.length > 1 && item.key === series[1]?.key ? "5 3" : undefined
-                      }
-                      dot={points.length <= 14 ? { r: 3 } : false}
-                      activeDot={{ r: 5 }}
-                      connectNulls={false}
-                      isAnimationActive={false}
-                    >
-                      {showValues && labelsAllowed && (
-                        <LabelList
-                          position="top"
-                          fill="var(--color-foreground)"
-                          fontSize={11}
-                          dataKey={item.key}
-                          formatter={(value: unknown) =>
-                            value == null
-                              ? ""
-                              : formatFinancialTrendValue(
-                                  typeof value === "number" ? value : null,
-                                  kind,
-                                )
-                          }
-                        />
-                      )}
-                    </Line>
-                  ))}
-                </LineChart>
-              ) : (
-                <BarChart
-                  data={points}
-                  accessibilityLayer
-                  margin={{ top: 20, right: 16, bottom: 12, left: 0 }}
-                >
-                  {axes}
-                  {series.map((item) => (
-                    <Bar
-                      key={item.key}
-                      dataKey={item.key}
-                      name={item.label}
-                      fill={item.color}
-                      radius={[2, 2, 0, 0]}
-                      maxBarSize={48}
-                      isAnimationActive={false}
-                    >
-                      {showValues && labelsAllowed && (
-                        <LabelList
-                          position="top"
-                          fill="var(--color-foreground)"
-                          fontSize={11}
-                          dataKey={item.key}
-                          formatter={(value: unknown) =>
-                            value == null
-                              ? ""
-                              : formatFinancialTrendValue(
-                                  typeof value === "number" ? value : null,
-                                  kind,
-                                )
-                          }
-                        />
-                      )}
-                    </Bar>
-                  ))}
-                </BarChart>
-              )}
-            </ResponsiveContainer>
+            <ChartJsChart
+              ariaLabel={chartLabel}
+              data={points}
+              xKey="period"
+              series={series.map((item, index) => ({
+                ...item,
+                dashed: index === 1,
+                pointRadius: points.length <= 14 ? 3 : 0,
+                maxBarThickness: 48,
+              }))}
+              type={style}
+              showDataLabels={showValues && labelsAllowed}
+              xLabelFormatter={(value) => financialTrendPeriodLabel(value, granularity)}
+              tooltipTitle={(point) =>
+                `${financialTrendPeriodLabel(point.period, granularity, true)} · UTC${mode === "cumulative" ? " · Running total" : ""}`
+              }
+              yAxis={{ formatValue: axisValue, integer: kind === "usage" }}
+              selectedIndex={
+                selectedDay ? points.findIndex((point) => point.period === selectedDay) : undefined
+              }
+              onSelect={
+                granularity === "day" ? (index) => onInspectDay(points[index]!.period) : undefined
+              }
+            />
           )}
         </ChartFrame>
-        <p className="text-muted-foreground mt-3 text-xs leading-5">
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
           Hover or tap for exact values. Use left and right arrow keys when the chart is focused.
           Missing values are not zero.
         </p>
-        <details className="border-border mt-5 border-t pt-4">
-          <summary className="focus-visible:ring-ring w-fit cursor-pointer rounded-sm text-sm font-medium focus-visible:outline-none focus-visible:ring-2">
+        <details className="mt-5 border-t border-border pt-4">
+          <summary className="w-fit cursor-pointer rounded-sm text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             View exact values
           </summary>
           <div className="mt-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 {points.length.toLocaleString()} periods ·{" "}
                 {mode === "cumulative" ? "Running totals" : "Totals per period"} · UTC
               </p>
@@ -585,12 +471,12 @@ export function FinancialTrendChart({
                 Download chart data
               </Button>
             </div>
-            <div className="border-border max-h-80 overflow-auto rounded-sm border">
+            <div className="max-h-80 overflow-auto rounded-sm border border-border">
               <table className="w-full text-left text-sm">
                 <caption className="sr-only">
                   Exact values for {choice.label}, {from} to {to} UTC
                 </caption>
-                <thead className="bg-muted sticky top-0">
+                <thead className="sticky top-0 bg-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-medium">
                       Period (UTC)
@@ -603,7 +489,7 @@ export function FinancialTrendChart({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-border divide-y">
+                <tbody className="divide-y divide-border">
                   {points.map((point) => (
                     <tr key={point.period}>
                       <th scope="row" className="whitespace-nowrap px-4 py-3 font-normal">

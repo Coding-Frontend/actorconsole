@@ -1,18 +1,9 @@
-import type { ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ActorQualityPanel, ActorRevenuePerformance } from "./actor-owner-analytics";
 import { persistedOwnerAnalyticsFromSnapshots } from "./actor-owner-analytics-data";
 
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AreaChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Area: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-}));
+vi.mock("@/components/charts/chartjs-chart", () => ({ ChartJsChart: () => null }));
 
 describe("Actor revenue performance", () => {
   afterEach(cleanup);
