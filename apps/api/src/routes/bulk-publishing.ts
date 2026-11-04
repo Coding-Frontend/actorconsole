@@ -58,7 +58,7 @@ const scheduleUpdateSchema = scheduleInputSchema
 
 function nextCronDate(cronExpr: string) {
   try {
-    return CronExpressionParser.parse(cronExpr, { utc: true }).next().toDate();
+    return CronExpressionParser.parse(cronExpr, { tz: "UTC" }).next().toDate();
   } catch {
     throw new AppError("invalid_cron", "Invalid cron expression", 400);
   }

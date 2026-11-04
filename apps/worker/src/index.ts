@@ -243,7 +243,7 @@ function jsonObject(value: unknown): Record<string, unknown> | null {
 
 function nextBulkPublishRun(cronExpr: string) {
   try {
-    return CronExpressionParser.parse(cronExpr, { utc: true }).next().toDate();
+    return CronExpressionParser.parse(cronExpr, { tz: "UTC" }).next().toDate();
   } catch {
     return null;
   }
