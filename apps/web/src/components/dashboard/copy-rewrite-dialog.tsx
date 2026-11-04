@@ -105,10 +105,11 @@ export function CopyRewriteDialog({ open, onOpenChange, apifyActorId, onChanged 
           body: "{}",
         },
       );
-      const body = await response.json();
+      const body = await response.json().catch(() => null);
       if (controller.signal.aborted || generation.current !== version) return;
-      if (!response.ok) throw new Error(body?.error?.message ?? "Could not generate copy");
-      if (!Array.isArray(body.data?.variants) || !body.data?.currentCopy)
+      if (!response.ok)
+        throw new Error(body?.error?.message ?? "Copy generation could not finish. Please try again.");
+      if (!Array.isArray(body?.data?.variants) || !body?.data?.currentCopy)
         throw new Error("Could not load the current listing for review. Generate fresh variants.");
       setVariants(body.data.variants);
       setCurrent(body.data.currentCopy);
