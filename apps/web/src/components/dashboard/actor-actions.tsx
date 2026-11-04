@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/input";
 
 interface PricingEvent {
   eventPriceUsd?: number;
+  eventTieredPricingUsd?: Record<string, { tieredEventPriceUsd?: number }>;
   eventTitle?: string;
   eventDescription?: string;
   isOneTimeEvent?: boolean;

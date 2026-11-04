@@ -135,6 +135,10 @@ describe("ActorActions", () => {
       method: init?.method ?? "GET",
     }));
     expect(requests).toContainEqual({
+      path: expect.stringMatching(/\/actors\/apify-id\/pricing$/),
+      method: "GET",
+    });
+    expect(requests).toContainEqual({
       path: expect.stringMatching(/\/actors\/apify-id\/pricing\/recommendation$/),
       method: "GET",
     });

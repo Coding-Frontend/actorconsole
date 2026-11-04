@@ -351,6 +351,10 @@ describe("ActorsWorkspace", () => {
 
   it("replaces a local preview with the verified thumbnail immediately after applying a logo", async () => {
     let applied = false;
+    let finishReviewRefresh!: () => void;
+    const reviewRefresh = new Promise<void>((resolve) => {
+      finishReviewRefresh = resolve;
+    });
     const pictureUrl = "https://images.apify.com/verified.webp";
     vi.stubGlobal(
       "fetch",
@@ -366,6 +370,7 @@ describe("ActorsWorkspace", () => {
           return new Response(JSON.stringify({ ok: true, data: { pictureUrl } }));
         }
         if (url.includes("/logo-recommendations")) {
+          if (applied) await reviewRefresh;
           return new Response(
             JSON.stringify({
               data: {
@@ -450,7 +455,11 @@ describe("ActorsWorkspace", () => {
       ).toBe(pictureUrl),
     );
     expect(screen.queryByText("Local preview")).toBeNull();
-    expect(screen.queryByRole("checkbox", { name: "Select Maps for logo review" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Select Maps for logo review" })).toBeTruthy();
+    finishReviewRefresh();
+    await waitFor(() =>
+      expect(screen.queryByRole("checkbox", { name: "Select Maps for logo review" })).toBeNull(),
+    );
   });
 
   it("clears selected Actors when the active workspace changes", async () => {
