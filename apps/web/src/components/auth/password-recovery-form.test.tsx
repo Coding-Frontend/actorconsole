@@ -27,7 +27,7 @@ describe("password recovery", () => {
       fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
       expect((await screen.findByRole("alert")).textContent).toContain(message);
       expect(screen.queryByLabelText("Reset code")).toBeNull();
-      expect(document.activeElement).toBe(screen.getByRole("alert"));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("alert")));
     }
     fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
     await screen.findByLabelText("Reset code");
