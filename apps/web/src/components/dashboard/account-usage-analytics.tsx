@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChartFrame, ChartTooltip, formatChartValue } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame, formatChartValue } from "@/components/charts/chart-system";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ServiceUsage {
@@ -83,7 +75,7 @@ export function AccountUsageAnalytics({
       <Card className="min-w-0">
         <CardHeader>
           <CardTitle className="text-sm">Account cost history</CardTitle>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             Monthly Apify service charges from the connected account.
           </p>
         </CardHeader>
@@ -96,56 +88,16 @@ export function AccountUsageAnalytics({
             options={{ showSeriesControls: false, compact: true }}
             chartClassName="h-72 min-w-0"
           >
-            {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyPoints} margin={{ top: 8, right: 6, left: -8, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="accountCostFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-signal-orange)" stopOpacity={0.28} />
-                      <stop
-                        offset="100%"
-                        stopColor="var(--color-signal-orange)"
-                        stopOpacity={0.02}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    vertical={false}
-                    stroke="var(--color-border)"
-                    strokeOpacity={0.5}
-                  />
-                  <XAxis
-                    dataKey="label"
-                    hide={!axisLabelsVisible}
-                    axisLine={false}
-                    tickLine={false}
-                    minTickGap={28}
-                    tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                  />
-                  <YAxis
-                    hide={!axisLabelsVisible}
-                    axisLine={false}
-                    tickLine={false}
-                    width={54}
-                    tickFormatter={(value) => formatChartValue(Number(value), { unit: "currency" })}
-                    tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                  />
-                  <Tooltip content={<ChartTooltip series={ACCOUNT_COST_SERIES} />} />
-                  <Area
-                    type="monotone"
-                    dataKey="cost"
-                    name="Usage cost"
-                    hide={!visibleSeries.has("cost")}
-                    stroke="var(--color-signal-orange)"
-                    fill="url(#accountCostFill)"
-                    strokeWidth={2}
-                    label={
-                      dataLabelsVisible ? { fill: "var(--color-foreground)", fontSize: 10 } : false
-                    }
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            {(state) => (
+              <ChartJsChart
+                ariaLabel="Monthly account usage cost history"
+                data={monthlyPoints}
+                xKey="label"
+                series={ACCOUNT_COST_SERIES}
+                type="area"
+                state={state}
+                yAxis={{ formatValue: (value) => formatChartValue(value, { unit: "currency" }) }}
+              />
             )}
           </ChartFrame>
         </CardContent>
@@ -153,11 +105,11 @@ export function AccountUsageAnalytics({
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Current billing-cycle services</CardTitle>
-          <p className="text-muted-foreground text-xs">Highest-cost service categories first.</p>
+          <p className="text-xs text-muted-foreground">Highest-cost service categories first.</p>
         </CardHeader>
         <CardContent>
           {services.length ? (
-            <div className="divide-border divide-y">
+            <div className="divide-y divide-border">
               {services.slice(0, 8).map((service) => (
                 <div
                   key={service.key}
@@ -165,7 +117,7 @@ export function AccountUsageAnalytics({
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium">{labelForService(service.key)}</p>
-                    <p className="text-muted-foreground text-xs tabular-nums">
+                    <p className="text-xs tabular-nums text-muted-foreground">
                       {service.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}{" "}
                       units
                     </p>
@@ -175,7 +127,7 @@ export function AccountUsageAnalytics({
               ))}
             </div>
           ) : (
-            <div className="text-muted-foreground flex h-56 items-center justify-center rounded-md border border-dashed px-6 text-center text-sm">
+            <div className="flex h-56 items-center justify-center rounded-md border border-dashed px-6 text-center text-sm text-muted-foreground">
               No current service usage was returned.
             </div>
           )}

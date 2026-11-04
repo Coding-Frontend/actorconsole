@@ -1,16 +1,10 @@
-import type { ReactNode } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InteractiveBarChart } from "./interactive-bar-chart";
 
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Bar: ({ name }: { name: string }) => <div data-testid="interactive-series">{name}</div>,
-  CartesianGrid: () => null,
-  Tooltip: () => <div data-testid="interactive-tooltip" />,
-  XAxis: () => null,
-  YAxis: () => null,
+vi.mock("chart.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("chart.js")>()),
+  Chart: (await import("../../../test/chartjs-mock")).MockChart,
 }));
 
 afterEach(cleanup);
@@ -23,13 +17,14 @@ describe("InteractiveBarChart", () => {
         tone="blue"
         points={[
           { date: "2026-08-21", value: 4 },
-          { date: "2026-08-22", value: 7 },
+          { date: "2026-08-22", value: 7, coverage: { known: 1, total: 2 } },
         ]}
       />,
     );
 
-    expect(screen.getByRole("img", { name: /active users by utc day/i })).toBeTruthy();
-    expect(screen.getByTestId("interactive-tooltip")).toBeTruthy();
-    expect(screen.getByTestId("interactive-series").textContent).toBe("Active users");
+    const canvas = screen.getByRole("img", { name: /active users by utc day/i });
+    fireEvent.focus(canvas);
+    fireEvent.keyDown(canvas, { key: "ArrowRight" });
+    expect(screen.getByText(/Partial: 1\/2 Actors\. Active users: 7/)).toBeTruthy();
   });
 });

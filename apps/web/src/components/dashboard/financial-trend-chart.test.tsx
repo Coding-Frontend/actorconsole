@@ -3,19 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ download: vi.fn(), settings: vi.fn(), inspect: vi.fn() }));
 vi.mock("@/components/intelligence/tool-actions", () => ({ downloadCsv: mocks.download }));
-// Layout is exercised in a real browser. Give Recharts a fixed size in DOM tests.
-vi.mock("recharts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("recharts")>();
-  const { cloneElement } = await import("react");
-  return {
-    ...actual,
-    ResponsiveContainer: ({
-      children,
-    }: {
-      children: React.ReactElement<{ width: number; height: number }>;
-    }) => cloneElement(children, { width: 800, height: 330 }),
-  };
-});
+// Canvas rendering is exercised separately; these tests cover financial controls.
+vi.mock("@/components/charts/chartjs-chart", () => ({ ChartJsChart: () => null }));
 import {
   FinancialTrendChart,
   financialTrendPeriodLabel,

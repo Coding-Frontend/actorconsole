@@ -1,20 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  LabelList,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { ChartFrame } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
 import { BarChart3, Table2 } from "lucide-react";
 import { earningsMoney } from "@/components/intelligence/earnings-summary";
 import {
@@ -35,14 +23,6 @@ const dateLabel = (value: string) =>
     day: "numeric",
     timeZone: "UTC",
   });
-const tooltipStyle = {
-  background: "hsl(var(--popover))",
-  border: "1px solid hsl(var(--border))",
-  borderRadius: 8,
-  color: "hsl(var(--popover-foreground))",
-  fontSize: 12,
-};
-const axisStyle = { fill: "hsl(var(--muted-foreground))", fontSize: 11 };
 
 function ChartEmpty({ children }: { children: React.ReactNode }) {
   return (
@@ -75,52 +55,32 @@ function MetricChart({
       </figcaption>
       {!table ? (
         hasData ? (
-          <div className="mt-6 h-56" aria-hidden="true">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 12, right: 6, bottom: 0, left: -14 }}>
-                <CartesianGrid stroke="hsl(var(--border))" vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="name"
-                  tick={axisStyle}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={0}
-                  tickFormatter={(name: string) =>
-                    name.length > 12 ? `${name.slice(0, 11)}…` : name
-                  }
-                />
-                <YAxis
-                  tick={axisStyle}
-                  tickFormatter={compact}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                  domain={metric === "rating" ? [0, 5] : [0, (max: number) => Math.max(1, max)]}
-                />
-                <Tooltip
-                  cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
-                  contentStyle={tooltipStyle}
-                  formatter={(value: number) => [fullNumber(value), title]}
-                />
-                <Bar
-                  dataKey="value"
-                  maxBarSize={54}
-                  radius={[4, 4, 0, 0]}
-                  isAnimationActive={false}
-                >
-                  {data.map((point) => (
-                    <Cell key={point.id} fill={point.color} />
-                  ))}
-                  <LabelList
-                    dataKey="value"
-                    position="top"
-                    fill="hsl(var(--foreground))"
-                    fontSize={11}
-                    formatter={(value: number) => compact(value)}
-                  />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="mt-6 h-56">
+            <ChartJsChart
+              ariaLabel={title}
+              data={data}
+              xKey="name"
+              series={[
+                {
+                  key: "value",
+                  label: title,
+                  color: comparisonColors[0]!,
+                  colorKey: "color",
+                  formatValue: fullNumber,
+                  dataLabelFormatter: compact,
+                  maxBarThickness: 54,
+                },
+              ]}
+              type="bar"
+              showDataLabels
+              xLabelFormatter={(name) => (name.length > 12 ? `${name.slice(0, 11)}…` : name)}
+              yAxis={{
+                formatValue: compact,
+                integer: metric !== "rating",
+                min: 0,
+                ...(metric === "rating" ? { max: 5 } : {}),
+              }}
+            />
           </div>
         ) : (
           <ChartEmpty>
@@ -175,50 +135,58 @@ function EarningsChart({ items }: { items: PublicCompareItem[] }) {
         <span className="text-xs text-muted-foreground">Fixed 30-day estimates</span>
       </figcaption>
       {hasData ? (
-        <div className="mt-6 h-64" aria-hidden="true">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 12, right: 12, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="hsl(var(--border))" vertical={false} strokeDasharray="3 3" />
-              <XAxis dataKey="name" tick={axisStyle} axisLine={false} tickLine={false} />
-              <YAxis
-                tick={axisStyle}
-                tickFormatter={(value: number) => `$${compact(value)}`}
-                axisLine={false}
-                tickLine={false}
-                domain={[0, (max: number) => Math.max(1, max)]}
+        <div className="mt-6">
+          <ChartFrame
+            ariaLabel="Monthly earnings scenarios"
+            series={[
+              { key: "low", label: "Low", color: comparisonColors[1]!, formatValue: earningsMoney },
+              {
+                key: "central",
+                label: "Central",
+                color: comparisonColors[0]!,
+                formatValue: earningsMoney,
+              },
+              {
+                key: "high",
+                label: "High",
+                color: comparisonColors[2]!,
+                formatValue: earningsMoney,
+              },
+            ]}
+            options={{ allowAxisLabels: false, allowDataLabels: false }}
+            chartClassName="h-64"
+          >
+            {(state) => (
+              <ChartJsChart
+                ariaLabel="Monthly earnings scenarios"
+                data={data}
+                xKey="name"
+                series={[
+                  {
+                    key: "low",
+                    label: "Low",
+                    color: comparisonColors[1]!,
+                    formatValue: earningsMoney,
+                  },
+                  {
+                    key: "central",
+                    label: "Central",
+                    color: comparisonColors[0]!,
+                    formatValue: earningsMoney,
+                  },
+                  {
+                    key: "high",
+                    label: "High",
+                    color: comparisonColors[2]!,
+                    formatValue: earningsMoney,
+                  },
+                ]}
+                type="bar"
+                state={state}
+                yAxis={{ formatValue: (value) => `$${compact(value)}` }}
               />
-              <Tooltip
-                cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
-                contentStyle={tooltipStyle}
-                formatter={(value: number) => earningsMoney(value)}
-              />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-              <Bar
-                name="Low"
-                dataKey="low"
-                fill={comparisonColors[1]}
-                maxBarSize={40}
-                radius={[3, 3, 0, 0]}
-                isAnimationActive={false}
-              />
-              <Bar
-                name="Central"
-                dataKey="central"
-                fill={comparisonColors[0]}
-                maxBarSize={40}
-                radius={[3, 3, 0, 0]}
-                isAnimationActive={false}
-              />
-              <Bar
-                name="High"
-                dataKey="high"
-                fill={comparisonColors[2]}
-                maxBarSize={40}
-                radius={[3, 3, 0, 0]}
-                isAnimationActive={false}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+            )}
+          </ChartFrame>
         </div>
       ) : (
         <ChartEmpty>Earnings estimates are not available for these selections.</ChartEmpty>
@@ -291,46 +259,22 @@ function HistoryChart({
         ) : null}
       </figcaption>
       {hasTrend ? (
-        <div className="mt-6 h-60" aria-hidden="true">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
-              <CartesianGrid stroke="hsl(var(--border))" vertical={false} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="date"
-                tick={axisStyle}
-                tickFormatter={dateLabel}
-                axisLine={false}
-                tickLine={false}
-                minTickGap={28}
-              />
-              <YAxis
-                tick={axisStyle}
-                tickFormatter={compact}
-                axisLine={false}
-                tickLine={false}
-                domain={[0, (max: number) => Math.max(1, max)]}
-              />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                labelFormatter={(value: string) => dateLabel(value)}
-                formatter={(value: number) => fullNumber(value)}
-              />
-              {items.map((item, index) => (
-                <Line
-                  key={item.id}
-                  name={`${item.title}${partialItems.includes(item) ? " (partial)" : ""}`}
-                  dataKey={`series${index}`}
-                  stroke={comparisonColors[index]}
-                  strokeWidth={2}
-                  type="linear"
-                  dot={{ r: 2 }}
-                  activeDot={{ r: 4 }}
-                  connectNulls={false}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="mt-6 h-60">
+          <ChartJsChart
+            ariaLabel={title}
+            data={data}
+            xKey="date"
+            series={items.map((item, index) => ({
+              key: `series${index}`,
+              label: `${item.title}${partialItems.includes(item) ? " (partial)" : ""}`,
+              color: comparisonColors[index]!,
+              pointRadius: 2,
+              formatValue: fullNumber,
+            }))}
+            xLabelFormatter={dateLabel}
+            tooltipTitle={(point) => dateLabel(String(point.date))}
+            yAxis={{ formatValue: compact, integer: true }}
+          />
         </div>
       ) : (
         <ChartEmpty>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Line, LineChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
 import { ChartFrame } from "@/components/charts/chart-system";
 import { cn } from "@/lib/utils";
 
@@ -16,14 +16,8 @@ type MiniTrendChartProps = {
   className?: string;
 };
 
-type DotProps = {
-  cx?: number;
-  cy?: number;
-  index?: number;
-};
-
 /** A deliberately quiet chart for marketing product visuals. It still uses
- * the shared Recharts frame, but keeps controls out of small decorative cards. */
+ * the shared chart frame, but keeps controls out of small decorative cards. */
 export function MiniTrendChart({
   values,
   comparisonValues,
@@ -60,83 +54,23 @@ export function MiniTrendChart({
       className={cn("h-full", className)}
       chartClassName="h-full min-w-0"
     >
-      {({ visibleSeries }) => (
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 6, right: 0, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="#26364d" strokeWidth={1} vertical={false} />
-            <XAxis dataKey="index" hide />
-            <YAxis hide domain={["auto", "auto"]} />
-            <Line
-              type="monotone"
-              dataKey="value"
-              hide={!visibleSeries.has("value")}
-              stroke={primaryColor}
-              strokeWidth={3}
-              strokeLinecap="round"
-              dot={({ cx, cy, index, key }) => (
-                <SelectableDot
-                  key={key}
-                  cx={cx}
-                  cy={cy}
-                  index={index}
-                  selectedIndex={selectedIndex}
-                  primaryColor={primaryColor}
-                  selectedColor={selectedColor}
-                />
-              )}
-              activeDot={false}
-              isAnimationActive={false}
-            />
-            {comparisonValues ? (
-              <Line
-                type="monotone"
-                dataKey="comparison"
-                hide={!visibleSeries.has("comparison")}
-                stroke={comparisonColor}
-                strokeWidth={2}
-                strokeDasharray="7 6"
-                strokeLinecap="round"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-              />
-            ) : null}
-          </LineChart>
-        </ResponsiveContainer>
+      {(state) => (
+        <ChartJsChart
+          ariaLabel={ariaLabel}
+          data={data}
+          xKey="index"
+          series={series.map((item) => ({
+            ...item,
+            dashed: item.key === "comparison",
+            pointRadius: item.key === "value" ? 3 : 0,
+          }))}
+          state={{ ...state, axisLabelsVisible: false }}
+          selectedIndex={selectedIndex}
+          selectedColor={selectedColor}
+          onSelect={onSelect}
+          yAxis={{ beginAtZero: false }}
+        />
       )}
     </ChartFrame>
   );
-
-  function SelectableDot({
-    cx,
-    cy,
-    index,
-    selectedIndex: activeIndex,
-    primaryColor: color,
-    selectedColor: activeColor,
-  }: DotProps & {
-    selectedIndex: number;
-    primaryColor: string;
-    selectedColor: string;
-  }) {
-    if (cx == null || cy == null) return null;
-    const pointIndex = index ?? -1;
-    return (
-      <circle
-        cx={cx}
-        cy={cy}
-        r={pointIndex === activeIndex ? 5 : 3}
-        fill={pointIndex === activeIndex ? activeColor : color}
-        onClick={() => onSelect?.(pointIndex)}
-        role={onSelect ? "button" : undefined}
-        tabIndex={onSelect ? 0 : undefined}
-        onKeyDown={(event) => {
-          if (onSelect && (event.key === "Enter" || event.key === " ")) {
-            event.preventDefault();
-            onSelect(pointIndex);
-          }
-        }}
-      />
-    );
-  }
 }
