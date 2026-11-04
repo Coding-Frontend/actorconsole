@@ -1,17 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Area,
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import { cn } from "@/lib/utils";
 
 interface DailyUsageCost {
@@ -151,86 +142,34 @@ export function UsageCostChart({ data, className }: UsageCostChartProps) {
           options={{ compact: true }}
           chartClassName="h-72 min-w-0"
         >
-          {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={filtered} margin={{ top: 8, right: 2, bottom: 0, left: -12 }}>
-                <defs>
-                  <linearGradient id="usageCostFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-signal-orange)" stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="var(--color-signal-orange)" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke="var(--color-border)" strokeOpacity={0.45} />
-                <XAxis
-                  dataKey="date"
-                  hide={!axisLabelsVisible}
-                  tickFormatter={formatXAxis}
-                  axisLine={false}
-                  tickLine={false}
-                  minTickGap={36}
-                  tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                />
-                <YAxis
-                  yAxisId="cost"
-                  hide={!axisLabelsVisible}
-                  axisLine={false}
-                  tickLine={false}
-                  width={52}
-                  tickFormatter={(value) => formatCurrency(Number(value))}
-                  tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                />
-                <YAxis yAxisId="runs" orientation="right" hide />
-                <Tooltip
-                  content={
-                    <ChartTooltip
-                      series={series}
-                      labelFormatter={(value) =>
-                        new Date(`${String(value)}T00:00:00Z`).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          timeZone: "UTC",
-                        })
-                      }
-                    />
-                  }
-                />
-                <Bar
-                  yAxisId="runs"
-                  dataKey="runs"
-                  name="Runs"
-                  hide={!visibleSeries.has("runs")}
-                  fill="var(--color-signal-blue)"
-                  fillOpacity={0.28}
-                  radius={[3, 3, 0, 0]}
-                  maxBarSize={14}
-                  label={
-                    dataLabelsVisible
-                      ? { fill: "var(--color-foreground)", fontSize: 10, position: "top" }
-                      : false
-                  }
-                />
-                <Area
-                  yAxisId="cost"
-                  type="monotone"
-                  dataKey="usageCostUsd"
-                  name="Usage cost"
-                  hide={!visibleSeries.has("usageCostUsd")}
-                  stroke="var(--color-signal-orange)"
-                  strokeWidth={2.5}
-                  fill="url(#usageCostFill)"
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                  label={
-                    dataLabelsVisible ? { fill: "var(--color-foreground)", fontSize: 10 } : false
-                  }
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+          {(state) => (
+            <ChartJsChart
+              ariaLabel="Usage cost and runs by UTC day"
+              data={filtered}
+              xKey="date"
+              series={series.map((item) => ({
+                ...item,
+                type: item.key === "runs" ? "bar" : "area",
+                axisId: item.key === "runs" ? "runs" : "y",
+                maxBarThickness: 14,
+              }))}
+              state={state}
+              xLabelFormatter={formatXAxis}
+              tooltipTitle={(point) =>
+                new Date(`${point.date}T00:00:00Z`).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  timeZone: "UTC",
+                })
+              }
+              yAxis={{ formatValue: formatCurrency }}
+              additionalAxes={{ runs: { hidden: true, integer: true, position: "right" } }}
+            />
           )}
         </ChartFrame>
       </div>
-      <div className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
         <span>{totalRuns.toLocaleString()} runs in this period</span>
       </div>
     </div>
@@ -248,7 +187,7 @@ function Summary({
 }) {
   return (
     <div className="text-right">
-      <p className="text-muted-foreground text-[10px] uppercase tracking-wider">{label}</p>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={cn("font-bold tabular-nums", className)}>{value}</p>
     </div>
   );

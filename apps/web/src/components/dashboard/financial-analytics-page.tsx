@@ -4,8 +4,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import { FinancialTrendChart } from "./financial-trend-chart";
 import {
   Activity,
@@ -813,8 +813,6 @@ export function FinancialAnalyticsPage({
 
   // Let the browser resolve the active token so the chart is theme-aware
   // without waiting for React to hydrate the ThemeProvider.
-  const gridColor = "hsl(var(--border) / 0.55)";
-  const tickColor = "var(--color-muted-foreground)";
   const sortHeader = (key: SortKey, label: string) => (
     <button
       type="button"
@@ -1117,50 +1115,18 @@ export function FinancialAnalyticsPage({
               }}
               chartClassName="min-w-0"
             >
-              {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                <ResponsiveContainer
-                  width="100%"
+              {(state) => (
+                <ChartJsChart
+                  ariaLabel="Current billing-cycle service categories"
+                  data={serviceCategorySeries}
+                  xKey="category"
+                  series={serviceSeries}
+                  type="bar"
+                  horizontal
+                  state={state}
                   height={Math.max(240, serviceCategorySeries.length * 46)}
-                  debounce={0}
-                >
-                  <BarChart
-                    data={serviceCategorySeries}
-                    layout="vertical"
-                    margin={{ left: 12, right: 24 }}
-                    accessibilityLayer
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                    <XAxis
-                      type="number"
-                      hide={!axisLabelsVisible}
-                      tick={{ fontSize: 11, fill: tickColor }}
-                      stroke={tickColor}
-                      tickFormatter={(value) => money.format(Number(value))}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="category"
-                      hide={!axisLabelsVisible}
-                      width={108}
-                      tick={{ fontSize: 11, fill: tickColor }}
-                      stroke={tickColor}
-                    />
-                    <Tooltip content={<ChartTooltip series={serviceSeries} />} cursor={false} />
-                    <Bar
-                      dataKey="costUsd"
-                      name="Cost USD"
-                      hide={!visibleSeries.has("costUsd")}
-                      fill="var(--color-signal-orange)"
-                      radius={[0, 2, 2, 0]}
-                      label={
-                        dataLabelsVisible
-                          ? { fill: "var(--color-foreground)", fontSize: 10, position: "right" }
-                          : false
-                      }
-                      isAnimationActive={false}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                  yAxis={{ formatValue: (value) => money.format(value) }}
+                />
               )}
             </ChartFrame>
           </CardContent>

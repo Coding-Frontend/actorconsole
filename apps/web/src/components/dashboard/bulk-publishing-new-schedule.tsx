@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -136,7 +136,7 @@ export function BulkPublishingNewSchedule() {
     void loadInventory(true, true);
   }, [loadInventory, loadingActors, refreshingActors]);
 
-  const selectedIds = useMemo(() => new Set(actors.map((actor) => actor.id)), [actors]);
+  const selectedIds = new Set(actors.map((actor) => actor.id));
   const cronExpr = preset === "custom" ? customCron.trim() : preset;
   const localStart = localStartPreview(cronExpr);
   const limit = Number(dailyLimit);

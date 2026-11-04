@@ -4,18 +4,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChartFrame, ChartTooltip } from "@/components/charts/chart-system";
+import { ChartJsChart } from "@/components/charts/chartjs-chart";
+import { ChartFrame } from "@/components/charts/chart-system";
 import {
   Activity,
   ArrowDownRight,
@@ -1365,70 +1355,19 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                 options={{ compact: true }}
                 chartClassName="h-80 min-w-0"
               >
-                {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={currentDailyChart}
-                      margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        vertical={false}
-                        stroke="var(--color-border)"
-                        strokeOpacity={0.55}
-                      />
-                      <XAxis
-                        dataKey="label"
-                        hide={!axisLabelsVisible}
-                        axisLine={false}
-                        tickLine={false}
-                        minTickGap={28}
-                        tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                      />
-                      <YAxis
-                        yAxisId="cost"
-                        hide={!axisLabelsVisible}
-                        axisLine={false}
-                        tickLine={false}
-                        width={52}
-                        tickFormatter={(value) => money.format(Number(value))}
-                        tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                      />
-                      <YAxis
-                        yAxisId="runs"
-                        orientation="right"
-                        hide
-                        axisLine={false}
-                        tickLine={false}
-                        width={42}
-                        tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                      />
-                      <Tooltip content={<ChartTooltip series={currentUsageSeries} />} />
-                      <Line
-                        yAxisId="cost"
-                        type="monotone"
-                        dataKey="displayCost"
-                        name={currentUsageSeries[0].label}
-                        hide={!visibleSeries.has("displayCost")}
-                        stroke="var(--color-signal-orange)"
-                        strokeWidth={2.5}
-                        dot={false}
-                        label={dataLabelsVisible}
-                        isAnimationActive={false}
-                      />
-                      <Line
-                        yAxisId="runs"
-                        type="monotone"
-                        dataKey="displayRuns"
-                        name={currentUsageSeries[1].label}
-                        hide={!visibleSeries.has("displayRuns")}
-                        stroke="var(--color-signal-blue)"
-                        strokeWidth={1.75}
-                        dot={false}
-                        label={dataLabelsVisible}
-                        isAnimationActive={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                {(state) => (
+                  <ChartJsChart
+                    ariaLabel="Current-period usage and runs"
+                    data={currentDailyChart}
+                    xKey="label"
+                    series={currentUsageSeries.map((item) => ({
+                      ...item,
+                      axisId: item.key === "displayRuns" ? "runs" : "y",
+                    }))}
+                    state={state}
+                    yAxis={{ formatValue: (value) => money.format(value) }}
+                    additionalAxes={{ runs: { hidden: true, integer: true, position: "right" } }}
+                  />
                 )}
               </ChartFrame>
             </CardContent>
@@ -1556,65 +1495,16 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               options={{ showSeriesControls: false, compact: true }}
               chartClassName="h-80 min-w-0"
             >
-              {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={historicalChart}
-                    margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="historicalUsageFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                          offset="0%"
-                          stopColor="var(--color-signal-orange)"
-                          stopOpacity={0.28}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="var(--color-signal-orange)"
-                          stopOpacity={0.02}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="var(--color-border)"
-                      strokeOpacity={0.55}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={24}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <YAxis
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      width={52}
-                      tickFormatter={(value) => money.format(Number(value))}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <Tooltip content={<ChartTooltip series={historicalUsageSeries} />} />
-                    <Area
-                      type="monotone"
-                      dataKey="displayCost"
-                      name={historicalUsageSeries[0].label}
-                      hide={!visibleSeries.has("displayCost")}
-                      stroke="var(--color-signal-orange)"
-                      fill="url(#historicalUsageFill)"
-                      strokeWidth={2.5}
-                      label={
-                        dataLabelsVisible
-                          ? { fill: "var(--color-foreground)", fontSize: 10 }
-                          : false
-                      }
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              {(state) => (
+                <ChartJsChart
+                  ariaLabel="Historical monthly platform usage"
+                  data={historicalChart}
+                  xKey="label"
+                  series={historicalUsageSeries}
+                  type="area"
+                  state={state}
+                  yAxis={{ formatValue: (value) => money.format(value) }}
+                />
               )}
             </ChartFrame>
           </CardContent>
@@ -1648,70 +1538,19 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
               options={{ compact: true }}
               chartClassName="h-80 min-w-0"
             >
-              {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={dailyUsageHistoryChart}
-                    margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="var(--color-border)"
-                      strokeOpacity={0.55}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={34}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <YAxis
-                      yAxisId="cost"
-                      hide={!axisLabelsVisible}
-                      axisLine={false}
-                      tickLine={false}
-                      width={52}
-                      tickFormatter={(value) => money.format(Number(value))}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <YAxis
-                      yAxisId="runs"
-                      orientation="right"
-                      hide
-                      axisLine={false}
-                      tickLine={false}
-                      width={42}
-                      tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                    />
-                    <Tooltip content={<ChartTooltip series={historicalDailyUsageSeries} />} />
-                    <Line
-                      yAxisId="cost"
-                      type="monotone"
-                      dataKey="displayCost"
-                      name={historicalDailyUsageSeries[0].label}
-                      hide={!visibleSeries.has("displayCost")}
-                      stroke="var(--color-signal-orange)"
-                      strokeWidth={2.5}
-                      dot={false}
-                      label={dataLabelsVisible}
-                      isAnimationActive={false}
-                    />
-                    <Line
-                      yAxisId="runs"
-                      type="monotone"
-                      dataKey="displayRuns"
-                      name={historicalDailyUsageSeries[1].label}
-                      hide={!visibleSeries.has("displayRuns")}
-                      stroke="var(--color-signal-blue)"
-                      strokeWidth={1.75}
-                      dot={false}
-                      label={dataLabelsVisible}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              {(state) => (
+                <ChartJsChart
+                  ariaLabel="Historical daily platform usage and runs"
+                  data={dailyUsageHistoryChart}
+                  xKey="label"
+                  series={historicalDailyUsageSeries.map((item) => ({
+                    ...item,
+                    axisId: item.key === "displayRuns" ? "runs" : "y",
+                  }))}
+                  state={state}
+                  yAxis={{ formatValue: (value) => money.format(value) }}
+                  additionalAxes={{ runs: { hidden: true, integer: true, position: "right" } }}
+                />
               )}
             </ChartFrame>
           </CardContent>
@@ -1743,6 +1582,26 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
             <CardContent>
               {selectedActorPeriod && filteredActorRows.length ? (
                 <div className="divide-y divide-border">
+                  <ChartJsChart
+                    ariaLabel="Usage cost share by Actor on this page"
+                    data={visibleActorRows}
+                    xKey="title"
+                    series={[
+                      {
+                        key: "share",
+                        label: "Share of Actor usage",
+                        color: "var(--color-signal-orange)",
+                        format: { unit: "percent" },
+                      },
+                    ]}
+                    type="bar"
+                    horizontal
+                    height={Math.max(180, visibleActorRows.length * 36)}
+                    xLabelFormatter={(title) =>
+                      title.length > 20 ? `${title.slice(0, 19)}…` : title
+                    }
+                    yAxis={{ min: 0, max: 100, formatValue: (value) => `${value}%` }}
+                  />
                   {visibleActorRows.map((row) => (
                     <div key={row.id} className="py-4 first:pt-0 last:pb-0">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1766,12 +1625,6 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                             <p className="font-mono text-sm">{row.share.toFixed(1)}%</p>
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-signal-orange"
-                          style={{ width: `${Math.min(100, row.share)}%` }}
-                        />
                       </div>
                     </div>
                   ))}
@@ -2012,58 +1865,21 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                   options={{ showSeriesControls: false, compact: true }}
                   chartClassName="h-80 min-w-0"
                 >
-                  {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                    <ResponsiveContainer width="100%" height="100%" debounce={0}>
-                      <AreaChart
-                        data={revenueTrend}
-                        margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                      >
-                        <CartesianGrid
-                          vertical={false}
-                          stroke="var(--color-border)"
-                          strokeOpacity={0.55}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          minTickGap={24}
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <YAxis
-                          hide={!axisLabelsVisible}
-                          axisLine={false}
-                          tickLine={false}
-                          width={58}
-                          tickFormatter={(value) =>
-                            selectedMetric.currency
-                              ? money.format(Number(value))
-                              : Number(value).toLocaleString("en-US")
-                          }
-                          tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                        />
-                        <Tooltip content={<ChartTooltip series={revenueSeries} />} />
-                        <Area
-                          type="monotone"
-                          dataKey={selectedMetric.dataKey}
-                          name={revenueSeries[0].label}
-                          hide={!visibleSeries.has(selectedMetric.dataKey)}
-                          stroke={selectedMetric.color}
-                          strokeWidth={2.5}
-                          fill={selectedMetric.color}
-                          fillOpacity={0.12}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                          label={
-                            dataLabelsVisible
-                              ? { fill: "var(--color-foreground)", fontSize: 10 }
-                              : false
-                          }
-                          isAnimationActive={false}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                  {(state) => (
+                    <ChartJsChart
+                      ariaLabel={`${selectedMetric.label} revenue trend`}
+                      data={revenueTrend}
+                      xKey="label"
+                      series={revenueSeries}
+                      type="area"
+                      state={state}
+                      yAxis={{
+                        formatValue: (value) =>
+                          selectedMetric.currency
+                            ? money.format(value)
+                            : value.toLocaleString("en-US"),
+                      }}
+                    />
                   )}
                 </ChartFrame>
               </CardContent>
@@ -2088,55 +1904,20 @@ export function UsageCostsAnalytics({ payload }: { payload: UsageCostsPayload })
                       options={{ compact: true }}
                       chartClassName="h-72 min-w-0"
                     >
-                      {({ axisLabelsVisible, dataLabelsVisible, visibleSeries }) => (
-                        <ResponsiveContainer width="100%" height="100%" debounce={0}>
-                          <LineChart
-                            data={actorComparisonTrend}
-                            margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
-                          >
-                            <CartesianGrid
-                              vertical={false}
-                              stroke="var(--color-border)"
-                              strokeOpacity={0.55}
-                            />
-                            <XAxis
-                              dataKey="label"
-                              hide={!axisLabelsVisible}
-                              axisLine={false}
-                              tickLine={false}
-                              minTickGap={24}
-                              tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                            />
-                            <YAxis
-                              hide={!axisLabelsVisible}
-                              axisLine={false}
-                              tickLine={false}
-                              width={58}
-                              tickFormatter={(value) =>
-                                selectedMetric.currency
-                                  ? money.format(Number(value))
-                                  : Number(value).toLocaleString("en-US")
-                              }
-                              tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-                            />
-                            <Tooltip content={<ChartTooltip series={comparisonSeries} />} />
-                            {comparisonActors.map((actor, index) => (
-                              <Line
-                                key={actor.id}
-                                type="monotone"
-                                dataKey={actor.id}
-                                name={comparisonSeries[index]?.label}
-                                hide={!visibleSeries.has(actor.id)}
-                                stroke={comparisonColors[index]}
-                                strokeWidth={2.25}
-                                dot={false}
-                                activeDot={{ r: 4 }}
-                                label={dataLabelsVisible}
-                                isAnimationActive={false}
-                              />
-                            ))}
-                          </LineChart>
-                        </ResponsiveContainer>
+                      {(state) => (
+                        <ChartJsChart
+                          ariaLabel="Selected Actor comparison trend"
+                          data={actorComparisonTrend}
+                          xKey="label"
+                          series={comparisonSeries}
+                          state={state}
+                          yAxis={{
+                            formatValue: (value) =>
+                              selectedMetric.currency
+                                ? money.format(value)
+                                : value.toLocaleString("en-US"),
+                          }}
+                        />
                       )}
                     </ChartFrame>
                   ) : (
