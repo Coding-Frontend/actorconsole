@@ -1,7 +1,7 @@
 import type { QueueJob as Job } from "@actorconsole/shared";
 import { createQueue, createWorker, getRedis, tickRecurringJobs, type RuntimeQueue as Queue } from "./lib/queue-runtime.js";
 import { DatabaseWorker } from "./lib/database-worker.js";
-import cronParser from "cron-parser";
+import { CronExpressionParser } from "cron-parser";
 import { refreshStoreWatchAlerts } from "./lib/watch-alerts.js";
 import { runOptimizationJob, type OptimizationPayload } from "./lib/actor-optimization.js";
 
@@ -243,7 +243,7 @@ function jsonObject(value: unknown): Record<string, unknown> | null {
 
 function nextBulkPublishRun(cronExpr: string) {
   try {
-    return cronParser.parseExpression(cronExpr, { utc: true }).next().toDate();
+    return CronExpressionParser.parse(cronExpr, { tz: "UTC" }).next().toDate();
   } catch {
     return null;
   }

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { bulkActorStatusJobId } from "@actorconsole/shared";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import cronParser from "cron-parser";
+import { CronExpressionParser } from "cron-parser";
 import { z } from "zod";
 import { db } from "@actorconsole/db";
 import { getUserApifyClient } from "@actorconsole/apify";
@@ -58,7 +58,7 @@ const scheduleUpdateSchema = scheduleInputSchema
 
 function nextCronDate(cronExpr: string) {
   try {
-    return cronParser.parseExpression(cronExpr, { utc: true }).next().toDate();
+    return CronExpressionParser.parse(cronExpr, { tz: "UTC" }).next().toDate();
   } catch {
     throw new AppError("invalid_cron", "Invalid cron expression", 400);
   }
