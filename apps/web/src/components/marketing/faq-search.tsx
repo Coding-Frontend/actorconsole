@@ -3,18 +3,7 @@
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 import { Accordion } from "@/components/ui/accordion";
-
-interface FaqItem {
-  id: string;
-  question: string;
-  answer: string;
-  category: string;
-}
-
-interface FaqGroup {
-  category: string;
-  items: FaqItem[];
-}
+import type { FaqGroup } from "@/lib/product-faq";
 
 export function FaqSearch({ groups }: { groups: FaqGroup[] }) {
   const [query, setQuery] = useState("");
@@ -39,16 +28,17 @@ export function FaqSearch({ groups }: { groups: FaqGroup[] }) {
     <div className="space-y-6">
       {/* Search input */}
       <div className="relative">
-        <Search className="text-slate absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2" />
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
         <input
           type="text"
+          aria-label="Search frequently asked questions"
           placeholder="Search questions..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-signal-orange/30 focus:ring-signal-orange/10 w-full rounded-sm border py-3 pl-11 pr-4 text-sm transition-colors focus:outline-none focus:ring-2"
+          className="focus:border-signal-orange/30 focus:ring-signal-orange/10 w-full rounded-sm border border-border bg-card py-3 pl-11 pr-4 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:outline-none focus:ring-2"
         />
         {query && (
-          <span className="text-slate absolute right-4 top-1/2 -translate-y-1/2 text-xs">
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate">
             {totalCount} result{totalCount !== 1 ? "s" : ""}
           </span>
         )}
@@ -58,7 +48,7 @@ export function FaqSearch({ groups }: { groups: FaqGroup[] }) {
       {filtered.length === 0 ? (
         <div className="py-12 text-center">
           <Search className="text-slate/50 mx-auto h-8 w-8" />
-          <p className="text-muted-foreground mt-3 text-sm">
+          <p className="mt-3 text-sm text-muted-foreground">
             No results for &ldquo;{query}&rdquo;. Try a different search term.
           </p>
         </div>
@@ -66,7 +56,7 @@ export function FaqSearch({ groups }: { groups: FaqGroup[] }) {
         <div className="space-y-8">
           {filtered.map((group) => (
             <div key={group.category} className="blueprint-bento lg:grid-cols-[0.38fr_1fr]">
-              <h2 className="font-display text-foreground p-6 text-xl font-bold capitalize sm:p-8 sm:text-2xl">
+              <h2 className="p-6 font-display text-xl font-bold capitalize text-foreground sm:p-8 sm:text-2xl">
                 {group.category} Questions
               </h2>
               <div className="blueprint-cell border-0 p-5 sm:p-7">

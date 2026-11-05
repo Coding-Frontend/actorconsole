@@ -1,13 +1,14 @@
-import { createPageMetadata } from "@/lib/seo";
+import { absoluteUrl, breadcrumbStructuredData, createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 import { Container, Section } from "@/components/ui/layout";
-import { HelpCircle } from "lucide-react";
 import { FaqSearch } from "@/components/marketing/faq-search";
 import { getLogger } from "@actorconsole/shared";
 import { PageHero } from "@/components/marketing/page-hero";
 import Link from "next/link";
 import { ChromeExtensionLink } from "@/components/chrome-extension-link";
+import { JsonLd } from "@/components/seo/json-ld";
+import { mergeFaqGroups, type FaqGroup } from "@/lib/product-faq";
 
 export const dynamic = "force-dynamic";
 const log = getLogger("web:faq");
@@ -20,29 +21,51 @@ export const metadata: Metadata = createPageMetadata({
   image: "faq",
 });
 
-interface FaqItem {
-  id: string;
-  question: string;
-  answer: string;
-  category: string;
-}
-
 export default async function FaqPage() {
-  let groups: Array<{ category: string; items: FaqItem[] }> = [];
+  let published: FaqGroup[] = [];
   let loadFailed = false;
 
   try {
-    const response = await fetch(SERVER_API_BASE_URL + "/faq", { cache: "no-store", signal: AbortSignal.timeout(12_000) });
+    const response = await fetch(SERVER_API_BASE_URL + "/faq", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
+    });
     if (!response.ok) throw new Error("FAQ API unavailable");
     const body = await response.json();
-    groups = (body.data.groups as typeof groups).filter((group) => !["pricing", "Pricing"].includes(group.category));
+    if (!body.ok || !Array.isArray(body.data?.groups)) throw new Error("Invalid FAQ response");
+    published = (body.data.groups as FaqGroup[]).filter(
+      (group) => group.category.toLowerCase() !== "pricing",
+    );
   } catch (error) {
     loadFailed = true;
     log.error({ error }, "Could not load published FAQs");
   }
+  const groups = mergeFaqGroups(published);
 
   return (
     <main className="marketing-page flex-1">
+      <JsonLd
+        data={breadcrumbStructuredData([
+          { name: "Home", path: "/" },
+          { name: "Frequently Asked Questions", path: "/faq" },
+        ])}
+      />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "@id": absoluteUrl("/faq#questions"),
+          url: absoluteUrl("/faq"),
+          inLanguage: "en",
+          mainEntity: groups.flatMap((group) =>
+            group.items.map(({ question, answer }) => ({
+              "@type": "Question",
+              name: question,
+              acceptedAnswer: { "@type": "Answer", text: answer },
+            })),
+          ),
+        }}
+      />
       <PageHero
         tone="ink"
         kicker="FAQ / help center"
@@ -53,11 +76,11 @@ export default async function FaqPage() {
       {/* ── Accordion List ── */}
       <Section variant="muted" className="pb-24 pt-12">
         <Container className="max-w-5xl">
-          <div className="border-border mb-8 space-y-3 border-b pb-8">
-            <h2 className="font-display-tight text-foreground text-xl">
+          <div className="mb-8 space-y-3 border-b border-border pb-8">
+            <h2 className="font-display-tight text-xl text-foreground">
               Connect your Apify account
             </h2>
-            <p className="text-muted-foreground max-w-2xl text-sm leading-6">
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
               Install the ActorConsole Apify Connector to connect an Apify Console session to your
               workspace. Follow the{" "}
               <Link
@@ -70,23 +93,32 @@ export default async function FaqPage() {
             </p>
             <ChromeExtensionLink />
           </div>
-          {loadFailed ? (
-            <div className="blueprint-frame bg-paper p-8 py-20 text-center">
-              <HelpCircle className="text-slate mx-auto h-10 w-10" />
-              <p className="text-graphite mt-4 text-sm font-semibold">
-                The help center is temporarily unavailable. Please try again later.
-              </p>
-            </div>
-          ) : groups.length === 0 ? (
-            <div className="blueprint-frame bg-paper p-8 py-20 text-center">
-              <HelpCircle className="text-slate mx-auto h-10 w-10" />
-              <p className="text-graphite mt-4 text-sm font-semibold">
-                No FAQs published yet. Check back soon.
-              </p>
-            </div>
-          ) : (
-            <FaqSearch groups={groups} />
+          {loadFailed && (
+            <p className="mb-6 text-sm text-muted-foreground" role="status">
+              Additional help-center answers are temporarily unavailable. Product help is below.
+            </p>
           )}
+          <FaqSearch groups={groups} />
+          <nav
+            aria-label="Related product guides"
+            className="mt-10 flex flex-wrap gap-x-6 gap-y-4 border-t border-border pt-6 text-sm"
+          >
+            <Link href="/docs" className="underline underline-offset-4">
+              Getting started
+            </Link>
+            <Link href="/docs/apify-connection" className="underline underline-offset-4">
+              Apify connection
+            </Link>
+            <Link href="/docs/ai-listing-studio" className="underline underline-offset-4">
+              Listing improvements
+            </Link>
+            <Link href="/docs/analytics-usage-costs" className="underline underline-offset-4">
+              Usage and costs
+            </Link>
+            <Link href="/docs/mcp-quickstart" className="underline underline-offset-4">
+              MCP setup
+            </Link>
+          </nav>
         </Container>
       </Section>
     </main>

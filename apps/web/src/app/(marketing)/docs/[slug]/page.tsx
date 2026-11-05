@@ -22,7 +22,7 @@ export async function generateMetadata({
   return createPageMetadata({
     title: guide.title,
     description: guide.summary,
-    path: `/docs/${encodeURIComponent(guide.id)}`,
+    path: guide.id === "getting-started" ? "/docs" : `/docs/${encodeURIComponent(guide.id)}`,
     image: "docs",
   });
 }

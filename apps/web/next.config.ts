@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
+const canonicalSite = new URL(
+  process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://actorconsole.com",
+);
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
@@ -27,6 +31,26 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      ...(!canonicalSite.hostname.startsWith("www.") && canonicalSite.protocol === "https:"
+        ? [
+            {
+              source: "/:path*",
+              has: [
+                {
+                  type: "host" as const,
+                  value: `www\\.${canonicalSite.hostname.replace(/\./g, "\\.")}`,
+                },
+              ],
+              destination: `${canonicalSite.origin}/:path*`,
+              permanent: true,
+            },
+          ]
+        : []),
+      {
+        source: "/docs/getting-started",
+        destination: "/docs",
+        permanent: true,
+      },
       {
         source: "/compare",
         destination: "/features",
@@ -56,6 +80,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/api/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
       {
         source: "/(.*)",
         headers: [

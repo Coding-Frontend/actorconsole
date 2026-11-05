@@ -42,6 +42,7 @@ type PageMetadata = {
   coverImage?: string | null;
   type?: "website" | "article";
   publishedTime?: string;
+  modifiedTime?: string;
   tags?: string[];
   author?: string | null;
   noIndex?: boolean;
@@ -68,6 +69,7 @@ export function createPageMetadata({
   coverImage,
   type = "website",
   publishedTime,
+  modifiedTime,
   tags,
   author,
   noIndex = false,
@@ -95,7 +97,7 @@ export function createPageMetadata({
       type,
       images: [socialImage],
       ...(type === "article"
-        ? { publishedTime, tags, ...(author ? { authors: [author] } : {}) }
+        ? { publishedTime, modifiedTime, tags, ...(author ? { authors: [author] } : {}) }
         : {}),
     },
     twitter: {
@@ -128,8 +130,39 @@ export const siteStructuredData = {
       inLanguage: "en",
       publisher: { "@id": absoluteUrl("/#organization") },
     },
+    {
+      "@type": "WebApplication",
+      "@id": absoluteUrl("/#application"),
+      name: SITE_NAME,
+      url: SITE_URL,
+      description: SITE_DESCRIPTION,
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Web",
+      browserRequirements: "Requires a modern web browser.",
+      publisher: { "@id": absoluteUrl("/#organization") },
+      featureList: [
+        "Apify Store research and Actor comparisons",
+        "Reviewable AI-assisted Actor listing improvements",
+        "Actor publishing schedules",
+        "Usage, costs, and available creator revenue analytics",
+        "Authenticated workspace MCP tools",
+      ],
+    },
   ],
 };
+
+export function breadcrumbStructuredData(items: Array<{ name: string; path: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map(({ name, path }, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name,
+      item: absoluteUrl(path),
+    })),
+  };
+}
 
 /** Escape CMS text before inserting JSON-LD into an HTML script element. */
 export function serializeJsonLd(data: unknown): string {

@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { createPageMetadata } from "@/lib/seo";
+import {
+  absoluteUrl,
+  breadcrumbStructuredData,
+  createPageMetadata,
+  socialImageUrl,
+} from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
 import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -37,23 +43,47 @@ export default async function ChangelogArticlePage({
   if (!data) notFound();
   return (
     <main className="marketing-page flex-1">
+      <JsonLd
+        data={breadcrumbStructuredData([
+          { name: "Home", path: "/" },
+          { name: "Changelog", path: "/changelog" },
+          { name: data.entry.title, path: articleHref(data.entry.slug) },
+        ])}
+      />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: data.entry.title,
+          description: data.entry.text,
+          mainEntityOfPage: absoluteUrl(articleHref(data.entry.slug)),
+          datePublished: `${data.entry.releaseDate.slice(0, 10)}T00:00:00Z`,
+          image: socialImageUrl("changelog"),
+          inLanguage: "en",
+          publisher: {
+            "@id": absoluteUrl("/#organization"),
+            "@type": "Organization",
+            name: "ActorConsole",
+          },
+        }}
+      />
       <PublicGridSection frameClassName="py-12 sm:py-16">
         <div className="mx-auto max-w-4xl">
           <Link
             href="/changelog"
-            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring mb-10 inline-flex items-center gap-2 rounded-sm font-mono text-xs uppercase focus-visible:ring-2"
+            className="mb-10 inline-flex items-center gap-2 rounded-sm font-mono text-xs uppercase text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to changelog
           </Link>
           <ChangelogArticleContent entry={data.entry} />
-          <div className="border-border mt-10 border-t pt-6">
+          <div className="mt-10 border-t border-border pt-6">
             <ChangelogShare />
           </div>
           {data.related.length > 0 && (
             <section
               aria-labelledby="related-updates"
-              className="border-border mt-12 border-t pt-8"
+              className="mt-12 border-t border-border pt-8"
             >
               <h2 id="related-updates" className="font-display-tight text-2xl font-semibold">
                 Related updates

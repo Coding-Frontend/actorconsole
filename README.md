@@ -99,12 +99,12 @@ To verify, accept the cookie banner, navigate and perform a test action, then ch
 
 ## Environment templates
 
-| Template | Used for |
-| --- | --- |
-| `.env.example` | Root `.env` for the local API, worker, MCP and database |
-| `.env.web.example` | `apps/web/.env.local` for local Next.js development |
+| Template                 | Used for                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| `.env.example`           | Root `.env` for the local API, worker, MCP and database                               |
+| `.env.web.example`       | `apps/web/.env.local` for local Next.js development                                   |
 | `.env.extension.example` | `apps/chrome-extension/.env.local` for the optional extension's public build settings |
-| `.env.vps.example` | VPS `.env.production` for production Next.js, API, worker and MCP |
+| `.env.vps.example`       | VPS `.env.production` for production Next.js, API, worker and MCP                     |
 
 Local templates use localhost and development defaults. The VPS template uses production mode, container networking and HTTPS origins. Run `pnpm setup:local` for local development; use `.env.vps.example` when configuring a production server.
 
@@ -114,8 +114,37 @@ Real environment files are ignored by Git and Docker. `NEXT_PUBLIC_*` values are
 
 Public pages include canonical URLs, Open Graph metadata, X/Twitter large image cards, and
 branded 1200×630 sharing images. Blog posts use their published cover when available.
-The home page includes website/organization JSON-LD; blog articles include BlogPosting data.
-Account, dashboard, admin, and utility pages are excluded from search indexing.
+The home page identifies the website, organization, and web application with JSON-LD.
+Documentation includes technical article and breadcrumb data; blog and changelog
+articles identify their publication context. Blog modification dates come from the CMS.
+The FAQ includes product answers in the server HTML, even when the CMS is empty or
+unavailable, and published CMS answers override matching product questions.
+FAQ structured data describes those same answers; it is not a promise of a Google rich result.
+Account, dashboard, admin, and utility pages are excluded from search indexing;
+same-origin API responses also send an `X-Robots-Tag: noindex, nofollow` header.
+
+The production `www` hostname permanently redirects to the configured canonical HTTPS
+origin. `/docs/getting-started` redirects to `/docs`, and the sitemap lists that guide
+once. Published blog and changelog URLs are added automatically; drafts and deleted
+articles stay out of the sitemap. Static pages omit invented modification dates.
+
+The general robots policy allows public pages for search crawlers, including AI search
+crawlers, while excluding application and API paths. Answer and generative search
+visibility depend on crawlable, useful public content and accurate entity information.
+Google does not require an `llms.txt` file or special AI schema for its AI search features;
+see its [generative AI search guidance](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide).
+
+Run the read-only audit against the deployed site after a release:
+
+```bash
+node scripts/audit-search.mjs https://actorconsole.com .cache/seo/search-audit.json
+```
+
+It checks every sitemap URL's response, initial HTML title/description, canonical,
+H1, indexing directives, sharing metadata and images, JSON-LD syntax, and account-page
+indexing exclusions. Empty content collections and duplicate titles are reported as
+warnings. This crawl does not measure Core Web Vitals or guarantee indexing, rankings,
+or inclusion in an AI answer.
 
 Set `NEXT_PUBLIC_SITE_URL` to your production HTTPS origin. Optional
 `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` and `NEXT_PUBLIC_BING_SITE_VERIFICATION` accept the
