@@ -193,16 +193,17 @@ app.route("/razorpay", razorpayRoutes);
 
 // --- Provider-neutral billing routes: signed webhooks are public; checkout is authenticated. ---
 const billingAuth = requireAuth();
+const publicBillingPath = (path: string) => path.startsWith("/billing/webhooks/") || path === "/billing/analytics/revoke";
 app.use("/billing/*", async (c, next) => {
-  if (c.req.path.startsWith("/billing/webhooks/")) return next();
+  if (publicBillingPath(c.req.path)) return next();
   return billingAuth(c, next);
 });
 app.use("/billing/*", async (c, next) => {
-  if (c.req.path.startsWith("/billing/webhooks/")) return next();
+  if (publicBillingPath(c.req.path)) return next();
   return resolveBusinessProfile()(c, next);
 });
 app.use("/billing/*", async (c, next) => {
-  if (c.req.path.startsWith("/billing/webhooks/")) return next();
+  if (publicBillingPath(c.req.path)) return next();
   return requireInteractiveSession()(c, next);
 });
 app.route("/billing", billingRoutes);

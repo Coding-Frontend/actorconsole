@@ -10,7 +10,7 @@ import {
   type User as FirebaseUser,
 } from "firebase/auth";
 import { getConsent } from "@/components/cookie-consent";
-import { analyticsPath } from "@/lib/analytics-path";
+import { analyticsPageContext } from "@/lib/analytics-path";
 
 // Browser configuration is public. Each installation supplies its own project.
 const firebaseConfig = {
@@ -46,7 +46,9 @@ function throwIfFirebaseIsNotConfigured() {
 let _auth: ReturnType<typeof firebaseGetAuth> | null = null;
 let _analytics: import("firebase/analytics").Analytics | null = null;
 let _analyticsModule: typeof import("firebase/analytics") | null = null;
-let _analyticsPromise: Promise<import("firebase/analytics").Analytics | null> | null = null;
+let _analyticsPromise: Promise<
+  import("firebase/analytics").Analytics | null
+> | null = null;
 
 function getFirebaseApp() {
   return getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -70,8 +72,13 @@ async function getAnalyticsModule() {
  * after the cookie-consent component has confirmed an opt-in.
  */
 export async function getFirebaseAnalytics() {
-  if (typeof window === "undefined" || !firebaseConfig.measurementId ||
-      missingFirebaseConfig || getConsent() !== "all") return null;
+  if (
+    typeof window === "undefined" ||
+    !firebaseConfig.measurementId ||
+    missingFirebaseConfig ||
+    getConsent() !== "all"
+  )
+    return null;
   if (_analytics) return _analytics;
   if (_analyticsPromise) return _analyticsPromise;
 
@@ -80,18 +87,28 @@ export async function getFirebaseAnalytics() {
       const analyticsModule = await getAnalyticsModule();
       if (!(await analyticsModule.isSupported())) return null;
       if (getConsent() !== "all") return null;
-      const path = analyticsPath(window.location.pathname);
+      analyticsModule.setConsent({
+        analytics_storage: "granted",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+      });
+      const page = analyticsPageContext(
+        window.location.pathname,
+        window.location.origin,
+      );
       _analytics = analyticsModule.initializeAnalytics(getFirebaseApp(), {
         config: {
           send_page_view: false,
-          page_location: `${window.location.origin}${path}`,
-          page_referrer: "",
-          page_title: "ActorConsole",
+          ...page,
           allow_google_signals: false,
           allow_ad_personalization_signals: false,
         },
       });
-      analyticsModule.setAnalyticsCollectionEnabled(_analytics, getConsent() === "all");
+      analyticsModule.setAnalyticsCollectionEnabled(
+        _analytics,
+        getConsent() === "all",
+      );
       return _analytics;
     } catch {
       // Analytics is optional and unsupported browsers should not affect auth
@@ -105,35 +122,98 @@ export async function getFirebaseAnalytics() {
   return _analyticsPromise;
 }
 
+/** Read consented GA identifiers for server-confirmed payment events. */
+export async function getFirebasePaymentAnalyticsContext() {
+  if (typeof window === "undefined" || getConsent() !== "all") return null;
+  const analytics = await getFirebaseAnalytics();
+  if (!analytics || getConsent() !== "all" || !firebaseConfig.measurementId)
+    return null;
+  const analyticsModule = await getAnalyticsModule();
+  const clientId = await analyticsModule.getGoogleAnalyticsClientId(analytics);
+  if (getConsent() !== "all" || !/^\d{1,40}\.\d{1,40}$/.test(clientId))
+    return null;
+  const gtag = (window as unknown as { gtag?: (...args: unknown[]) => void })
+    .gtag;
+  const sessionId = await new Promise<string | undefined>((resolve) => {
+    const timeout = setTimeout(resolve, 100);
+    if (!gtag) {
+      clearTimeout(timeout);
+      resolve(undefined);
+      return;
+    }
+    gtag(
+      "get",
+      firebaseConfig.measurementId,
+      "session_id",
+      (value: unknown) => {
+        clearTimeout(timeout);
+        resolve(
+          /^[1-9]\d{0,15}$/.test(String(value)) ? String(value) : undefined,
+        );
+      },
+    );
+  });
+  if (getConsent() !== "all") return null;
+  return {
+    clientId,
+    measurementId: firebaseConfig.measurementId,
+    ...(sessionId ? { sessionId } : {}),
+  };
+}
+
 /** Log a GA4 page view for client-side route transitions. */
 export async function logFirebasePageView(pathname: string) {
-  const path = analyticsPath(pathname);
-  await logFirebaseEvent("page_view", {
-    page_path: path,
-    page_location: `${window.location.origin}${path}`,
-    page_referrer: "",
-    page_title: "ActorConsole",
-  });
+  if (typeof window === "undefined") return;
+  await logFirebaseEvent(
+    "page_view",
+    analyticsPageContext(pathname, window.location.origin),
+  );
 }
 
 /** Log an optional, consent-gated product event. */
 export async function logFirebaseEvent(
   eventName: string,
   params: Record<string, unknown> = {},
+  options: { waitForDelivery?: boolean } = {},
 ) {
   try {
-    if (getConsent() !== "all") return;
+    if (typeof window === "undefined" || getConsent() !== "all") return;
+    const page = analyticsPageContext(
+      window.location.pathname,
+      window.location.origin,
+    );
     const analytics = await getFirebaseAnalytics();
     if (!analytics || getConsent() !== "all") return;
 
     const analyticsModule = await getAnalyticsModule();
     if (getConsent() !== "all") return;
-    analyticsModule.logEvent(analytics, eventName, {
-      page_location: `${window.location.origin}${analyticsPath(window.location.pathname)}`,
-      page_referrer: "",
-      page_title: "ActorConsole",
+    const eventParams = {
+      ...page,
       ...params,
-    });
+      ...(process.env.NEXT_PUBLIC_FIREBASE_ANALYTICS_DEBUG === "true"
+        ? { debug_mode: true }
+        : {}),
+    };
+    if (options.waitForDelivery) {
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, 250);
+        try {
+          analyticsModule.logEvent(analytics, eventName, {
+            ...eventParams,
+            event_timeout: 250,
+            event_callback: () => {
+              clearTimeout(timeout);
+              resolve();
+            },
+          });
+        } catch {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    } else {
+      analyticsModule.logEvent(analytics, eventName, eventParams);
+    }
   } catch {
     // Product analytics must never affect the user-facing workflow.
   }
@@ -144,12 +224,20 @@ export async function setFirebaseAnalyticsCollectionEnabled(enabled: boolean) {
   if (typeof window !== "undefined" && firebaseConfig.measurementId) {
     // The Firebase helper waits for its internal initialization promise. Set
     // the GA flag immediately as well so revocation takes effect during that wait.
-    (window as unknown as Record<string, unknown>)[`ga-disable-${firebaseConfig.measurementId}`] =
-      !(enabled && getConsent() === "all");
+    (window as unknown as Record<string, unknown>)[
+      `ga-disable-${firebaseConfig.measurementId}`
+    ] = !(enabled && getConsent() === "all");
   }
   if (!_analytics) return;
   const analyticsModule = await getAnalyticsModule();
-  analyticsModule.setAnalyticsCollectionEnabled(_analytics, enabled && getConsent() === "all");
+  const allowed = enabled && getConsent() === "all";
+  analyticsModule.setConsent({
+    analytics_storage: allowed ? "granted" : "denied",
+    ad_storage: "denied",
+    ad_user_data: "denied",
+    ad_personalization: "denied",
+  });
+  analyticsModule.setAnalyticsCollectionEnabled(_analytics, allowed);
 }
 
 // Proxy-based `auth` export: property accesses are forwarded to the lazy singleton.
@@ -185,6 +273,7 @@ export async function signOutFirebase() {
  */
 export interface FirebaseSessionExchangeResult {
   ok: boolean;
+  isNewUser?: boolean;
   error?: string;
   requiresTwoFactor?: boolean;
   challengeToken?: string;
@@ -221,6 +310,7 @@ export async function exchangeFirebaseToken(
 
   return {
     ok: true,
+    isNewUser: data.isNewUser === true,
     requiresTwoFactor: data.requiresTwoFactor,
     challengeToken: data.challengeToken,
   };

@@ -12,7 +12,7 @@ for (const file of files(resolve(root, "apps/web/src"))) {
   const text = readFileSync(file, "utf8");
   for (const dependency of forbidden) if ([`"${dependency}"`, `'${dependency}'`, `"${dependency}/`, `'${dependency}/`].some((name) => text.includes(name)))
     errors.push(`${file}: forbidden backend dependency ${dependency}`);
-  if (/process\.env\.(DATABASE_URL|REDIS_URL|APP_ENCRYPTION_KEY|ADMIN_API_KEY|AUTH_SECRET|AUTH_URL|AUTH_TRUST_HOST|FIREBASE_SERVICE_ACCOUNT_KEY)\b/.test(text))
+  if (/process\.env\.(DATABASE_URL|REDIS_URL|APP_ENCRYPTION_KEY|ADMIN_API_KEY|AUTH_SECRET|AUTH_URL|AUTH_TRUST_HOST|FIREBASE_SERVICE_ACCOUNT_KEY|GA4_API_SECRET)\b/.test(text))
     errors.push(`${file}: backend secret in the web runtime`);
 }
 const web = JSON.parse(readFileSync(resolve(root, "apps/web/package.json"), "utf8"));

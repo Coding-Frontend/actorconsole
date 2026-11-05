@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "./tool-actions";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics-events";
 
 type SeoResult = ReturnType<typeof auditActorSeo> & {
   name: string;
@@ -63,9 +64,13 @@ export function SeoTool() {
       if (!body.data || !Array.isArray(body.data.checks) || typeof body.data.score !== "number") {
         throw new Error("The audit returned an incomplete response. Try again.");
       }
-      if (!controller.signal.aborted) setResult(body.data);
+      if (!controller.signal.aborted) {
+        setResult(body.data);
+        void trackEvent("seo_audit_completed", { score: body.data.score });
+      }
     } catch (failure) {
       if (controller.signal.aborted && !timedOut) return;
+      void trackEvent("seo_audit_failed", { reason: timedOut ? "timeout" : "request_failed" });
       setError(
         timedOut
           ? "The Actor took too long to load. Try again."

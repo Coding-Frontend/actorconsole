@@ -1,6 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ refresh: vi.fn(), success: vi.fn(), error: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  refresh: vi.fn(), success: vi.fn(), error: vi.fn(),
+  trackEvent: vi.fn(), beforeNavigation: vi.fn(),
+}));
+vi.mock("@/lib/analytics-events", () => ({
+  trackEvent: mocks.trackEvent, trackEventBeforeNavigation: mocks.beforeNavigation,
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 vi.mock("sonner", () => ({ toast: { success: mocks.success, error: mocks.error } }));
 import { BillingCard } from "./billing-card";
@@ -84,6 +90,16 @@ describe("BillingCard purchase choices", () => {
       expect(screen.getByRole("alert").textContent).toMatch(/temporarily unavailable/),
     );
     expect(mocks.success).not.toHaveBeenCalled();
+    expect(mocks.trackEvent).toHaveBeenCalledWith("begin_checkout", {
+      gateway: "stripe", payment_mode: "live", billing_interval: interval,
+      currency: "USD", value: interval === "year" ? 190 : 19,
+      items: [{ item_id: "pro", item_name: "Pro", item_variant: interval,
+        price: interval === "year" ? 190 : 19, quantity: 1 }],
+    });
+    expect(mocks.trackEvent).toHaveBeenCalledWith("checkout_failed", {
+      gateway: "stripe", payment_mode: "live", billing_interval: interval, reason: "invalid_response",
+    });
+    expect(mocks.beforeNavigation).not.toHaveBeenCalled();
   });
 
   it("opens the checkout URL after saving normalized billing details", async () => {
@@ -112,6 +128,10 @@ describe("BillingCard purchase choices", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).country).toBe("IN");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).city).toBe("Chennai");
     expect(screen.queryByRole("alert")).toBeNull();
+    expect(mocks.beforeNavigation).toHaveBeenCalledWith("checkout_redirected", {
+      gateway: "stripe", payment_mode: "live", billing_interval: "month",
+    });
+    expect(JSON.stringify(mocks.trackEvent.mock.calls)).not.toMatch(/Main Street|Chennai|600001/);
   });
 
   it("finds yearly checkout on a different enabled gateway without a provider selector", async () => {

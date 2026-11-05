@@ -11,6 +11,8 @@ const {
   mockStripeClient,
   mockGetIntegration,
   mockRetrieveSubscription,
+  mockQueuePaymentAnalytics,
+  mockBindAttribution,
 } = vi.hoisted(() => ({
   mockDb: {
     paymentGateway: { findUnique: vi.fn() },
@@ -32,7 +34,7 @@ const {
       updateMany: vi.fn(),
     },
     businessProfile: { findFirst: vi.fn(), update: vi.fn() },
-    payment: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    payment: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
   },
   mockCreateCheckout: vi.fn(),
@@ -43,11 +45,15 @@ const {
   mockStripeClient: vi.fn(),
   mockGetIntegration: vi.fn(),
   mockRetrieveSubscription: vi.fn(),
+  mockQueuePaymentAnalytics: vi.fn(),
+  mockBindAttribution: vi.fn(),
 }));
 
 vi.mock("@actorconsole/db", async () => ({
   db: mockDb,
   Prisma: (await import("@prisma/client")).Prisma,
+  queuePaymentAnalytics: mockQueuePaymentAnalytics,
+  bindPaymentAnalyticsAttribution: mockBindAttribution,
 }));
 vi.mock("../../src/lib/billing-providers.js", () => ({
   retrieveProviderSubscription: (...args: unknown[]) => mockRetrieveSubscription(...args),
@@ -133,6 +139,8 @@ describe("Provider-neutral billing routes", () => {
     mockDb.businessProfile.update.mockResolvedValue({});
     mockDb.payment.upsert.mockResolvedValue({ id: "payment_local" });
     mockDb.payment.findUnique.mockResolvedValue(null);
+    mockDb.payment.findFirst.mockResolvedValue(null);
+    mockBindAttribution.mockResolvedValue("consent-attribution");
     mockDb.payment.update.mockResolvedValue({});
     mockDb.$transaction.mockImplementation(async (work) => typeof work === "function" ? work(mockDb) : Promise.all(work));
   });
@@ -157,6 +165,89 @@ describe("Provider-neutral billing routes", () => {
         create: expect.objectContaining({ provider: "stripe", status: "checkout_pending" }),
       }),
     );
+  });
+
+  it.each([true, false])("binds payment attribution only with the browser consent cookie: %s", async (allowed) => {
+    const analytics = { consent: true, token: "11111111-1111-4111-8111-111111111111",
+      clientId: "1234.5678", sessionId: "1793850000", measurementId: "G-FIXTURE" };
+    const response = await buildApp().request("/billing/checkout", {
+      method: "POST", headers: { "content-type": "application/json", cookie: `actorconsole-consent=${allowed ? "all" : "essential"}` },
+      body: JSON.stringify({ gateway: "stripe", plan: "PRO", interval: "month", analytics }),
+    });
+    expect(response.status).toBe(200);
+    if (allowed) {
+      expect(mockBindAttribution).toHaveBeenCalledWith(mockDb, analytics, "user_1", "month");
+      expect(storedSubscription.analyticsAttributionId).toBe("consent-attribution");
+    } else expect(mockBindAttribution).not.toHaveBeenCalled();
+  });
+
+  it.each(["invoice.paid", "invoice.payment_succeeded"])("uses captured money for Stripe %s", async (type) => {
+    mockGetIntegration.mockResolvedValue("fixture-secret");
+    mockStripeClient.mockResolvedValue({ webhooks: { constructEvent: () => ({
+      id: `event_${type}`, type, livemode: false, created: Math.floor(Date.now() / 1000),
+      data: { object: { id: "invoice_1", subscription: "stripe_sub", payment_intent: "intent_1",
+        currency: "kwd", amount_paid: 1234, total: 9999 } },
+    }) } });
+    mockDb.subscription.findUnique.mockResolvedValue({ id: "sub_local", billingMode: "test", userId: "user_1", analyticsAttributionId: "consent-attribution" });
+    mockDb.payment.upsert.mockResolvedValue({ id: "payment_local", amount: 1.234,
+      currency: "KWD", billingMode: "test", analyticsAttributionId: "consent-attribution" });
+    const response = await buildApp().request("/billing/webhooks/stripe", { method: "POST", body: "signed-payload" });
+    expect(response.status).toBe(200);
+    expect(mockQueuePaymentAnalytics).toHaveBeenCalledWith(mockDb, expect.objectContaining({ amount: 1.234 }), "purchase", 1.234, expect.any(Date));
+    expect(mockDb.payment.upsert.mock.calls[0][0].where).toEqual({
+      provider_providerPaymentId: { provider: "stripe", providerPaymentId: "invoice_1" },
+    });
+  });
+
+  it("reconciles successful Stripe refunds across invoice payment links and ignores pending refunds", async () => {
+    mockGetIntegration.mockResolvedValue("fixture-secret");
+    const payment = { id: "payment_local", amount: 19, refundedAmount: 8, analyticsRefundedAmount: null,
+      currency: "USD", providerInvoiceId: "invoice_1", billingMode: "test", analyticsAttributionId: "consent-attribution" };
+    mockStripeClient.mockResolvedValue({
+      webhooks: { constructEvent: () => ({ id: "event_refund", type: "charge.refunded", livemode: false,
+        data: { object: { id: "charge_1", payment_intent: "intent_1" } } }) },
+      invoicePayments: { list: async function* (params: any) {
+        yield { invoice: "invoice_1", payment: { payment_intent: "intent_1" } };
+        if (params.invoice) yield { invoice: "invoice_1", payment: { payment_intent: "intent_2" } };
+      } },
+      refunds: { list: async function* (params: any) {
+        yield { amount: params.payment_intent === "intent_1" ? 200 : 50, currency: "usd", status: "succeeded" };
+        yield { amount: 100, currency: "usd", status: "pending" };
+      } },
+    });
+    mockDb.payment.findFirst.mockResolvedValueOnce(null).mockResolvedValue(payment);
+    mockDb.payment.findUnique.mockResolvedValue(payment);
+    const response = await buildApp().request("/billing/webhooks/stripe", { method: "POST", body: "signed-payload" });
+    expect(response.status).toBe(200);
+    expect(mockQueuePaymentAnalytics).toHaveBeenCalledWith(mockDb, payment, "refund", 2.5, expect.any(Date), "2.500");
+    // An admin request already marked 8 refunded; confirmation must not reduce it.
+    expect(mockDb.payment.updateMany).not.toHaveBeenCalled();
+    expect(mockDb.payment.update).toHaveBeenCalledWith({ where: { id: payment.id }, data: { analyticsRefundedAmount: 2.5 } });
+  });
+
+  it("ignores pending Stripe refund events", async () => {
+    mockGetIntegration.mockResolvedValue("fixture-secret");
+    mockStripeClient.mockResolvedValue({ webhooks: { constructEvent: () => ({
+      id: "pending_refund", type: "refund.created", livemode: false, data: { object: { status: "pending" } },
+    }) } });
+    const response = await buildApp().request("/billing/webhooks/stripe", { method: "POST", body: "signed-payload" });
+    expect(response.status).toBe(200);
+    expect(mockDb.payment.findFirst).not.toHaveBeenCalled();
+    expect(mockQueuePaymentAnalytics).not.toHaveBeenCalled();
+  });
+
+  it("asks Stripe to retry an owned paid invoice that overtakes its subscription webhook", async () => {
+    mockGetIntegration.mockResolvedValue("fixture-secret");
+    mockStripeClient.mockResolvedValue({ webhooks: { constructEvent: () => ({
+      id: "early_invoice", type: "invoice.paid", livemode: false,
+      data: { object: { id: "invoice_early", subscription: "sub_early",
+        parent: { subscription_details: { metadata: { userId: "user_1", businessProfileId: "workspace_1" } } } } },
+    }) } });
+    mockDb.businessProfile.findFirst.mockResolvedValue({ id: "workspace_1" });
+    const response = await buildApp().request("/billing/webhooks/stripe", { method: "POST", body: "signed-payload" });
+    expect(response.status).toBe(500);
+    expect(mockDb.webhookDelivery.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "failed" }) }));
+    expect(mockDb.payment.upsert).not.toHaveBeenCalled();
   });
 
   it("rejects checkout without an explicit billing interval", async () => {

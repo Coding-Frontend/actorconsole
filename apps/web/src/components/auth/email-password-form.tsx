@@ -116,7 +116,9 @@ export function EmailPasswordForm({
           reportError(result.error ?? "Unable to create the account.");
           return;
         }
-        void trackEvent("sign_up", { method: "email" });
+        // Registration deliberately returns the same response for existing accounts.
+        // Count the verified account as sign_up on the verification page instead.
+        void trackEvent("sign_up_requested", { method: "email" });
         toast.success("Account created. Check your email for the verification code.");
         router.push(
           `/signup/verify-email?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(safeCallbackUrl(callbackUrl))}`,

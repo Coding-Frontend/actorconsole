@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
+import { trackEvent } from "@/lib/analytics-events";
+import { notifySessionChanged } from "@/lib/session-events";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Inbox, Loader2, MailCheck, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -40,6 +42,9 @@ export default function VerifyEmailPage() {
         toast.error(result.error ?? "Unable to verify the email.");
         return;
       }
+      notifySessionChanged();
+      void trackEvent("sign_up", { method: "email" });
+      void trackEvent("email_verified", { method: "email" });
       setVerified(true);
       setTimeout(() => {
         router.push(callbackUrl);

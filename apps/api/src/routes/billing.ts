@@ -3,9 +3,18 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import Stripe from "stripe";
 import { reconcileBillingSubscription } from "../lib/billing-state.js";
-import { recordPaymentCapture } from "../lib/billing-payment-state.js";
+import {
+  recordPaymentCapture,
+  recordPaymentRefund,
+} from "../lib/billing-payment-state.js";
 import { providerAmount } from "../lib/billing-amount.js";
-import { db } from "@actorconsole/db";
+import { db, revokePaymentAnalytics } from "@actorconsole/db";
+import {
+  hasAnalyticsConsent,
+  paymentAnalyticsInput,
+} from "../lib/billing-analytics.js";
+import { checkRateLimit } from "../lib/rate-limit.js";
+import { resolveClientIp } from "../lib/client-ip.js";
 import { subscriptionBlocksCheckout } from "@actorconsole/shared";
 import {
   reserveBillingCheckout,
@@ -44,20 +53,49 @@ const checkoutBody = z
     gateway: z.enum(["stripe", "razorpay", "dodo"]),
     plan: z.literal("PRO"),
     interval: z.enum(["month", "year"]),
+    analytics: paymentAnalyticsInput.optional(),
   })
   .strict();
 
 export const billingRoutes = new Hono<AppEnv>()
+  .post(
+    "/analytics/revoke",
+    zValidator(
+      "json",
+      z
+        .object({
+          tokens: z.array(z.string().uuid()).min(1).max(50),
+        })
+        .strict(),
+    ),
+    async (c) => {
+      const rate = await checkRateLimit(
+        `payment-analytics-revoke:${resolveClientIp(c)}`,
+        { windowMs: 60_000, max: 10 },
+      );
+      if (!rate.allowed) return c.json({ ok: false }, 429);
+      await revokePaymentAnalytics(c.req.valid("json").tokens);
+      return c.json({ ok: true });
+    },
+  )
   .post("/checkout", zValidator("json", checkoutBody), async (c) => {
     const session = c.get("session");
-    const { gateway, plan, interval } = c.req.valid("json");
+    const { gateway, plan, interval, analytics } = c.req.valid("json");
     if (!session.businessProfileId) {
       return c.json(
-        { ok: false, error: { code: "workspace_required", message: "Select a workspace first." } },
+        {
+          ok: false,
+          error: {
+            code: "workspace_required",
+            message: "Select a workspace first.",
+          },
+        },
         409,
       );
     }
-    const gatewayRow = await db.paymentGateway.findUnique({ where: { key: gateway } });
+    const gatewayRow = await db.paymentGateway.findUnique({
+      where: { key: gateway },
+    });
     if (!gatewayRow?.enabled) {
       return c.json(
         {
@@ -85,7 +123,11 @@ export const billingRoutes = new Hono<AppEnv>()
       );
     }
 
-    const selectedProductId = await configuredCheckoutProduct(gateway, interval, context);
+    const selectedProductId = await configuredCheckoutProduct(
+      gateway,
+      interval,
+      context,
+    );
     if (!selectedProductId) {
       return c.json(
         {
@@ -100,15 +142,22 @@ export const billingRoutes = new Hono<AppEnv>()
     }
 
     const [existing, user] = await Promise.all([
-      db.subscription.findUnique({ where: { businessProfileId: session.businessProfileId } }),
+      db.subscription.findUnique({
+        where: { businessProfileId: session.businessProfileId },
+      }),
       db.user.findUnique({
         where: { id: session.userId },
         select: { email: true, name: true },
       }),
     ]);
-    if (!user) return c.json({ ok: false, error: { code: "user_not_found" } }, 404);
+    if (!user)
+      return c.json({ ok: false, error: { code: "user_not_found" } }, 404);
 
-    if (existing && existing.provider === "manual" && subscriptionBlocksCheckout(existing)) {
+    if (
+      existing &&
+      existing.provider === "manual" &&
+      subscriptionBlocksCheckout(existing)
+    ) {
       return c.json(
         {
           ok: false,
@@ -156,6 +205,9 @@ export const billingRoutes = new Hono<AppEnv>()
       context,
       productId: selectedProductId,
       interval,
+      analytics: hasAnalyticsConsent(c.req.header("cookie"))
+        ? analytics
+        : undefined,
     });
     let checkout;
     try {
@@ -166,10 +218,20 @@ export const billingRoutes = new Hono<AppEnv>()
         name: user.name,
         operationId,
       };
-      checkout = await createProviderCheckout(gateway, plan, actor, interval, context);
+      checkout = await createProviderCheckout(
+        gateway,
+        plan,
+        actor,
+        interval,
+        context,
+      );
     } catch (error) {
       await failBillingCheckout(operationId, error);
-      if (gateway === "dodo" && context.mode === "live" && isDodoLivePaymentsUnavailable(error)) {
+      if (
+        gateway === "dodo" &&
+        context.mode === "live" &&
+        isDodoLivePaymentsUnavailable(error)
+      ) {
         return c.json(
           {
             ok: false,
@@ -188,7 +250,9 @@ export const billingRoutes = new Hono<AppEnv>()
           error: {
             code: "provider_error",
             message:
-              error instanceof Error ? error.message : "The payment provider rejected checkout.",
+              error instanceof Error
+                ? error.message
+                : "The payment provider rejected checkout.",
           },
         },
         502,
@@ -214,9 +278,15 @@ export const billingRoutes = new Hono<AppEnv>()
       where: { businessProfileId: session.businessProfileId },
     });
     if (!subscription || subscription.provider === "manual") {
-      return c.json({ ok: false, error: { code: "no_gateway_subscription" } }, 404);
+      return c.json(
+        { ok: false, error: { code: "no_gateway_subscription" } },
+        404,
+      );
     }
-    if (!subscription.providerSubscriptionId && !subscription.razorpaySubscriptionId) {
+    if (
+      !subscription.providerSubscriptionId &&
+      !subscription.razorpaySubscriptionId
+    ) {
       return c.json(
         {
           ok: false,
@@ -228,11 +298,17 @@ export const billingRoutes = new Hono<AppEnv>()
         409,
       );
     }
-    if (subscription.cancelAtPeriodEnd || subscription.status === "cancellation_pending") {
+    if (
+      subscription.cancelAtPeriodEnd ||
+      subscription.status === "cancellation_pending"
+    ) {
       return c.json(
         {
           ok: false,
-          error: { code: "cancellation_pending", message: "Cancellation is already scheduled." },
+          error: {
+            code: "cancellation_pending",
+            message: "Cancellation is already scheduled.",
+          },
         },
         409,
       );
@@ -250,7 +326,10 @@ export const billingRoutes = new Hono<AppEnv>()
       data: { status: "cancellation_pending", stateVersion: { increment: 1 } },
     });
     if (!claimed.count) {
-      return c.json({ ok: false, error: { code: "subscription_changed" } }, 409);
+      return c.json(
+        { ok: false, error: { code: "subscription_changed" } },
+        409,
+      );
     }
     let result;
     try {
@@ -271,7 +350,8 @@ export const billingRoutes = new Hono<AppEnv>()
           ok: false,
           error: {
             code: "provider_error",
-            message: error instanceof Error ? error.message : "Cancellation failed.",
+            message:
+              error instanceof Error ? error.message : "Cancellation failed.",
           },
         },
         502,
@@ -292,7 +372,9 @@ export const billingRoutes = new Hono<AppEnv>()
         stateVersion: { increment: 1 },
       },
     });
-    const updated = await db.subscription.findUnique({ where: { id: subscription.id } });
+    const updated = await db.subscription.findUnique({
+      where: { id: subscription.id },
+    });
     return c.json({ ok: true, data: updated });
   })
 
@@ -308,15 +390,25 @@ export const billingRoutes = new Hono<AppEnv>()
       getPaymentSetting("stripe_webhook_secret", context),
     ]);
     if (!stripe || !webhookSecret) {
-      return c.json({ ok: false, error: { code: "stripe_webhook_not_configured" } }, 503);
+      return c.json(
+        { ok: false, error: { code: "stripe_webhook_not_configured" } },
+        503,
+      );
     }
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(raw, signature ?? "", webhookSecret);
+      event = stripe.webhooks.constructEvent(
+        raw,
+        signature ?? "",
+        webhookSecret,
+      );
     } catch {
       return c.json({ ok: false, error: { code: "invalid_signature" } }, 400);
     }
-    if (event.livemode !== undefined && event.livemode !== (context.mode === "live"))
+    if (
+      event.livemode !== undefined &&
+      event.livemode !== (context.mode === "live")
+    )
       return c.json({ ok: false, error: { code: "mode_mismatch" } }, 400);
     const claim = await claimPaymentWebhook({
       source,
@@ -324,7 +416,8 @@ export const billingRoutes = new Hono<AppEnv>()
       eventType: event.type,
       payload: summarizeStripeEvent(event),
     });
-    if (claim.state === "duplicate") return c.json({ ok: true, duplicate: true });
+    if (claim.state === "duplicate")
+      return c.json({ ok: true, duplicate: true });
     if (claim.state !== "claimed")
       return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
     try {
@@ -348,9 +441,15 @@ export const billingRoutes = new Hono<AppEnv>()
       return c.json({ ok: false, error: { code: "invalid_mode" } }, 400);
     const context = await paymentWebhookContext("dodo", c.req.query("mode"));
     const source = `dodo:${context.mode}`;
-    const dodo = await getDodoClient({ requireWebhookKey: true, mode: context });
+    const dodo = await getDodoClient({
+      requireWebhookKey: true,
+      mode: context,
+    });
     if (!dodo) {
-      return c.json({ ok: false, error: { code: "dodo_webhook_not_configured" } }, 503);
+      return c.json(
+        { ok: false, error: { code: "dodo_webhook_not_configured" } },
+        503,
+      );
     }
     let event: any;
     try {
@@ -369,7 +468,8 @@ export const billingRoutes = new Hono<AppEnv>()
         paymentId: event.data?.payment_id,
       },
     });
-    if (claim.state === "duplicate") return c.json({ ok: true, duplicate: true });
+    if (claim.state === "duplicate")
+      return c.json({ ok: true, duplicate: true });
     if (claim.state !== "claimed")
       return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
     try {
@@ -387,11 +487,15 @@ function summarizeStripeEvent(event: Stripe.Event) {
   return {
     type: event.type,
     objectId: typeof object?.id === "string" ? object.id : undefined,
-    subscriptionId: externalId(object?.subscription) ?? stripeInvoiceSubscriptionId(object),
+    subscriptionId:
+      externalId(object?.subscription) ?? stripeInvoiceSubscriptionId(object),
   };
 }
 
-async function processStripeEvent(event: Stripe.Event, context: GatewayContext) {
+async function processStripeEvent(
+  event: Stripe.Event,
+  context: GatewayContext,
+) {
   const object = event.data.object as any;
   if (event.type === "checkout.session.completed") {
     const metadata = object.metadata ?? {};
@@ -423,7 +527,8 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
       // Keep the established provisional policy, but never let an unlinked
       // checkout overwrite a subscription already confirmed by another event.
       await db.$transaction(async (tx) => {
-        const { lockBillingWorkspace } = await import("../lib/billing-checkout-operations.js");
+        const { lockBillingWorkspace } =
+          await import("../lib/billing-checkout-operations.js");
         await lockBillingWorkspace(tx, businessProfile.id);
         const current = await tx.subscription.findUnique({
           where: { businessProfileId: businessProfile.id },
@@ -438,7 +543,8 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
           (current &&
             (current.provider !== "stripe" ||
               !(await subscriptionMatchesMode(current, context)) ||
-              (current.providerCheckoutId && current.providerCheckoutId !== object.id)))
+              (current.providerCheckoutId &&
+                current.providerCheckoutId !== object.id)))
         )
           return;
         await tx.subscription.upsert({
@@ -469,7 +575,10 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
   if (event.type.startsWith("customer.subscription.")) {
     const existing = await db.subscription.findUnique({
       where: {
-        provider_providerSubscriptionId: { provider: "stripe", providerSubscriptionId: object.id },
+        provider_providerSubscriptionId: {
+          provider: "stripe",
+          providerSubscriptionId: object.id,
+        },
       },
     });
     const businessProfile = existing?.businessProfileId
@@ -488,7 +597,10 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
     return;
   }
 
-  if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
+  if (
+    event.type === "invoice.paid" ||
+    event.type === "invoice.payment_succeeded"
+  ) {
     const subscriptionId = stripeInvoiceSubscriptionId(object);
     if (!subscriptionId) return;
     const subscription = await db.subscription.findUnique({
@@ -499,32 +611,165 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
         },
       },
     });
-    if (!subscription || !(await subscriptionMatchesMode(subscription, context))) return;
-    const providerPaymentId = externalId(object.payment_intent) ?? object.id;
-    const existingPayment = await db.payment.findUnique({
-      where: { provider_providerPaymentId: { provider: "stripe", providerPaymentId } },
-      select: { billingMode: true },
-    });
-    if (existingPayment && !(await subscriptionMatchesMode(existingPayment, context))) return;
-    await recordPaymentCapture({
+    if (!subscription) {
+      const metadata =
+        object.parent?.subscription_details?.metadata ??
+        object.subscription_details?.metadata;
+      if (
+        metadata?.businessProfileId &&
+        metadata?.userId &&
+        (await resolveWebhookBusinessProfile(
+          metadata.userId,
+          metadata.businessProfileId,
+        ))
+      ) {
+        throw new Error(
+          "Stripe subscription ledger is not available yet; retry the paid invoice",
+        );
+      }
+      return;
+    }
+    if (!(await subscriptionMatchesMode(subscription, context))) return;
+    // Both paid invoice topics describe the same transaction. An invoice ID
+    // remains stable when Stripe changes whether payment_intent is expanded.
+    const invoicePayment = await db.payment.findFirst({
       where: {
-        provider_providerPaymentId: { provider: "stripe", providerPaymentId },
+        provider: "stripe",
+        providerInvoiceId: object.id,
+        OR: [{ billingMode: context.mode }, { billingMode: null }],
       },
-      create: {
-        userId: subscription.userId,
-        businessProfileId: subscription.businessProfileId,
-        subscriptionId: subscription.id,
+    });
+    const providerPaymentId = invoicePayment?.providerPaymentId ?? object.id;
+    const existingPayment =
+      invoicePayment ??
+      (await db.payment.findUnique({
+        where: {
+          provider_providerPaymentId: { provider: "stripe", providerPaymentId },
+        },
+        select: { billingMode: true },
+      }));
+    if (
+      existingPayment &&
+      !(await subscriptionMatchesMode(existingPayment, context))
+    )
+      return;
+    await recordPaymentCapture(
+      {
+        where: {
+          provider_providerPaymentId: { provider: "stripe", providerPaymentId },
+        },
+        create: {
+          userId: subscription.userId,
+          businessProfileId: subscription.businessProfileId,
+          subscriptionId: subscription.id,
+          provider: "stripe",
+          billingMode: context.mode,
+          providerPaymentId,
+          providerInvoiceId: object.id,
+          ...providerAmount(object.amount_paid, object.currency),
+          status: "captured",
+          method: "stripe",
+          capturedAt: new Date(),
+        },
+        update: { status: "captured", capturedAt: new Date() },
+      },
+      providerEventDate(object.status_transitions?.paid_at ?? event.created),
+    );
+    return;
+  }
+
+  if (
+    [
+      "charge.refunded",
+      "refund.created",
+      "refund.updated",
+      "charge.refund.updated",
+    ].includes(event.type)
+  ) {
+    if (event.type !== "charge.refunded" && object.status !== "succeeded")
+      return;
+    const stripe = await getStripeClient(context);
+    if (!stripe) throw new Error("Stripe is not configured");
+    const chargeId = externalId(object.charge);
+    const charge =
+      event.type === "charge.refunded"
+        ? object
+        : chargeId
+          ? await stripe.charges.retrieve(chargeId)
+          : { payment_intent: object.payment_intent };
+    const paymentIntent = externalId(charge.payment_intent);
+    const invoiceId = externalId(charge.invoice);
+    let payment = await db.payment.findFirst({
+      where: {
         provider: "stripe",
         billingMode: context.mode,
-        providerPaymentId,
-        providerInvoiceId: object.id,
-        ...providerAmount(object.amount_paid ?? object.total, object.currency),
-        status: "captured",
-        method: "stripe",
-        capturedAt: new Date(),
+        OR: [
+          ...(paymentIntent ? [{ providerPaymentId: paymentIntent }] : []),
+          ...(invoiceId ? [{ providerInvoiceId: invoiceId }] : []),
+        ],
       },
-      update: { status: "captured", capturedAt: new Date() },
     });
+    if (!payment && paymentIntent) {
+      // Recent Stripe API versions link invoices through InvoicePayment rather
+      // than exposing invoice/payment_intent directly on both legacy objects.
+      for await (const link of stripe.invoicePayments.list({
+        payment: { type: "payment_intent", payment_intent: paymentIntent },
+        limit: 100,
+      })) {
+        const linkedInvoice = externalId(link.invoice);
+        if (!linkedInvoice) continue;
+        payment = await db.payment.findFirst({
+          where: {
+            provider: "stripe",
+            billingMode: context.mode,
+            providerInvoiceId: linkedInvoice,
+          },
+        });
+        if (payment) break;
+      }
+    }
+    if (!payment) {
+      // Invoice capture and refund deliveries may arrive out of order.
+      if (paymentIntent || invoiceId)
+        throw new Error(
+          "Stripe payment ledger is not available yet; retry refund",
+        );
+      return;
+    }
+    // Read all pages: a charge can have multiple partial refunds. Only settled
+    // refunds count; created/pending/failed refunds do not reduce GA revenue.
+    const paymentIntents = new Set<string>(
+      paymentIntent ? [paymentIntent] : [],
+    );
+    if (payment.providerInvoiceId)
+      for await (const link of stripe.invoicePayments.list({
+        invoice: payment.providerInvoiceId,
+        limit: 100,
+      })) {
+        const intent = externalId(link.payment.payment_intent);
+        if (intent) paymentIntents.add(intent);
+      }
+    let refundedMinor = 0;
+    const selectors = paymentIntents.size
+      ? [...paymentIntents].map((id) => ({ payment_intent: id }))
+      : [{ charge: charge.id as string }];
+    for (const selector of selectors)
+      for await (const refund of stripe.refunds.list({
+        ...selector,
+        limit: 100,
+      })) {
+        if (refund.status === "succeeded") {
+          if (refund.currency.toUpperCase() !== payment.currency)
+            throw new Error("Refund currency mismatch");
+          refundedMinor += refund.amount;
+        }
+      }
+    const refunded = providerAmount(refundedMinor, payment.currency);
+    await recordPaymentRefund(
+      payment.id,
+      refunded.amount,
+      providerEventDate(event.created),
+    );
     return;
   }
 
@@ -544,7 +789,8 @@ async function processStripeEvent(event: Stripe.Event, context: GatewayContext) 
 
 async function processDodoEvent(event: any, context: GatewayContext) {
   const data = event.data ?? {};
-  if (data.metadata?.billingMode && data.metadata.billingMode !== context.mode) return;
+  if (data.metadata?.billingMode && data.metadata.billingMode !== context.mode)
+    return;
   if (event.type.startsWith("subscription.")) {
     if (!data.subscription_id) return;
     const existing = await db.subscription.findUnique({
@@ -584,7 +830,10 @@ async function processDodoEvent(event: any, context: GatewayContext) {
       : null;
     if (!subscription && data.checkout_session_id) {
       subscription = await db.subscription.findFirst({
-        where: { provider: "dodo", providerCheckoutId: data.checkout_session_id },
+        where: {
+          provider: "dodo",
+          providerCheckoutId: data.checkout_session_id,
+        },
       });
     }
     if (!(await subscriptionMatchesMode(subscription, context))) return;
@@ -614,14 +863,24 @@ async function processDodoEvent(event: any, context: GatewayContext) {
     if (!subscription || !data.payment_id) return;
     const existingPayment = await db.payment.findUnique({
       where: {
-        provider_providerPaymentId: { provider: "dodo", providerPaymentId: data.payment_id },
+        provider_providerPaymentId: {
+          provider: "dodo",
+          providerPaymentId: data.payment_id,
+        },
       },
       select: { status: true, billingMode: true },
     });
-    if (existingPayment && !(await subscriptionMatchesMode(existingPayment, context))) return;
+    if (
+      existingPayment &&
+      !(await subscriptionMatchesMode(existingPayment, context))
+    )
+      return;
     await recordPaymentCapture({
       where: {
-        provider_providerPaymentId: { provider: "dodo", providerPaymentId: data.payment_id },
+        provider_providerPaymentId: {
+          provider: "dodo",
+          providerPaymentId: data.payment_id,
+        },
       },
       create: {
         userId: subscription.userId,
@@ -637,7 +896,9 @@ async function processDodoEvent(event: any, context: GatewayContext) {
         capturedAt: new Date(),
       },
       update: {
-        status: ["refunded", "partially_refunded"].includes(existingPayment?.status ?? "")
+        status: ["refunded", "partially_refunded"].includes(
+          existingPayment?.status ?? "",
+        )
           ? existingPayment!.status
           : "captured",
         capturedAt: new Date(),
@@ -665,27 +926,45 @@ async function processDodoEvent(event: any, context: GatewayContext) {
     const providerPayment = await dodo.payments.retrieve(data.payment_id);
     let payment = await db.payment.findUnique({
       where: {
-        provider_providerPaymentId: { provider: "dodo", providerPaymentId: data.payment_id },
+        provider_providerPaymentId: {
+          provider: "dodo",
+          providerPaymentId: data.payment_id,
+        },
       },
     });
     if (!payment && providerPayment.status === "succeeded") {
-      await processDodoEvent({ type: "payment.succeeded", data: providerPayment }, context);
+      await processDodoEvent(
+        { type: "payment.succeeded", data: providerPayment },
+        context,
+      );
       payment = await db.payment.findUnique({
         where: {
-          provider_providerPaymentId: { provider: "dodo", providerPaymentId: data.payment_id },
+          provider_providerPaymentId: {
+            provider: "dodo",
+            providerPaymentId: data.payment_id,
+          },
         },
       });
     }
     if (payment && !(await subscriptionMatchesMode(payment, context))) return;
     if (!payment) {
       if (providerPayment.metadata?.businessProfileId) {
-        throw new Error("Dodo payment ledger is not available yet; retry the refund event.");
+        throw new Error(
+          "Dodo payment ledger is not available yet; retry the refund event.",
+        );
       }
       return;
     }
     const succeededRefunds = providerPayment.refunds.filter(
       (refund) => refund.status === "succeeded",
     );
+    if (
+      succeededRefunds.some(
+        (refund) =>
+          refund.currency && refund.currency.toUpperCase() !== payment.currency,
+      )
+    )
+      throw new Error("Refund currency mismatch");
     if (
       providerPayment.refund_status !== "full" &&
       succeededRefunds.some((refund) => refund.amount == null)
@@ -700,17 +979,14 @@ async function processDodoEvent(event: any, context: GatewayContext) {
       providerPayment.refund_status === "full"
         ? Number(payment.amount)
         : providerAmount(refundedMinor, payment.currency).amount;
-    await db.payment.updateMany({
-      where: {
-        id: payment.id,
-        OR: [{ refundedAmount: null }, { refundedAmount: { lte: refundedAmount } }],
-      },
-      data: {
-        refundedAmount,
-        status: refundedAmount >= Number(payment.amount) ? "refunded" : "partially_refunded",
-      },
-    });
+    await recordPaymentRefund(payment.id, refundedAmount);
   }
+}
+
+function providerEventDate(seconds: unknown) {
+  return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+    ? new Date(seconds * 1000)
+    : new Date();
 }
 
 function externalId(value: unknown): string | null {
@@ -734,7 +1010,10 @@ function stripeInvoiceSubscriptionId(invoice: any): string | null {
   );
 }
 
-async function resolveWebhookBusinessProfile(userId?: string, requestedId?: string) {
+async function resolveWebhookBusinessProfile(
+  userId?: string,
+  requestedId?: string,
+) {
   if (requestedId) {
     const requested = await db.businessProfile.findFirst({
       where: { id: requestedId, ...(userId ? { userId } : {}) },
@@ -757,13 +1036,18 @@ async function webhookMayUpdateWorkspace(
   externalSubscriptionId?: string | null,
   checkoutId?: string,
 ) {
-  const current = await db.subscription.findUnique({ where: { businessProfileId } });
-  if (!current) return (await getGatewayContext(context.gateway)).mode === context.mode;
+  const current = await db.subscription.findUnique({
+    where: { businessProfileId },
+  });
+  if (!current)
+    return (await getGatewayContext(context.gateway)).mode === context.mode;
   return (
     (await subscriptionMatchesMode(current, context)) &&
     current.provider === context.gateway &&
     (!current.providerSubscriptionId ||
       current.providerSubscriptionId === externalSubscriptionId) &&
-    (!checkoutId || !current.providerCheckoutId || current.providerCheckoutId === checkoutId)
+    (!checkoutId ||
+      !current.providerCheckoutId ||
+      current.providerCheckoutId === checkoutId)
   );
 }

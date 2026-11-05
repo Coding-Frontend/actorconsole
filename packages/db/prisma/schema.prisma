@@ -107,6 +107,7 @@ model User {
   actors                    Actor[]
   notifications             Notification[]
   payments                  Payment[]
+  paymentAnalyticsAttributions PaymentAnalyticsAttribution[]
   blogPosts                 BlogPost[]
   apiKeys                   ApiKey[]
   notificationPrefs         NotificationPreference[]
@@ -303,6 +304,7 @@ model Subscription {
   provider               String    @default("razorpay")
   stateVersion           Int       @default(0)
   checkoutOperationId    String?
+  analyticsAttributionId String? @db.VarChar(64)
   billingMode            String?
   source                 String    @default("gateway")
   providerCustomerId     String?
@@ -324,12 +326,14 @@ model Subscription {
   user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   businessProfile BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
   payments        Payment[]
+  analyticsAttribution PaymentAnalyticsAttribution? @relation(fields: [analyticsAttributionId], references: [id], onDelete: SetNull)
 
   @@unique([provider, providerSubscriptionId])
   @@index([userId])
   @@index([status])
   @@index([razorpaySubscriptionId])
   @@index([provider, providerCustomerId])
+  @@index([analyticsAttributionId])
 }
 
 // One durable checkout reservation per workspace. Unknown remote outcomes are
@@ -374,10 +378,14 @@ model Payment {
   notes             Json?
   createdAt         DateTime  @default(now())
   capturedAt        DateTime?
+  analyticsAttributionId String? @db.VarChar(64)
+  analyticsRefundedAmount Decimal? @db.Decimal(13, 3)
 
   subscription    Subscription?    @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   businessProfile BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+  analyticsAttribution PaymentAnalyticsAttribution? @relation(fields: [analyticsAttributionId], references: [id], onDelete: SetNull)
+  analyticsEvents PaymentAnalyticsEvent[]
 
   @@unique([provider, providerPaymentId])
   @@index([userId])
@@ -386,6 +394,54 @@ model Payment {
   @@index([createdAt])
   @@index([userId, status, createdAt])
   @@index([provider, providerOrderId])
+  @@index([analyticsAttributionId])
+}
+
+// A browser-generated revocation token is hashed as the ID. A revoked tombstone
+// can arrive before checkout and must never be re-enabled by an in-flight request.
+model PaymentAnalyticsAttribution {
+  id            String @id @db.VarChar(64)
+  userId        String?
+  clientId      String? @db.VarChar(128)
+  sessionId     String? @db.VarChar(32)
+  measurementId String? @db.VarChar(32)
+  interval      String? @db.VarChar(8)
+  revokedAt     DateTime?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments Payment[]
+  subscriptions Subscription[]
+  events PaymentAnalyticsEvent[]
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+// Durable ecommerce outbox. IDs identify a purchase or a monotonic cumulative
+// refund checkpoint, independently of provider webhook-delivery IDs.
+model PaymentAnalyticsEvent {
+  id            String @id @db.VarChar(64)
+  paymentId     String
+  attributionId String @db.VarChar(64)
+  name          String @db.VarChar(16)
+  value         Decimal @db.Decimal(13, 3)
+  currency      String @db.VarChar(3)
+  occurredAt    DateTime
+  status        String @default("pending") @db.VarChar(16)
+  attempts      Int @default(0)
+  availableAt   DateTime @default(now())
+  leaseToken    String? @db.VarChar(36)
+  leaseExpiresAt DateTime?
+  lastError     String? @db.VarChar(64)
+  sentAt        DateTime?
+  createdAt     DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  attribution PaymentAnalyticsAttribution @relation(fields: [attributionId], references: [id], onDelete: Cascade)
+  @@index([status, availableAt])
+  @@index([paymentId, name])
+  @@index([attributionId])
 }
 
 // =====================================================

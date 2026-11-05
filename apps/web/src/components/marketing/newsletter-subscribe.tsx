@@ -1,6 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 /**
  * Newsletter subscription bar — embedded in the marketing footer.
  *
@@ -35,6 +36,7 @@ export function NewsletterSubscribe() {
         const data = await res.json();
 
         if (res.ok && data.ok) {
+          void trackEvent("newsletter_signup_requested", {});
           setSubscribed(true);
           toast.success(data.message ?? "Subscribed! Check your inbox.");
         } else {

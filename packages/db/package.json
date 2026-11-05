@@ -21,6 +21,8 @@
   },
   "dependencies": {
     "@actorconsole/shared": "workspace:*",
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/core": "^3.0.0",
     "@prisma/client": "^6.19.3"
   },
   "devDependencies": {

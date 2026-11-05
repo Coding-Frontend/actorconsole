@@ -1,4 +1,5 @@
 "use client";
+import { trackEvent } from "@/lib/analytics-events";
 
 import { API_BASE_URL } from "@/lib/api-base";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -212,6 +213,7 @@ export function KeywordResearch({ actors }: Props) {
       setSearchedKeyword(term);
       setResults(body.data ?? []);
       setMeta(body.meta ?? null);
+      void trackEvent("keyword_search", { result_count: body.data?.length ?? 0 });
     } catch (error) {
       if (sequence !== searchSequence.current) return;
       toast.error(error instanceof Error ? error.message : "Keyword search failed");
@@ -244,6 +246,9 @@ export function KeywordResearch({ actors }: Props) {
           ? previous.filter((item) => item.id !== existing.id)
           : [body.data, ...previous.filter((item) => item.id !== body.data.id)],
       );
+      void trackEvent("watchlist_updated", {
+        item_type: "keyword", action: existing ? "removed" : "added",
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update the watchlist");
     } finally {

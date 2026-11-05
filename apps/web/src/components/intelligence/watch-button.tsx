@@ -6,6 +6,7 @@ import { Bookmark, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/api-base";
+import { trackEvent } from "@/lib/analytics-events";
 
 export function WatchButton({ storeActorId }: { storeActorId: string }) {
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
@@ -25,6 +26,7 @@ export function WatchButton({ storeActorId }: { storeActorId: string }) {
       if (!response.ok)
         throw new Error(result.error?.message ?? "Could not save Actor. Try again.");
       setState("saved");
+      void trackEvent("watchlist_updated", { item_type: "actor", action: "added" });
       toast.success("Actor saved to your workspace watchlist.");
     } catch (error) {
       setState("idle");

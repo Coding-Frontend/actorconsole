@@ -23,6 +23,17 @@ async function challenge() {
 }
 
 describe("email/password verification UI", () => {
+  it("counts an accepted registration request without claiming an unverified signup", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ ok: true }) }));
+    render(<EmailPasswordForm mode="signup" />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "person@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "private-password" } });
+    fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
+    await waitFor(() => expect(navigation.push).toHaveBeenCalled());
+    expect(analytics.trackEvent).toHaveBeenCalledOnce();
+    expect(analytics.trackEvent).toHaveBeenCalledWith("sign_up_requested", { method: "email" });
+  });
+
   it.each(["123456", "recovery-code-text"])(
     "submits %s from the displayed verification step",
     async (code) => {

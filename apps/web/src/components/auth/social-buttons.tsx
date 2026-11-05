@@ -85,7 +85,7 @@ export function SocialButtons({ callbackUrl = "/dashboard" }: { callbackUrl?: st
       return;
     }
     notifySessionChanged();
-    void trackEvent("login", { method: loginMethod.current });
+    void trackEvent(result.isNewUser ? "sign_up" : "login", { method: loginMethod.current });
     router.push(safeCallbackUrl(callbackUrl));
     router.refresh();
   }
