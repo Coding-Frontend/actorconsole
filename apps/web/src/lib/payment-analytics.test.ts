@@ -9,10 +9,7 @@ vi.mock("@/components/cookie-consent", () => ({
 vi.mock("@/lib/firebase", () => ({
   getFirebasePaymentAnalyticsContext: mocks.context,
 }));
-import {
-  paymentAnalyticsForCheckout,
-  revokeBrowserPaymentAnalytics,
-} from "./payment-analytics";
+import { paymentAnalyticsForCheckout, revokeBrowserPaymentAnalytics } from "./payment-analytics";
 
 const key = "actorconsole.payment-analytics-tokens";
 const context = {
@@ -50,6 +47,13 @@ describe("payment attribution consent", () => {
     expect(JSON.parse(localStorage.getItem(key)!)).toEqual([result!.token]);
     expect(result!.token).toMatch(/^[0-9a-f-]{36}$/);
   });
+  it("continues collecting attribution after 50 checkout attempts", async () => {
+    const existing = Array.from({ length: 50 }, () => crypto.randomUUID());
+    localStorage.setItem(key, JSON.stringify(existing));
+    const result = await paymentAnalyticsForCheckout();
+    expect(result).toMatchObject({ ...context, consent: true });
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual([...existing, result!.token]);
+  });
   it("does not include attribution if consent changes during SDK loading", async () => {
     mocks.context.mockImplementation(async () => {
       mocks.consent = "essential";
@@ -80,5 +84,26 @@ describe("payment attribution consent", () => {
     expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({
       tokens: [token],
     });
+  });
+  it("revokes long histories in API-sized batches and retains unacknowledged tokens", async () => {
+    mocks.consent = "essential";
+    const existing = Array.from({ length: 120 }, () => crypto.randomUUID());
+    localStorage.setItem(key, JSON.stringify(existing));
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetcher);
+    await revokeBrowserPaymentAnalytics();
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual(existing.slice(50));
+    await revokeBrowserPaymentAnalytics();
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual([]);
+    expect(fetcher.mock.calls.map((call) => JSON.parse(call[1].body).tokens)).toEqual([
+      existing.slice(0, 50),
+      existing.slice(50, 100),
+      existing.slice(50, 100),
+      existing.slice(100),
+    ]);
   });
 });

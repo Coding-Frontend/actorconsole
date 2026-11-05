@@ -6,9 +6,7 @@ import { API_BASE_URL } from "@/lib/api-base";
 const STORAGE_KEY = "actorconsole.payment-analytics-tokens";
 const validToken = (value: unknown): value is string =>
   typeof value === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 function tokens(): string[] {
   const stored: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
   if (!Array.isArray(stored) || !stored.every(validToken))
@@ -20,19 +18,15 @@ function tokens(): string[] {
 export async function paymentAnalyticsForCheckout() {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    if (typeof window === "undefined" || getConsent() !== "all")
-      return undefined;
+    if (typeof window === "undefined" || getConsent() !== "all") return undefined;
     const context = await Promise.race([
-      import("@/lib/firebase").then((firebase) =>
-        firebase.getFirebasePaymentAnalyticsContext(),
-      ),
+      import("@/lib/firebase").then((firebase) => firebase.getFirebasePaymentAnalyticsContext()),
       new Promise<null>((resolve) => {
         timeout = setTimeout(() => resolve(null), 750);
       }),
     ]);
     if (!context || getConsent() !== "all") return undefined;
     const stored = tokens();
-    if (stored.length >= 50) return undefined;
     const token = crypto.randomUUID();
     // Store before the request: an opt-out that overtakes checkout can revoke
     // this token even while the server has not received its attribution yet.
@@ -51,19 +45,24 @@ export async function revokeBrowserPaymentAnalytics() {
     if (typeof window === "undefined" || getConsent() === "all") return;
     const pending = tokens();
     if (!pending.length) return;
-    const response = await fetch(`${API_BASE_URL}/billing/analytics/revoke`, {
-      method: "POST",
-      credentials: "same-origin",
-      keepalive: true,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ tokens: pending }),
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (response.ok)
+    // The API accepts at most 50 tokens per request. Keep collecting new
+    // attribution independently of how many earlier checkouts need revocation.
+    for (let offset = 0; offset < pending.length; offset += 50) {
+      const batch = pending.slice(offset, offset + 50);
+      const response = await fetch(`${API_BASE_URL}/billing/analytics/revoke`, {
+        method: "POST",
+        credentials: "same-origin",
+        keepalive: true,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tokens: batch }),
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) break;
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify(tokens().filter((token) => !pending.includes(token))),
+        JSON.stringify(tokens().filter((token) => !batch.includes(token))),
       );
+    }
     // Failed revocations stay in storage and retry on the next mount/navigation.
   } catch {
     /* Optional analytics never changes the consent UI. */
