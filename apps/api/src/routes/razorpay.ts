@@ -28,7 +28,14 @@ import {
 import { recordIntegrationTest } from "../lib/integrations.js";
 import { trackEvent } from "../lib/analytics";
 import { reconcileBillingSubscription } from "../lib/billing-state.js";
-import { recordPaymentCapture } from "../lib/billing-payment-state.js";
+import {
+  recordPaymentCapture,
+  recordPaymentRefund,
+} from "../lib/billing-payment-state.js";
+import {
+  hasAnalyticsConsent,
+  paymentAnalyticsInput,
+} from "../lib/billing-analytics.js";
 import { providerAmount } from "../lib/billing-amount.js";
 import { isDefinitiveProviderRejection } from "../lib/billing-provider-errors.js";
 import type { AppEnv } from "../app.js";
@@ -60,6 +67,7 @@ export const razorpayRoutes = new Hono<AppEnv>()
       z.object({
         plan: z.literal("PRO"),
         interval: z.enum(["month", "year"]),
+        analytics: paymentAnalyticsInput.optional(),
       }),
     ),
     async (c) => {
@@ -69,18 +77,26 @@ export const razorpayRoutes = new Hono<AppEnv>()
         return c.json(
           {
             ok: false,
-            error: { code: "workspace_required", message: "Select a workspace first." },
+            error: {
+              code: "workspace_required",
+              message: "Select a workspace first.",
+            },
           },
           409,
         );
       }
       // Check gateway toggle
-      const gateway = await db.paymentGateway.findUnique({ where: { key: "razorpay" } });
+      const gateway = await db.paymentGateway.findUnique({
+        where: { key: "razorpay" },
+      });
       if (!gateway || !gateway.enabled) {
         return c.json(
           {
             ok: false,
-            error: { code: "gateway_disabled", message: "Razorpay is disabled. Contact support." },
+            error: {
+              code: "gateway_disabled",
+              message: "Razorpay is disabled. Contact support.",
+            },
           },
           503,
         );
@@ -94,13 +110,18 @@ export const razorpayRoutes = new Hono<AppEnv>()
             ok: false,
             error: {
               code: "razorpay_not_configured",
-              message: "Razorpay credentials not set in admin → Payment gateways.",
+              message:
+                "Razorpay credentials not set in admin → Payment gateways.",
             },
           },
           503,
         );
       }
-      const planId = await configuredCheckoutProduct("razorpay", body.interval, context);
+      const planId = await configuredCheckoutProduct(
+        "razorpay",
+        body.interval,
+        context,
+      );
       if (!planId) {
         return c.json(
           {
@@ -117,13 +138,18 @@ export const razorpayRoutes = new Hono<AppEnv>()
       const existing = await db.subscription.findUnique({
         where: { businessProfileId: session.businessProfileId },
       });
-      if (existing && !existing.razorpaySubscriptionId && subscriptionBlocksCheckout(existing)) {
+      if (
+        existing &&
+        !existing.razorpaySubscriptionId &&
+        subscriptionBlocksCheckout(existing)
+      ) {
         return c.json(
           {
             ok: false,
             error: {
               code: "admin_managed_subscription",
-              message: "This workspace has an admin-managed plan. Contact support to change it.",
+              message:
+                "This workspace has an admin-managed plan. Contact support to change it.",
             },
           },
           409,
@@ -145,7 +171,10 @@ export const razorpayRoutes = new Hono<AppEnv>()
           },
         });
       }
-      if (existing?.razorpaySubscriptionId && subscriptionBlocksCheckout(existing)) {
+      if (
+        existing?.razorpaySubscriptionId &&
+        subscriptionBlocksCheckout(existing)
+      ) {
         return c.json(
           {
             ok: false,
@@ -164,6 +193,9 @@ export const razorpayRoutes = new Hono<AppEnv>()
         context,
         productId: planId,
         interval: body.interval,
+        analytics: hasAnalyticsConsent(c.req.header("cookie"))
+          ? body.analytics
+          : undefined,
       });
       let checkout;
       try {
@@ -215,7 +247,13 @@ export const razorpayRoutes = new Hono<AppEnv>()
     const session = c.get("session");
     if (!session.businessProfileId) {
       return c.json(
-        { ok: false, error: { code: "workspace_required", message: "Select a workspace first." } },
+        {
+          ok: false,
+          error: {
+            code: "workspace_required",
+            message: "Select a workspace first.",
+          },
+        },
         409,
       );
     }
@@ -223,13 +261,19 @@ export const razorpayRoutes = new Hono<AppEnv>()
       where: { businessProfileId: session.businessProfileId },
     });
     if (!sub || !sub.razorpaySubscriptionId) {
-      return c.json({ ok: false, error: { code: "no_active_subscription" } }, 404);
+      return c.json(
+        { ok: false, error: { code: "no_active_subscription" } },
+        404,
+      );
     }
     if (sub.cancelAtPeriodEnd || sub.status === "cancellation_pending") {
       return c.json(
         {
           ok: false,
-          error: { code: "cancellation_pending", message: "Cancellation is already in progress." },
+          error: {
+            code: "cancellation_pending",
+            message: "Cancellation is already in progress.",
+          },
         },
         409,
       );
@@ -286,12 +330,18 @@ export const razorpayRoutes = new Hono<AppEnv>()
         },
         data: { status: sub.status, stateVersion: { increment: 1 } },
       });
-      return c.json({ ok: false, error: { code: "razorpay_not_configured" } }, 503);
+      return c.json(
+        { ok: false, error: { code: "razorpay_not_configured" } },
+        503,
+      );
     }
 
     let cancelled;
     try {
-      cancelled = await rz.subscriptions.cancel(sub.razorpaySubscriptionId, true);
+      cancelled = await rz.subscriptions.cancel(
+        sub.razorpaySubscriptionId,
+        true,
+      );
     } catch (error) {
       if (isDefinitiveProviderRejection(error))
         await db.subscription.updateMany({
@@ -312,7 +362,11 @@ export const razorpayRoutes = new Hono<AppEnv>()
         cancelAtPeriodEnd: false,
         stateVersion: (sub.stateVersion ?? 0) + 1,
       },
-      data: { status: cancelled.status, cancelAtPeriodEnd: true, stateVersion: { increment: 1 } },
+      data: {
+        status: cancelled.status,
+        cancelAtPeriodEnd: true,
+        stateVersion: { increment: 1 },
+      },
     });
     return c.json({ ok: true, data: { status: cancelled.status } });
   })
@@ -328,17 +382,29 @@ export const razorpayRoutes = new Hono<AppEnv>()
     const eventId = c.req.header("x-razorpay-event-id");
     if (c.req.query("mode") && !["test", "live"].includes(c.req.query("mode")!))
       return c.json({ ok: false, error: { code: "invalid_mode" } }, 400);
-    const context = await paymentWebhookContext("razorpay", c.req.query("mode"));
+    const context = await paymentWebhookContext(
+      "razorpay",
+      c.req.query("mode"),
+    );
     const source = `razorpay:${context.mode}`;
-    const webhookSecret = await getPaymentSetting("razorpay_webhook_secret", context);
+    const webhookSecret = await getPaymentSetting(
+      "razorpay_webhook_secret",
+      context,
+    );
     if (!webhookSecret) {
-      return c.json({ ok: false, error: { code: "razorpay_webhook_secret_missing" } }, 503);
+      return c.json(
+        { ok: false, error: { code: "razorpay_webhook_secret_missing" } },
+        503,
+      );
     }
     const valid = verifyRazorpaySignature(raw, sig, webhookSecret);
-    if (!valid) return c.json({ ok: false, error: { code: "invalid_signature" } }, 400);
+    if (!valid)
+      return c.json({ ok: false, error: { code: "invalid_signature" } }, 400);
     const parsedPayload = safeJson(raw);
     const eventType =
-      typeof parsedPayload === "object" && parsedPayload && typeof parsedPayload.event === "string"
+      typeof parsedPayload === "object" &&
+      parsedPayload &&
+      typeof parsedPayload.event === "string"
         ? parsedPayload.event
         : "unknown";
 
@@ -348,7 +414,8 @@ export const razorpayRoutes = new Hono<AppEnv>()
       eventType,
       payload: summarizeRazorpayPayload(parsedPayload),
     });
-    if (claim.state === "duplicate") return c.json({ ok: true, duplicate: true });
+    if (claim.state === "duplicate")
+      return c.json({ ok: true, duplicate: true });
     if (claim.state !== "claimed")
       return c.json({ ok: false, error: { code: "webhook_in_progress" } }, 503);
 
@@ -356,6 +423,9 @@ export const razorpayRoutes = new Hono<AppEnv>()
       const event = parsedPayload as {
         event: string;
         payload: {
+          refund?: {
+            entity: { id: string; payment_id: string; status: string };
+          };
           subscription?: {
             entity: {
               id: string;
@@ -372,6 +442,7 @@ export const razorpayRoutes = new Hono<AppEnv>()
               currency: string;
               method?: string;
               status: string;
+              captured?: boolean;
             };
           };
         };
@@ -408,6 +479,41 @@ export const razorpayRoutes = new Hono<AppEnv>()
           });
       }
       switch (event.event) {
+        case "refund.processed": {
+          const refund = event.payload.refund?.entity;
+          if (!refund?.payment_id || refund.status !== "processed") break;
+          if (event.payload.payment?.entity.captured === false) break;
+          const payment = await db.payment.findUnique({
+            where: { razorpayPaymentId: refund.payment_id },
+          });
+          if (!payment)
+            throw new Error(
+              "Razorpay payment ledger is not available yet; retry refund",
+            );
+          if (!(await subscriptionMatchesMode(payment, context))) break;
+          const razorpay = await getRazorpayClient(context);
+          if (!razorpay) throw new Error("Razorpay is not configured");
+          let totalMinor = 0;
+          for (let skip = 0; ; skip += 100) {
+            const page = await razorpay.payments.fetchMultipleRefund(
+              refund.payment_id,
+              { count: 100, skip },
+            );
+            for (const item of page.items) {
+              if (item.status === "processed") {
+                if (item.currency.toUpperCase() !== payment.currency)
+                  throw new Error("Refund currency mismatch");
+                totalMinor += Number(item.amount);
+              }
+            }
+            if (page.items.length < 100) break;
+          }
+          await recordPaymentRefund(
+            payment.id,
+            providerAmount(totalMinor, payment.currency).amount,
+          );
+          break;
+        }
         case "subscription.charged": {
           const s = event.payload.subscription?.entity;
           const p = event.payload.payment?.entity;
@@ -424,13 +530,18 @@ export const razorpayRoutes = new Hono<AppEnv>()
           if (!userId) break;
           const businessProfile = await resolveWebhookBusinessProfile(
             userId,
-            existingSubscription?.businessProfileId ?? s.notes?.businessProfileId,
+            existingSubscription?.businessProfileId ??
+              s.notes?.businessProfileId,
           );
           if (!businessProfile) break;
           const existingPayment = await db.payment.findUnique({
             where: { razorpayPaymentId: p.id },
           });
-          if (existingPayment && !(await subscriptionMatchesMode(existingPayment, context))) break;
+          if (
+            existingPayment &&
+            !(await subscriptionMatchesMode(existingPayment, context))
+          )
+            break;
           await recordPaymentCapture({
             where: { razorpayPaymentId: p.id },
             create: {
@@ -480,12 +591,23 @@ export const razorpayRoutes = new Hono<AppEnv>()
    * Hits Razorpay's `payments` endpoint with limit=1 as a sanity check.
    */
   .post("/test", requireAdmin(), async (c) => {
-    const rate = await checkRateLimit("razorpay:credential-test", { windowMs: 60_000, max: 5 });
-    if (!rate.allowed) return c.json({ ok: false, error: { code: "rate_limited" } }, 429);
+    const rate = await checkRateLimit("razorpay:credential-test", {
+      windowMs: 60_000,
+      max: 5,
+    });
+    if (!rate.allowed)
+      return c.json({ ok: false, error: { code: "rate_limited" } }, 429);
     const rz = await getRazorpayClient();
     if (!rz) {
-      await recordIntegrationTest("razorpay_key_id", "error", "Credentials missing");
-      return c.json({ ok: false, error: { code: "razorpay_not_configured" } }, 503);
+      await recordIntegrationTest(
+        "razorpay_key_id",
+        "error",
+        "Credentials missing",
+      );
+      return c.json(
+        { ok: false, error: { code: "razorpay_not_configured" } },
+        503,
+      );
     }
     try {
       const list = await rz.payments.all({ count: 1 });
@@ -498,7 +620,10 @@ export const razorpayRoutes = new Hono<AppEnv>()
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await recordIntegrationTest("razorpay_key_id", "error", message);
-      return c.json({ ok: false, error: { code: "test_failed", message } }, 400);
+      return c.json(
+        { ok: false, error: { code: "test_failed", message } },
+        400,
+      );
     }
   });
 
@@ -510,7 +635,10 @@ function safeJson(raw: string): any {
   }
 }
 
-async function resolveWebhookBusinessProfile(userId: string | undefined, requestedId?: string) {
+async function resolveWebhookBusinessProfile(
+  userId: string | undefined,
+  requestedId?: string,
+) {
   if (!userId) return null;
   if (requestedId) {
     const requested = await db.businessProfile.findFirst({
@@ -531,9 +659,11 @@ function summarizeRazorpayPayload(payload: any): Record<string, unknown> {
   const payment = payload?.payload?.payment?.entity;
   return {
     event: typeof payload?.event === "string" ? payload.event : "unknown",
-    subscriptionId: typeof subscription?.id === "string" ? subscription.id : undefined,
+    subscriptionId:
+      typeof subscription?.id === "string" ? subscription.id : undefined,
     paymentId: typeof payment?.id === "string" ? payment.id : undefined,
-    orderId: typeof payment?.order_id === "string" ? payment.order_id : undefined,
+    orderId:
+      typeof payment?.order_id === "string" ? payment.order_id : undefined,
   };
 }
 

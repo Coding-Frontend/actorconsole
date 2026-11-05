@@ -128,7 +128,7 @@ const routes = [
 ];
 
 export function analyticsPath(pathname: string): string {
-  const parts = pathname.split("/").filter(Boolean);
+  const parts = pathname.split(/[?#]/, 1)[0].split("/").filter(Boolean);
   for (const route of routes) {
     const template = route.split("/").filter(Boolean);
     const result: string[] = [];
@@ -138,14 +138,36 @@ export function analyticsPath(pathname: string): string {
         if (index >= parts.length) break;
         result.push("_");
         index = parts.length;
-      } else if (index >= parts.length || (!part.startsWith("[") && part !== parts[index])) {
+      } else if (
+        index >= parts.length ||
+        (!part.startsWith("[") && part !== parts[index])
+      ) {
         break;
       } else {
         result.push(part.startsWith("[") ? "_" : part);
         index++;
       }
     }
-    if (result.length === template.length && index === parts.length) return "/" + result.join("/");
+    if (result.length === template.length && index === parts.length)
+      return "/" + result.join("/");
   }
   return "/_";
+}
+
+export function analyticsPageContext(pathname: string, origin: string) {
+  const path = analyticsPath(pathname);
+  const section = path.split("/")[1];
+  const group =
+    section === "dashboard" || section === "admin"
+      ? section
+      : ["login", "signup", "forgot-password"].includes(section)
+        ? "auth"
+        : "marketing";
+  return {
+    page_path: path,
+    page_location: `${origin}${path}`,
+    page_referrer: "",
+    page_title: "ActorConsole",
+    page_group: group,
+  };
 }

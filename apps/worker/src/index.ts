@@ -5,7 +5,7 @@ import { CronExpressionParser } from "cron-parser";
 import { refreshStoreWatchAlerts } from "./lib/watch-alerts.js";
 import { runOptimizationJob, type OptimizationPayload } from "./lib/actor-optimization.js";
 
-import { admitWorkspaceActors, db, getIntegration, Prisma, purgeDueUsers, pruneBackgroundInfrastructure } from "@actorconsole/db";
+import { admitWorkspaceActors, db, getIntegration, Prisma, purgeDueUsers, pruneBackgroundInfrastructure, dispatchPaymentAnalytics } from "@actorconsole/db";
 import {
   getAdminApifyClient,
   getUserApifyClient,
@@ -1830,11 +1830,24 @@ async function start() {
     6 * 60 * 60 * 1000,
   );
 
+  // Google availability must not hold up publishing/snapshot schedule ticks.
+  // Database event leases coordinate replicas; coalesce ticks within this process.
+  let paymentAnalyticsRun: Promise<void> | null = null;
+  const runPaymentAnalytics = () => {
+    paymentAnalyticsRun ??= dispatchPaymentAnalytics(10)
+      .catch(() => log.warn("Payment analytics dispatch failed; queued events will retry"))
+      .finally(() => { paymentAnalyticsRun = null; });
+    return paymentAnalyticsRun;
+  };
+  const initialPaymentAnalytics = runPaymentAnalytics();
+  const paymentAnalyticsTick = once ? undefined : setInterval(() => { void runPaymentAnalytics(); }, 30_000);
+
   // Retention tick — runs once a day. First run is immediate on boot so
   // long-running deployments prune any backlog on the next deploy.
   const runRetentionAsLeader = async () => {
     if (!(await retentionLock.tryAcquire(redis))) return;
     try {
+      await db.paymentAnalyticsAttribution.deleteMany({ where: { expiresAt: { lt: new Date() } } });
       await pruneOldSnapshots();
       if (!redis) await pruneBackgroundInfrastructure();
       await db.bulkPublishManualRun.deleteMany({ where: { expiresAt: { lt: new Date(Date.now() - 24 * 60 * 60_000) } } });
@@ -1879,6 +1892,7 @@ async function start() {
     if (tickTimer) clearTimeout(tickTimer);
     clearInterval(usageCostTick);
     clearInterval(retentionTick);
+    clearInterval(paymentAnalyticsTick);
     await Promise.all([
       worker.close(),
       snapshotWorker.close(),
@@ -1888,7 +1902,7 @@ async function start() {
       optimizationWorker.close(),
     ]);
     await Promise.all(queueRegistry.map((q) => q.close()));
-    await Promise.allSettled([initialUsageSync, initialRetention]);
+    await Promise.allSettled([initialUsageSync, initialRetention, paymentAnalyticsRun ?? initialPaymentAnalytics]);
     await redis?.quit();
     await db.$disconnect();
     process.exit(0);
@@ -1896,7 +1910,7 @@ async function start() {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
   if (once) {
-    await Promise.all([initialUsageSync, initialRetention]);
+    await Promise.all([initialUsageSync, initialRetention, initialPaymentAnalytics]);
     const deadline = Date.now() + budgetMs;
     await Promise.all([worker, snapshotWorker, audienceWorker, catalogWorker, newsletterWorker, optimizationWorker]
       .map((worker) => (worker as DatabaseWorker).run(deadline, true)));

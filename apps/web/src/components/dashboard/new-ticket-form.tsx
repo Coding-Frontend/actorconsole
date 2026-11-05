@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
 import { DashboardAsyncState } from "./dashboard-workbench";
 import { useWorkspaceAccess } from "./workspace-access-context";
+import { trackEvent } from "@/lib/analytics-events";
 
 type ActorOption = { id: string; apifyActorId: string; title: string | null; actorName: string };
 type TicketDraft = {
@@ -27,7 +28,7 @@ const categories = [
   ["ACCOUNT", "Account"],
   ["FEATURE_REQUEST", "Feature request"],
   ["OTHER", "Other"],
-];
+] as const;
 const priorities = [
   ["LOW", "Low"],
   ["NORMAL", "Normal"],
@@ -186,6 +187,9 @@ export function NewTicketForm({
             "The ticket could not be opened. Your draft is kept; please try again.",
         );
       draft.clear();
+      void trackEvent("support_ticket_created", {
+        category: categories.find(([value]) => value === category)?.[0] ?? "OTHER",
+      });
       startTransition(() => router.push(`/dashboard/support/${result.data.id}`));
     } catch (failure) {
       setError(

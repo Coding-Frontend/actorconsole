@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { db, Prisma } from "@actorconsole/db";
+import {
+  db,
+  Prisma,
+  bindPaymentAnalyticsAttribution,
+  type PaymentAnalyticsInput,
+} from "@actorconsole/db";
 import {
   subscriptionBlocksCheckout,
   type BillingInterval,
@@ -20,7 +25,8 @@ export async function lockBillingWorkspace(
     SELECT id FROM BusinessProfile WHERE id = ${businessProfileId}
     ${userId ? Prisma.sql`AND userId = ${userId}` : Prisma.empty} FOR UPDATE
   `);
-  if (!rows.length) throw new AppError("workspace_required", "Workspace is unavailable", 409);
+  if (!rows.length)
+    throw new AppError("workspace_required", "Workspace is unavailable", 409);
 }
 
 export async function reserveBillingCheckout(input: {
@@ -29,6 +35,7 @@ export async function reserveBillingCheckout(input: {
   context: GatewayContext;
   productId: string;
   interval: BillingInterval;
+  analytics?: PaymentAnalyticsInput;
 }) {
   return db.$transaction(async (tx) => {
     await lockBillingWorkspace(tx, input.businessProfileId, input.userId);
@@ -55,6 +62,14 @@ export async function reserveBillingCheckout(input: {
       );
     }
     const id = randomUUID();
+    const analyticsAttributionId = input.analytics
+      ? await bindPaymentAnalyticsAttribution(
+          tx,
+          input.analytics,
+          input.userId,
+          input.interval,
+        )
+      : null;
     const data = {
       id,
       businessProfileId: input.businessProfileId,
@@ -79,6 +94,7 @@ export async function reserveBillingCheckout(input: {
       source: "gateway",
       userId: input.userId,
       checkoutOperationId: id,
+      analyticsAttributionId,
       status: "checkout_pending",
       providerCustomerId: null,
       providerSubscriptionId: null,
@@ -86,7 +102,8 @@ export async function reserveBillingCheckout(input: {
       providerProductId: input.productId,
       razorpayCustomerId: null,
       razorpaySubscriptionId: null,
-      razorpayPlanId: input.context.gateway === "razorpay" ? input.productId : null,
+      razorpayPlanId:
+        input.context.gateway === "razorpay" ? input.productId : null,
       cancelAtPeriodEnd: false,
       currentPeriodEnd: null,
       shortUrl: null,
@@ -100,9 +117,14 @@ export async function reserveBillingCheckout(input: {
   });
 }
 
-export async function completeBillingCheckout(operationId: string, checkout: CheckoutResult) {
+export async function completeBillingCheckout(
+  operationId: string,
+  checkout: CheckoutResult,
+) {
   await db.$transaction(async (tx) => {
-    const operation = await tx.billingCheckoutOperation.findUnique({ where: { id: operationId } });
+    const operation = await tx.billingCheckoutOperation.findUnique({
+      where: { id: operationId },
+    });
     if (!operation) throw new Error("Checkout reservation is unavailable");
     await lockBillingWorkspace(tx, operation.businessProfileId);
     const current = await tx.subscription.findUnique({
@@ -117,7 +139,9 @@ export async function completeBillingCheckout(operationId: string, checkout: Che
         checkout.providerSubscriptionId &&
         current.providerSubscriptionId !== checkout.providerSubscriptionId)
     ) {
-      throw new Error("Checkout ownership changed; reconcile the provider result");
+      throw new Error(
+        "Checkout ownership changed; reconcile the provider result",
+      );
     }
     await tx.subscription.update({
       where: { id: current.id },
@@ -126,12 +150,16 @@ export async function completeBillingCheckout(operationId: string, checkout: Che
         shortUrl: checkout.checkoutUrl,
         providerProductId: checkout.providerProductId,
         providerSubscriptionId:
-          current.providerSubscriptionId ?? checkout.providerSubscriptionId ?? null,
+          current.providerSubscriptionId ??
+          checkout.providerSubscriptionId ??
+          null,
         ...(checkout.gateway === "razorpay"
           ? { razorpaySubscriptionId: checkout.providerSubscriptionId }
           : {}),
         // A signed webhook may have completed while checkout was in flight.
-        ...(current.status === "checkout_pending" ? { status: checkout.status } : {}),
+        ...(current.status === "checkout_pending"
+          ? { status: checkout.status }
+          : {}),
         stateVersion: { increment: 1 },
       },
     });
@@ -150,7 +178,9 @@ export async function completeBillingCheckout(operationId: string, checkout: Che
 export async function failBillingCheckout(operationId: string, error: unknown) {
   const definitive = isDefinitiveProviderRejection(error);
   await db.$transaction(async (tx) => {
-    const operation = await tx.billingCheckoutOperation.findUnique({ where: { id: operationId } });
+    const operation = await tx.billingCheckoutOperation.findUnique({
+      where: { id: operationId },
+    });
     if (!operation) throw new Error("Checkout reservation is unavailable");
     await lockBillingWorkspace(tx, operation.businessProfileId);
     await tx.billingCheckoutOperation.updateMany({

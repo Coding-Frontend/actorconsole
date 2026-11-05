@@ -212,6 +212,7 @@ export default function OnboardingPage() {
       throw new Error(await responseMessage(response, "Could not save onboarding progress"));
     }
     const result = (await response.json()) as { data?: { currentStep?: OnboardingStep } };
+    void trackEvent("onboarding_step_completed", { step });
     if (step === "credentials" && result.data?.currentStep === "complete") {
       await trackEventBeforeNavigation("onboarding_completed", {});
     }
@@ -285,6 +286,7 @@ export default function OnboardingPage() {
         }
         workspaceCreated = true;
         void trackEvent("workspace_created", {});
+        void trackEvent("onboarding_step_completed", { step: "workspace" });
 
         let syncWarning: string | null = null;
         if (token) {

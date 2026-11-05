@@ -8,3 +8,4 @@ export * from "./password-auth";
 export * from "./workspace-actor-import";
 export * from "./actor-logo-recommendations";
 export * from "./background-queue";
+export * from "./payment-analytics";

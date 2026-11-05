@@ -11,6 +11,7 @@ import { PublicCompareButton } from "@/components/comparison/public-comparison-p
 import type { PublicCompareItem } from "@/components/comparison/public-comparison-items";
 import { downloadCsv } from "./research-tools";
 import { intelligenceRequest, useIntelligence, WorkspaceState } from "./workspace-data";
+import { trackEvent } from "@/lib/analytics-events";
 
 interface Watch {
   id: string;
@@ -46,6 +47,10 @@ export function Watchlist() {
         remove ? undefined : { alertsEnabled: !item.alertsEnabled },
       );
       state.refresh();
+      void trackEvent("watchlist_updated", {
+        item_type: "actor", action: remove ? "removed" : "alerts_changed",
+        ...(!remove ? { alerts_enabled: item.alertsEnabled ? 0 : 1 } as const : {}),
+      });
       toast.success(remove ? "Actor removed from watchlist." : "Alert preference saved.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Change could not be saved.");

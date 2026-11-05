@@ -15,6 +15,8 @@ const mockVerifyRazorpayCheckout = vi.fn();
 const mockVerifyRazorpaySignature = vi.fn();
 const mockAdminSession = vi.fn();
 const mockPaymentsAll = vi.fn();
+const mockRefunds = vi.fn();
+const mockQueuePaymentAnalytics = vi.fn();
 
 // Mock the Razorpay class constructor
 vi.mock("razorpay", () => {
@@ -25,7 +27,7 @@ vi.mock("razorpay", () => {
         cancel: (...args: unknown[]) => mockSubscriptionsCancel(...args),
       },
       orders: { create: (...args: unknown[]) => mockCreateOrder(...args) },
-      payments: { fetch: (...args: unknown[]) => mockFetchPayment(...args), all: (...args: unknown[]) => mockPaymentsAll(...args) },
+      payments: { fetch: (...args: unknown[]) => mockFetchPayment(...args), all: (...args: unknown[]) => mockPaymentsAll(...args), fetchMultipleRefund: (...args: unknown[]) => mockRefunds(...args) },
     })),
   };
 });
@@ -39,6 +41,7 @@ vi.mock("@actorconsole/shared", async (importOriginal) => ({
 
 vi.mock("@actorconsole/db", async () => ({
   Prisma: (await import("@prisma/client")).Prisma,
+  queuePaymentAnalytics: (...args: unknown[]) => mockQueuePaymentAnalytics(...args),
   db: {
     session: { findUnique: (...args: unknown[]) => mockAdminSession(...args) },
     billingCheckoutOperation: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
@@ -310,5 +313,43 @@ describe("Razorpay routes", () => {
     });
     expect(response.status).toBe(200);
     expect(db.payment.updateMany).toHaveBeenCalledOnce();
+  });
+
+  it("tracks only processed Razorpay refunds with the original ledger currency", async () => {
+    const { db } = await import("@actorconsole/db");
+    mockGetIntegration.mockImplementation(async (key: string) => key.includes("key_id") ? "rzp_test_fixture" : "fixture_secret");
+    mockVerifyRazorpaySignature.mockReturnValue(true);
+    vi.mocked(db.webhookDelivery.findUnique).mockResolvedValue(null);
+    vi.mocked(db.payment.findUnique).mockResolvedValue({ id: "payment", amount: 19, currency: "INR",
+      billingMode: "test", analyticsAttributionId: "consent-attribution" } as never);
+    mockRefunds.mockResolvedValue({ items: [
+      { amount: 250, currency: "INR", status: "processed" },
+      { amount: 500, currency: "INR", status: "pending" },
+      { amount: 100, currency: "INR", status: "failed" },
+    ] });
+    const response = await buildApp().request("/razorpay/webhook", {
+      method: "POST", headers: { "x-razorpay-signature": "signature", "x-razorpay-event-id": "refund-processed" },
+      body: JSON.stringify({ event: "refund.processed", payload: { refund: { entity: { id: "refund", payment_id: "pay", status: "processed" } } } }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.clone().json()).toMatchObject({ ok: true });
+    expect(mockQueuePaymentAnalytics).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ currency: "INR" }), "refund", 2.5, expect.any(Date), "2.500");
+  });
+
+  it("ignores automatic Razorpay reversals for payments that were never captured", async () => {
+    const { db } = await import("@actorconsole/db");
+    mockGetIntegration.mockResolvedValue("fixture_webhook_secret");
+    mockVerifyRazorpaySignature.mockReturnValue(true);
+    vi.mocked(db.webhookDelivery.findUnique).mockResolvedValue(null);
+    const response = await buildApp().request("/razorpay/webhook", {
+      method: "POST", headers: { "x-razorpay-signature": "signature", "x-razorpay-event-id": "auto-refund" },
+      body: JSON.stringify({ event: "refund.processed", payload: {
+        refund: { entity: { id: "refund_auto", payment_id: "pay_auto", status: "processed" } },
+        payment: { entity: { captured: false } },
+      } }),
+    });
+    expect(response.status).toBe(200);
+    expect(db.payment.findUnique).not.toHaveBeenCalled();
+    expect(mockQueuePaymentAnalytics).not.toHaveBeenCalled();
   });
 });

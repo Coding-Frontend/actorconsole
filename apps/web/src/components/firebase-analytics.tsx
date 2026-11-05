@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { CONSENT_CHANGE_EVENT, getConsent } from "@/components/cookie-consent";
+import { revokeBrowserPaymentAnalytics } from "@/lib/payment-analytics";
 import {
   getFirebaseAnalytics,
   logFirebasePageView,
@@ -21,23 +22,34 @@ export function FirebaseAnalytics() {
     async function recordPage() {
       if (getConsent() !== "all") return;
       const analytics = await getFirebaseAnalytics();
-      if (!active || !analytics || getConsent() !== "all" || lastPage.current === pathname) return;
+      if (
+        !active ||
+        !analytics ||
+        getConsent() !== "all" ||
+        lastPage.current === pathname
+      )
+        return;
       lastPage.current = pathname;
       await logFirebasePageView(pathname);
     }
 
     function consentChanged() {
       const enabled = getConsent() === "all";
-      if (!enabled) lastPage.current = null;
+      if (!enabled) {
+        lastPage.current = null;
+        void revokeBrowserPaymentAnalytics();
+      }
       void setFirebaseAnalyticsCollectionEnabled(enabled);
       if (enabled) void recordPage();
     }
 
     function storageChanged(event: StorageEvent) {
-      if (event.key === "actorconsole.cookie-consent" || event.key === null) consentChanged();
+      if (event.key === "actorconsole.cookie-consent" || event.key === null)
+        consentChanged();
     }
 
     void recordPage();
+    void revokeBrowserPaymentAnalytics();
     window.addEventListener(CONSENT_CHANGE_EVENT, consentChanged);
     window.addEventListener("storage", storageChanged);
     return () => {

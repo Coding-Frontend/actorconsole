@@ -1,19 +1,40 @@
 "use client";
 
-import { currencyMinorUnitFactor, type ProBillingOption, type PaymentMode } from "@actorconsole/shared/payment-gateways";
-import { PLAN_ACTOR_LIMITS, PLAN_MONTHLY_USER_LIMITS } from "@actorconsole/shared/plans";
+import {
+  currencyMinorUnitFactor,
+  type ProBillingOption,
+  type PaymentMode,
+} from "@actorconsole/shared/payment-gateways";
+import {
+  PLAN_ACTOR_LIMITS,
+  PLAN_MONTHLY_USER_LIMITS,
+} from "@actorconsole/shared/plans";
 import { API_BASE_URL } from "@/lib/api-base";
-import { trackEvent } from "@/lib/analytics-events";
+import { trackEvent, trackEventBeforeNavigation } from "@/lib/analytics-events";
+import { paymentAnalyticsForCheckout } from "@/lib/payment-analytics";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
-import { BillingAddressForm, type BillingAddress } from "./billing-address-form";
+import {
+  BillingAddressForm,
+  type BillingAddress,
+} from "./billing-address-form";
 import { formatDate } from "@/lib/utils";
-import { selectProOffers, offerPrice, type ProOffer } from "@/lib/pro-billing-offers";
+import {
+  selectProOffers,
+  offerPrice,
+  type ProOffer,
+} from "@/lib/pro-billing-offers";
 import { PlanComparison } from "@/components/billing/plan-comparison";
 import {
   BillingFrequencyPicker,
@@ -41,6 +62,14 @@ interface Props {
   } | null;
 }
 
+function checkoutContext({ gateway, option }: ProOffer) {
+  return {
+    gateway: gateway.key,
+    payment_mode: gateway.mode ?? ("unknown" as const),
+    billing_interval: option.interval,
+  };
+}
+
 export function BillingCard({
   plan,
   canCancelSubscription,
@@ -58,39 +87,78 @@ export function BillingCard({
   const [chosenInterval, setChosenInterval] =
     useState<ProBillingOption["interval"]>(initialInterval);
   const selectedOffer =
-    offers.find(({ option }) => option.interval === chosenInterval) ?? offers[0];
+    offers.find(({ option }) => option.interval === chosenInterval) ??
+    offers[0];
 
   useEffect(() => {
     if (checkoutOffer) checkoutHeading.current?.focus();
   }, [checkoutOffer]);
 
+  function startCheckout() {
+    if (!selectedOffer) return;
+    const { option } = selectedOffer;
+    const price =
+      option.currency && option.amountMinor !== undefined
+        ? option.amountMinor / currencyMinorUnitFactor(option.currency)
+        : undefined;
+    void trackEvent("select_plan", {
+      plan: "PRO",
+      billing_interval: option.interval,
+      source: "billing",
+    });
+    void trackEvent("begin_checkout", {
+      ...checkoutContext(selectedOffer),
+      ...(price !== undefined
+        ? { currency: option.currency, value: price }
+        : {}),
+      items: [
+        {
+          item_id: "pro",
+          item_name: "Pro",
+          item_variant: option.interval,
+          ...(price !== undefined ? { price } : {}),
+          quantity: 1,
+        },
+      ],
+    });
+    setCheckoutOffer(selectedOffer);
+  }
+
   async function checkout() {
     if (!checkoutOffer) return;
-    const { option } = checkoutOffer;
-    void trackEvent("begin_checkout", {
-      ...(option.currency && option.amountMinor !== undefined ? {
-        currency: option.currency,
-        value: option.amountMinor / currencyMinorUnitFactor(option.currency),
-      } : {}),
-      items: [{ item_id: "pro", item_name: "Pro", item_variant: option.interval }],
-    });
-    const res = await fetch(`${API_BASE_URL}/billing/checkout`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        plan: "PRO",
-        gateway: checkoutOffer.gateway.key,
-        interval: checkoutOffer.option.interval,
-      }),
-    });
-    const body = await res.json();
-    if (!res.ok)
-      throw new Error(body?.error?.message ?? "Checkout could not be opened. Please try again.");
-    const checkoutUrl = body?.data?.checkoutUrl;
-    if (!checkoutUrl || typeof checkoutUrl !== "string")
-      throw new Error("Checkout is temporarily unavailable. Please try again or contact support.");
-    window.location.href = checkoutUrl;
+    const context = checkoutContext(checkoutOffer);
+    let reason: "network" | "provider" | "invalid_response" = "network";
+    try {
+      const analytics = await paymentAnalyticsForCheckout();
+      const res = await fetch(`${API_BASE_URL}/billing/checkout`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          plan: "PRO",
+          gateway: checkoutOffer.gateway.key,
+          interval: checkoutOffer.option.interval,
+          ...(analytics ? { analytics } : {}),
+        }),
+      });
+      reason = res.ok ? "invalid_response" : "provider";
+      const body = await res.json();
+      if (!res.ok)
+        throw new Error(
+          body?.error?.message ??
+            "Checkout could not be opened. Please try again.",
+        );
+      const checkoutUrl = body?.data?.checkoutUrl;
+      if (!checkoutUrl || typeof checkoutUrl !== "string")
+        throw new Error(
+          "Checkout is temporarily unavailable. Please try again or contact support.",
+        );
+      await trackEventBeforeNavigation("checkout_redirected", context);
+      window.location.href = checkoutUrl;
+    } catch (error) {
+      void trackEvent("checkout_failed", { ...context, reason });
+      throw error;
+    }
   }
 
   async function cancelSubscription() {
@@ -102,13 +170,26 @@ export function BillingCard({
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
     }
+    void trackEvent("subscription_cancelled", {
+      payment_mode:
+        subscription?.billingMode === "test" ||
+        subscription?.billingMode === "live"
+          ? subscription.billingMode
+          : "unknown",
+    });
     toast.success("Subscription cancelled. Access continues until period end.");
     router.refresh();
   }
 
   return (
     <div className="space-y-10">
-      <div className={plan === "FREE" ? "grid items-stretch gap-5 lg:grid-cols-[1fr_1.3fr]" : ""}>
+      <div
+        className={
+          plan === "FREE"
+            ? "grid items-stretch gap-5 lg:grid-cols-[1fr_1.3fr]"
+            : ""
+        }
+      >
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -130,20 +211,30 @@ export function BillingCard({
                   <span className="font-display-tight text-5xl">$0</span>
                   <span className="text-muted-foreground text-sm">/ month</span>
                 </p>
-                <p className="text-muted-foreground mt-2 text-sm">No subscription fee.</p>
+                <p className="text-muted-foreground mt-2 text-sm">
+                  No subscription fee.
+                </p>
               </div>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-muted-foreground text-sm">Actors per workspace</p>
+                <p className="text-muted-foreground text-sm">
+                  Actors per workspace
+                </p>
                 <p className="mt-1 text-xl font-semibold tabular-nums">
-                  {plan === "FREE" ? `Up to ${PLAN_ACTOR_LIMITS.FREE}` : "Unlimited"}
+                  {plan === "FREE"
+                    ? `Up to ${PLAN_ACTOR_LIMITS.FREE}`
+                    : "Unlimited"}
                 </p>
               </div>
               <div>
-                <p className="text-muted-foreground text-sm">Monthly users across your actors</p>
+                <p className="text-muted-foreground text-sm">
+                  Monthly users across your actors
+                </p>
                 <p className="mt-1 text-xl font-semibold tabular-nums">
-                  {plan === "FREE" ? `Up to ${PLAN_MONTHLY_USER_LIMITS.FREE}` : "Unlimited"}
+                  {plan === "FREE"
+                    ? `Up to ${PLAN_MONTHLY_USER_LIMITS.FREE}`
+                    : "Unlimited"}
                 </p>
               </div>
             </div>
@@ -153,13 +244,13 @@ export function BillingCard({
                 : "All workflows are included, with no actor or monthly-user limits."}
             </p>
             <p className="text-muted-foreground text-xs">
-              Monthly users are summed across your actors for the past 30 days. The same person can
-              count in more than one actor.
+              Monthly users are summed across your actors for the past 30 days.
+              The same person can count in more than one actor.
             </p>
             {plan === "FREE" ? (
               <p className="border-border border-t pt-4 text-sm leading-6">
-                Growing your portfolio? Pro keeps your tools available when either Free limit is
-                exceeded.
+                Growing your portfolio? Pro keeps your tools available when
+                either Free limit is exceeded.
               </p>
             ) : null}
             {subscription?.billingMode === "test" ? (
@@ -168,7 +259,9 @@ export function BillingCard({
             {subscription ? (
               <div className="border-border bg-muted/20 grid gap-3 border p-4 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-muted-foreground text-xs">Subscription status</p>
+                  <p className="text-muted-foreground text-xs">
+                    Subscription status
+                  </p>
                   <p className="mt-1 font-medium capitalize">
                     {subscription.cancelAtPeriodEnd
                       ? "Cancels at period end"
@@ -177,18 +270,26 @@ export function BillingCard({
                 </div>
                 <div>
                   <p className="text-muted-foreground text-xs">
-                    {subscription.cancelAtPeriodEnd ? "Access until" : "Next billing date"}
+                    {subscription.cancelAtPeriodEnd
+                      ? "Access until"
+                      : "Next billing date"}
                   </p>
                   <p className="mt-1 font-medium">
                     {subscription.currentPeriodEnd
-                      ? formatDate(subscription.currentPeriodEnd, { withTime: true })
+                      ? formatDate(subscription.currentPeriodEnd, {
+                          withTime: true,
+                        })
                       : "Date unavailable"}
                   </p>
                 </div>
               </div>
             ) : null}
             {canCancelSubscription ? (
-              <Button variant="outline" size="sm" onClick={() => setCancelOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCancelOpen(true)}
+              >
                 Cancel subscription
               </Button>
             ) : null}
@@ -224,8 +325,8 @@ export function BillingCard({
               {checkoutOffer ? (
                 <>
                   <p className="text-muted-foreground text-sm">
-                    Enter your billing details before continuing to checkout. Your plan changes
-                    after payment is confirmed.
+                    Enter your billing details before continuing to checkout.
+                    Your plan changes after payment is confirmed.
                   </p>
                   {checkoutOffer.gateway.mode === "test" ? (
                     <p className="text-warning text-sm" role="status">
@@ -238,7 +339,9 @@ export function BillingCard({
                     onSaved={checkout}
                     onBack={() => {
                       setCheckoutOffer(null);
-                      requestAnimationFrame(() => upgradeButton.current?.focus());
+                      requestAnimationFrame(() =>
+                        upgradeButton.current?.focus(),
+                      );
                     }}
                   />
                 </>
@@ -252,8 +355,8 @@ export function BillingCard({
                     />
                   ) : (
                     <p className="text-muted-foreground text-sm">
-                      Online subscription checkout is temporarily unavailable. Contact billing
-                      support.
+                      Online subscription checkout is temporarily unavailable.
+                      Contact billing support.
                     </p>
                   )}
                   {selectedOffer ? (
@@ -273,15 +376,16 @@ export function BillingCard({
                     ref={upgradeButton}
                     size="lg"
                     className="w-full"
-                    onClick={() => selectedOffer && setCheckoutOffer(selectedOffer)}
+                    onClick={startCheckout}
                     disabled={!selectedOffer}
                   >
                     Upgrade to Pro
                     <ArrowRight aria-hidden="true" />
                   </Button>
                   <p className="text-muted-foreground text-xs leading-5">
-                    Subscriptions renew automatically. Final price and applicable taxes are shown at
-                    checkout. You can cancel future renewals from this page.
+                    Subscriptions renew automatically. Final price and
+                    applicable taxes are shown at checkout. You can cancel
+                    future renewals from this page.
                   </p>
                 </>
               )}
