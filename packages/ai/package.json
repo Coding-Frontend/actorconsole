@@ -18,7 +18,7 @@
     "@actorconsole/db": "workspace:*",
     "@actorconsole/shared": "workspace:*",
     "@google/genai": "^2.32.0",
-    "https-proxy-agent": "^7.0.6",
+    "https-proxy-agent": "^9.1.0",
     "node-fetch": "^3.3.2",
     "openai": "^6.49.0",
     "zod": "^4.6.7"
