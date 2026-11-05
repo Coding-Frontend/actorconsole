@@ -26,7 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE_URL}/blog`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/docs`, changeFrequency: "weekly", priority: 0.8 },
-    ...DOC_GUIDES.map(({ id }) => ({
+    ...DOC_GUIDES.filter(({ id }) => id !== "getting-started").map(({ id }) => ({
       url: `${BASE_URL}/docs/${id}`,
       changeFrequency: "weekly" as const,
       priority: 0.7,

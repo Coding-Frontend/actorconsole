@@ -11,6 +11,7 @@ export interface MarketingBlogPost {
   content?: string;
   coverImage: string | null;
   publishedAt: string | null;
+  updatedAt?: string | null;
   tags: string[];
   readingMinutes: number | null;
   author: BlogPostAuthor | null;

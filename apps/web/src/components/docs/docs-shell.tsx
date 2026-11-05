@@ -58,7 +58,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
   const searchResults = searchQuery.trim() ? searchDocGuides(searchQuery) : [];
 
   const handleSelect = (id: string) => {
-    router.push(`/docs/${id}`);
+    router.push(id === "getting-started" ? "/docs" : `/docs/${id}`);
     setSearchOpen(false);
     setSearchQuery("");
   };
@@ -72,8 +72,8 @@ export function DocsShell({ children }: { children: ReactNode }) {
             aria-label="Documentation sections"
           >
             <div className="docs-sidebar-title flex items-center gap-2">
-              <BookOpen className="text-signal-orange h-4 w-4" aria-hidden="true" />
-              <span className="text-muted-foreground font-mono text-[10px] font-medium uppercase tracking-[0.18em]">
+              <BookOpen className="h-4 w-4 text-signal-orange" aria-hidden="true" />
+              <span className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 Documentation
               </span>
             </div>
@@ -85,10 +85,10 @@ export function DocsShell({ children }: { children: ReactNode }) {
                     open={group.label === activeGroup || group.label === "Start here"}
                     className="group/section space-y-2"
                   >
-                    <summary className="focus-visible:ring-signal-orange text-muted-foreground flex min-h-9 cursor-pointer list-none items-center justify-between rounded-sm px-3 text-[10px] font-semibold uppercase tracking-[0.2em] focus-visible:outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden">
+                    <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between rounded-sm px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-orange [&::-webkit-details-marker]:hidden">
                       {group.label}
                       <ChevronDown
-                        className="text-muted-foreground/70 h-3.5 w-3.5 -rotate-90 transition-transform group-open/section:rotate-0"
+                        className="h-3.5 w-3.5 -rotate-90 text-muted-foreground/70 transition-transform group-open/section:rotate-0"
                         aria-hidden="true"
                       />
                     </summary>
@@ -99,14 +99,14 @@ export function DocsShell({ children }: { children: ReactNode }) {
                         return (
                           <li key={item.id}>
                             <Link
-                              href={`/docs/${item.id}`}
+                              href={item.id === "getting-started" ? "/docs" : `/docs/${item.id}`}
                               onClick={() => {
                                 setSearchOpen(false);
                                 setSearchQuery("");
                               }}
                               aria-current={isActive ? "page" : undefined}
                               className={cn(
-                                "focus-visible:ring-signal-orange group flex min-h-10 w-full items-center gap-3 rounded-md border border-transparent px-3 text-left text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2",
+                                "group flex min-h-10 w-full items-center gap-3 rounded-md border border-transparent px-3 text-left text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-orange",
                                 isActive
                                   ? "border-border bg-card text-foreground"
                                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -142,7 +142,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href="/docs"
-                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-muted-foreground transition-colors hover:text-foreground"
                     >
                       Docs
                     </Link>
@@ -154,9 +154,9 @@ export function DocsShell({ children }: { children: ReactNode }) {
                   <li className="text-muted-foreground/50" aria-hidden="true">
                     /
                   </li>
-                  <li className="text-foreground flex min-w-0 items-center gap-2 font-medium">
+                  <li className="flex min-w-0 items-center gap-2 font-medium text-foreground">
                     <BookOpen
-                      className="text-signal-orange h-3.5 w-3.5 shrink-0"
+                      className="h-3.5 w-3.5 shrink-0 text-signal-orange"
                       aria-hidden="true"
                     />
                     <span className="truncate">{activeDocItem.title}</span>
@@ -171,11 +171,11 @@ export function DocsShell({ children }: { children: ReactNode }) {
                 aria-label={searchOpen ? "Close docs search" : "Search docs"}
                 aria-expanded={searchOpen}
                 aria-controls="docs-search-panel"
-                className="focus-visible:ring-signal-orange text-muted-foreground hover:border-input hover:text-foreground border-border bg-card inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2"
+                className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs text-muted-foreground transition-colors hover:border-input hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-orange"
               >
                 <Search className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">Search docs</span>
-                <kbd className="text-muted-foreground border-border bg-accent hidden rounded border px-1.5 py-0.5 font-mono text-[10px] sm:inline">
+                <kbd className="hidden rounded border border-border bg-accent px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
                   ⌘K
                 </kbd>
               </button>
@@ -183,8 +183,8 @@ export function DocsShell({ children }: { children: ReactNode }) {
 
             {searchOpen && (
               <div id="docs-search-panel" className="relative mt-3">
-                <div className="border-border bg-card flex items-center gap-2 rounded-md border px-3">
-                  <Search className="text-signal-orange h-4 w-4 shrink-0" aria-hidden="true" />
+                <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3">
+                  <Search className="h-4 w-4 shrink-0 text-signal-orange" aria-hidden="true" />
                   <input
                     ref={searchInput}
                     type="search"
@@ -192,28 +192,28 @@ export function DocsShell({ children }: { children: ReactNode }) {
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search documentation"
                     aria-label="Search documentation"
-                    className="text-foreground placeholder:text-muted-foreground h-11 min-w-0 flex-1 bg-transparent text-sm outline-none"
+                    className="h-11 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
                   />
-                  <kbd className="text-muted-foreground border-border rounded border px-1.5 py-0.5 font-mono text-[10px]">
+                  <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                     Esc
                   </kbd>
                 </div>
                 {searchQuery.trim() && (
-                  <div className="border-border bg-popover absolute inset-x-0 top-14 z-10 max-h-80 overflow-y-auto rounded-md border p-1.5 shadow-2xl">
+                  <div className="absolute inset-x-0 top-14 z-10 max-h-80 overflow-y-auto rounded-md border border-border bg-popover p-1.5 shadow-2xl">
                     {searchResults.length > 0 ? (
                       searchResults.map((item) => (
                         <Link
                           key={item.id}
-                          href={`/docs/${item.id}`}
+                          href={item.id === "getting-started" ? "/docs" : `/docs/${item.id}`}
                           onClick={() => {
                             setSearchOpen(false);
                             setSearchQuery("");
                           }}
-                          className="focus-visible:ring-signal-orange text-muted-foreground hover:bg-accent hover:text-foreground flex min-h-10 w-full items-center gap-3 rounded-sm px-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2"
+                          className="flex min-h-10 w-full items-center gap-3 rounded-sm px-3 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-orange"
                         >
-                          <BookOpen className="text-signal-orange h-3.5 w-3.5" aria-hidden="true" />
+                          <BookOpen className="h-3.5 w-3.5 text-signal-orange" aria-hidden="true" />
                           <span className="min-w-0">
-                            <span className="text-foreground block font-medium">{item.title}</span>
+                            <span className="block font-medium text-foreground">{item.title}</span>
                             <span className="mt-1 line-clamp-2 block leading-relaxed">
                               {item.summary}
                             </span>
@@ -221,7 +221,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
                         </Link>
                       ))
                     ) : (
-                      <p className="text-muted-foreground px-3 py-3 text-xs">No matching guides.</p>
+                      <p className="px-3 py-3 text-xs text-muted-foreground">No matching guides.</p>
                     )}
                   </div>
                 )}
@@ -237,7 +237,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
               id="docs-mobile-nav"
               value={activeSection}
               onChange={(event) => handleSelect(event.target.value)}
-              className="focus:border-signal-orange focus:ring-signal-orange/30 text-foreground border-border bg-card min-h-11 w-full rounded-md border px-3 text-xs font-medium outline-none focus:ring-2"
+              className="focus:ring-signal-orange/30 min-h-11 w-full rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground outline-none focus:border-signal-orange focus:ring-2"
             >
               {docGroups.map((group) => (
                 <optgroup key={group.label} label={group.label}>

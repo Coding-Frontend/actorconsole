@@ -24,20 +24,18 @@ describe("public route metadata", () => {
     async (published) => {
       vi.stubGlobal(
         "fetch",
-        vi
-          .fn()
-          .mockResolvedValue(
-            published
-              ? Response.json({
-                  data: {
-                    title: "Terms",
-                    body: "Published terms",
-                    version: "1",
-                    publishedAt: "2026-10-23T00:00:00Z",
-                  },
-                })
-              : new Response(null, { status: 404 }),
-          ),
+        vi.fn().mockResolvedValue(
+          published
+            ? Response.json({
+                data: {
+                  title: "Terms",
+                  body: "Published terms",
+                  version: "1",
+                  publishedAt: "2026-10-23T00:00:00Z",
+                },
+              })
+            : new Response(null, { status: 404 }),
+        ),
       );
       const metadata = await policyMetadata({ params: Promise.resolve({ slug: "terms" }) });
       expect(metadata.robots).toEqual(published ? undefined : { index: false, follow: false });
@@ -56,6 +54,7 @@ describe("public route metadata", () => {
             seoDescription: "Review and publish your Actors.",
             coverImage: "https://images.example.com/cover.jpg",
             publishedAt: "2026-10-23T00:00:00Z",
+            updatedAt: "2026-11-05T00:00:00Z",
             author: { name: "Editorial team" },
             tags: ["Publishing"],
           },
@@ -68,6 +67,7 @@ describe("public route metadata", () => {
     expect(meta.openGraph).toMatchObject({
       type: "article",
       publishedTime: "2026-10-23T00:00:00Z",
+      modifiedTime: "2026-11-05T00:00:00Z",
       images: [{ url: "https://images.example.com/cover.jpg" }],
     });
     expect(meta.twitter).toMatchObject({
@@ -108,7 +108,7 @@ describe("public route metadata", () => {
   it("gives documentation its own canonical and avoids repeating the brand", async () => {
     const meta = await guideMetadata({ params: Promise.resolve({ slug: "getting-started" }) });
     expect(meta.title).toEqual({ absolute: "Start with ActorConsole" });
-    expect(meta.alternates?.canonical).toBe(absoluteUrl("/docs/getting-started"));
+    expect(meta.alternates?.canonical).toBe(absoluteUrl("/docs"));
     expect(meta.openGraph?.images).toEqual([
       expect.objectContaining({ url: absoluteUrl("/images/og/docs.png") }),
     ]);

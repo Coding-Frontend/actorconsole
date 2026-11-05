@@ -1,4 +1,11 @@
-import { createPageMetadata, absoluteUrl, serializeJsonLd, socialImageUrl } from "@/lib/seo";
+import {
+  breadcrumbStructuredData,
+  createPageMetadata,
+  absoluteUrl,
+  serializeJsonLd,
+  socialImageUrl,
+} from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -29,6 +36,7 @@ export function normalizePost(data: any): MarketingBlogPost {
     content: data.content ?? "",
     coverImage: data.coverImage ?? null,
     publishedAt: data.publishedAt ?? null,
+    updatedAt: data.updatedAt ?? null,
     tags: Array.isArray(data.tags) ? data.tags : typeof data.tags === "string" ? [data.tags] : [],
     readingMinutes: data.readingMinutes ?? null,
     author: data.author ?? null,
@@ -46,6 +54,7 @@ function postMetadata(post: MarketingBlogPost): Metadata {
     coverImage: post.coverImage,
     type: "article",
     publishedTime: post.publishedAt ?? undefined,
+    modifiedTime: post.updatedAt ?? undefined,
     tags: post.tags,
     author: post.author?.name,
   });
@@ -105,6 +114,13 @@ export default async function BlogPostPage({
 
   return (
     <main className="marketing-page flex-1">
+      <JsonLd
+        data={breadcrumbStructuredData([
+          { name: "Home", path: "/" },
+          { name: "Blog", path: "/blog" },
+          { name: post.title, path: `/blog/${encodeURIComponent(post.slug)}` },
+        ])}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -116,6 +132,8 @@ export default async function BlogPostPage({
             mainEntityOfPage: absoluteUrl(`/blog/${encodeURIComponent(post.slug)}`),
             image: socialImageUrl("blog", post.coverImage),
             ...(post.publishedAt ? { datePublished: post.publishedAt } : {}),
+            ...(post.updatedAt ? { dateModified: post.updatedAt } : {}),
+            inLanguage: "en",
             author: post.author?.name
               ? { "@type": "Person", name: post.author.name }
               : {
@@ -160,17 +178,31 @@ export default async function BlogPostPage({
             <div className="mt-5 space-y-2 border-t border-white/15 pt-4 text-sm text-white/60">
               {post.publishedAt && (
                 <span className="flex items-center gap-1.5">
-                  <Calendar className="text-signal-orange h-3.5 w-3.5" />
-                  {new Date(post.publishedAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  <Calendar className="h-3.5 w-3.5 text-signal-orange" />
+                  <time dateTime={post.publishedAt}>
+                    {new Date(post.publishedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </time>
+                </span>
+              )}
+              {post.updatedAt && post.updatedAt !== post.publishedAt && (
+                <span>
+                  Updated{" "}
+                  <time dateTime={post.updatedAt}>
+                    {new Date(post.updatedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </time>
                 </span>
               )}
               {post.readingMinutes && (
                 <span className="flex items-center gap-1.5">
-                  <Clock className="text-signal-orange h-3.5 w-3.5" />
+                  <Clock className="h-3.5 w-3.5 text-signal-orange" />
                   {post.readingMinutes} min read
                 </span>
               )}
@@ -182,7 +214,7 @@ export default async function BlogPostPage({
 
       <Section variant="muted">
         <Container className="max-w-3xl">
-          <article className="blueprint-frame prose prose-gray dark:prose-invert bg-card max-w-none p-6 sm:p-8 lg:p-10">
+          <article className="blueprint-frame prose prose-gray dark:prose-invert max-w-none bg-card p-6 sm:p-8 lg:p-10">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content ?? ""}</ReactMarkdown>
           </article>
         </Container>
