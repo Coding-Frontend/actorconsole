@@ -27,12 +27,19 @@ async function check(path, status, method = "GET") {
 
 if (revision) {
   let observed;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    observed = await check("/_pages/revision", 200);
+  let lastError;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      observed = await check("/_pages/revision", 200);
+    } catch (error) {
+      lastError = error;
+    }
     if (observed === revision) break;
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    if (attempt < 7) await new Promise((resolve) => setTimeout(resolve, 3_000));
   }
-  assert.equal(observed, revision, "The Pages URL is serving a different revision");
+  if (observed !== revision) {
+    throw new Error("The Pages URL did not serve the expected revision", { cause: lastError });
+  }
 }
 
 const home = await check("/", 200);
@@ -40,6 +47,8 @@ assert.match(home, /<title>[^<]*ActorConsole/i);
 const asset = home.match(/(?:href|src)="(\/_next\/static\/[^"]+)"/)?.[1];
 assert(asset, "The Pages homepage must include a built static asset");
 await check(asset, 200);
+const image = home.match(/src="(\/_next\/image\?[^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
+if (image) await check(image, 200);
 assert.match(await check("/faq", 200), /ActorConsole/i);
 assert.match(await check("/sitemap.xml", 200), /<urlset[\s>]/);
 assert.match(await check("/robots.txt", 200), /Disallow: \//);
