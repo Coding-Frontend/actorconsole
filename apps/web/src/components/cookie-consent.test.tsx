@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { clearConsent, CookieConsent, getConsent } from "./cookie-consent";
+import { CookieConsent, getConsent } from "./cookie-consent";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
 // The component uses localStorage and document.cookie. happy-dom
@@ -94,19 +94,6 @@ describe("getConsent", () => {
 
   it("returns null when stored consent is malformed JSON", () => {
     localStorage.setItem(STORAGE_KEY, "{not json}");
-    expect(getConsent()).toBeNull();
-  });
-});
-
-describe("clearConsent", () => {
-  it("removes the stored record and the cookie", () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ version: 1, choice: "all", timestamp: Date.now() }),
-    );
-    document.cookie = "actorconsole-consent=all; Path=/";
-    clearConsent();
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     expect(getConsent()).toBeNull();
   });
 });

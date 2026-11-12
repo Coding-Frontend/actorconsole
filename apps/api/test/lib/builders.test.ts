@@ -29,6 +29,7 @@ import {
   getBuilderActorDetail,
   getBuilderComparisonHistory,
   getBuilderProfile,
+  effectiveActorPicture,
   getBuildersForComparison,
   newlyPublishedWhere,
 } from "../../src/lib/builders.js";
@@ -94,6 +95,26 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("builder catalog availability and history", () => {
+  it("prefers an Actor thumbnail, then website logo, then initials fallback", () => {
+    expect(
+      effectiveActorPicture({
+        actorPictureUrl: "https://images.apify.com/a.png",
+        websiteLogoId: "logo-1",
+      }),
+    ).toEqual({
+      effectivePictureUrl: "https://images.apify.com/a.png",
+      pictureSource: "actor",
+    });
+    expect(effectiveActorPicture({ actorPictureUrl: null, websiteLogoId: "logo-1" })).toEqual({
+      effectivePictureUrl: "/api/website-logo-assets/logo-1",
+      pictureSource: "website",
+    });
+    expect(effectiveActorPicture({ actorPictureUrl: null, websiteLogoId: null })).toEqual({
+      effectivePictureUrl: null,
+      pictureSource: "fallback",
+    });
+  });
+
   it("never treats upload or discovery timestamps as publication dates", async () => {
     expect(newlyPublishedWhere(new Date("2026-09-27"))).toEqual({
       firstPublishedAt: { gte: new Date("2026-09-27") },

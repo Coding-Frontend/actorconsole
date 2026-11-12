@@ -19,16 +19,15 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("@/components/theme-provider", () => ({ useTheme: () => ({ theme: "dark" }) }));
 import {
-  aggregateFinancialLedger,
   dailyFinancialLedgerRows,
   FinancialAnalyticsPage,
-  financialChartDay,
   financialDateKey,
   financialWeekKey,
   usagePeriodRows,
   weeklyFinancialLedgerRows,
 } from "./financial-analytics-page";
 import { PageDataPendingContext } from "@/lib/page-data-state";
+import { aggregateFinancialLedger } from "@actorconsole/shared/financial-report";
 
 const baseRow = {
   actorId: "actor-1",
@@ -143,14 +142,6 @@ describe("financial Actor-day presentation", () => {
         runs: 10,
       }),
     ]);
-  });
-
-  it("resolves a UTC day from chart and bar click payloads", () => {
-    expect(financialChartDay({ activePayload: [{ payload: { period: "2026-08-10" } }] })).toBe(
-      "2026-08-10",
-    );
-    expect(financialChartDay({ payload: { period: "2026-08-11" } })).toBe("2026-08-11");
-    expect(financialChartDay({ period: "2026-08" })).toBeNull();
   });
 
   it("renders summary cards before details and keeps summaries usable when details fail", async () => {

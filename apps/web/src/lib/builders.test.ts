@@ -3,12 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ unstable_cache: (callback: unknown) => callback }));
 
-import {
-  BUILDER_METRICS,
-  buildDailyPortfolioTrends,
-  effectiveActorPicture,
-  newlyPublishedWhere,
-} from "./builders";
+import { buildDailyPortfolioTrends } from "@actorconsole/shared/builder-history";
+import { BUILDER_METRICS } from "./builders";
 
 describe("builder leaderboard metrics", () => {
   it("exposes every requested leaderboard filter", () => {
@@ -21,35 +17,6 @@ describe("builder leaderboard metrics", () => {
       "total-runs",
       "estimated-revenue",
     ]);
-  });
-
-  it("prefers an Actor thumbnail, then website logo, then initials fallback", () => {
-    expect(
-      effectiveActorPicture({
-        actorPictureUrl: "https://images.apify.com/a.png",
-        websiteLogoId: "logo-1",
-      }),
-    ).toEqual({
-      effectivePictureUrl: "https://images.apify.com/a.png",
-      pictureSource: "actor",
-    });
-    expect(effectiveActorPicture({ actorPictureUrl: null, websiteLogoId: "logo-1" })).toEqual({
-      effectivePictureUrl: "/api/website-logo-assets/logo-1",
-      pictureSource: "website",
-    });
-    expect(effectiveActorPicture({ actorPictureUrl: null, websiteLogoId: null })).toEqual({
-      effectivePictureUrl: null,
-      pictureSource: "fallback",
-    });
-  });
-
-  it("uses only publication time, never upload or discovery dates", () => {
-    const start = new Date("2026-07-16T00:00:00.000Z");
-    const end = new Date("2026-08-15T00:00:00.000Z");
-
-    expect(newlyPublishedWhere(start, end)).toEqual({
-      firstPublishedAt: { gte: start, lt: end },
-    });
   });
 
   it("charts a complete historical portfolio using the actors known on that day", () => {

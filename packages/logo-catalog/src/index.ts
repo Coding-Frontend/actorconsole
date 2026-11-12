@@ -4,7 +4,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import sharp from "sharp";
 import { requireWebsiteLogoR2 } from "./r2";
 import { assertSafeLogoUrl, fetchLogoResource, readLimitedResponse } from "./safe-fetch";
-export { assertSafeLogoUrl, isPrivateAddress } from "./safe-fetch";
+export { assertSafeLogoUrl } from "./safe-fetch";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
 const MAX_REDIRECTS = 4;

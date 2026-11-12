@@ -2,16 +2,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { render, cleanup } from "@testing-library/react";
 import {
   Skeleton,
-  SkeletonActorsPage,
-  SkeletonAvatar,
   SkeletonCard,
   SkeletonChart,
-  SkeletonDashboardPage,
-  SkeletonList,
   SkeletonPageHeader,
-  SkeletonRow,
   SkeletonStatCard,
-  SkeletonTable,
   SkeletonTableSurface,
   SkeletonText,
 } from "../../src/components/ui/skeleton";
@@ -79,37 +73,29 @@ describe("composed skeleton surfaces", () => {
     expect(authored.container.firstElementChild?.className).toContain("custom-card");
   });
 
-  it("renders the reusable stat, row, table, list, chart, and avatar variants", () => {
+  it("renders the reusable stat and chart variants", () => {
     const { container } = render(
       <>
         <SkeletonStatCard className="stat" />
-        <SkeletonRow columns={3} />
-        <SkeletonTable rows={2} columns={3} />
-        <SkeletonList items={2} />
         <SkeletonChart className="chart" />
-        <SkeletonAvatar size={48} />
       </>,
     );
 
-    expect(container.querySelector(".stat")).toBeTruthy();
-    expect(container.querySelector(".chart")).toBeTruthy();
-    expect(container.querySelector('[style*="width: 48px"]')).toBeTruthy();
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(40);
+    expect(container.querySelector('.stat [data-slot="skeleton"]')).toBeTruthy();
+    expect(container.querySelector('.chart [data-slot="skeleton"]')).toBeTruthy();
   });
 
-  it("renders page-level dashboard placeholders and optional header actions", () => {
+  it("renders page headers with optional actions and table surfaces", () => {
     const { container } = render(
       <>
         <SkeletonPageHeader action titleWidth="w-52" descriptionWidth="w-72" />
         <SkeletonTableSurface columns={5} rows={2} className="surface" />
-        <SkeletonDashboardPage />
-        <SkeletonActorsPage />
       </>,
     );
 
     expect(container.querySelector(".surface")).toBeTruthy();
     expect(container.querySelector(".w-52")).toBeTruthy();
     expect(container.querySelector(".w-72")).toBeTruthy();
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(100);
+    expect(container.querySelector('.surface [data-slot="skeleton"]')).toBeTruthy();
   });
 });

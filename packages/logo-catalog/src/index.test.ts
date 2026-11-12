@@ -8,7 +8,6 @@ import {
   discoverOfficialLogo,
   iconCandidatesFromHtml,
   isAutomaticallyTrustedLogoSource,
-  isPrivateAddress,
   LOGO_SOURCE_PRIORITY,
   normalizeWebsiteLogo,
   officialLogoCandidatesFromHtml,
@@ -17,6 +16,7 @@ import {
   verifyWebsiteLogoStorage,
   websiteLogoStoragePath,
 } from "./index";
+import { isPrivateAddress } from "./safe-fetch";
 
 const temporaryRoots: string[] = [];
 

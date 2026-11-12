@@ -154,16 +154,3 @@ export function CookieConsent() {
 export function getConsent(): ConsentChoice | null {
   return readConsent()?.choice ?? null;
 }
-
-/**
- * Revoke consent. Useful for a "Reset" button in /settings.
- */
-export function clearConsent(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } finally {
-    document.cookie = "actorconsole-consent=; Max-Age=0; Path=/";
-    window.dispatchEvent(new CustomEvent(CONSENT_CHANGE_EVENT));
-  }
-}
