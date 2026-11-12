@@ -3,7 +3,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useId } from "react";
 import { useRouter } from "next/navigation";
 import { Search, CalendarClock, LifeBuoy, ArrowRight } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogCloseButton,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   accountNavigation,
@@ -145,7 +151,9 @@ export function CommandPalette({
   // Scroll selected item into view
   useEffect(() => {
     if (listRef.current) {
-      const el = listRef.current.querySelector<HTMLElement>(`[data-command-index="${selectedIndex}"]`);
+      const el = listRef.current.querySelector<HTMLElement>(
+        `[data-command-index="${selectedIndex}"]`,
+      );
       el?.scrollIntoView({ block: "nearest" });
     }
   }, [selectedIndex, query, open]);
@@ -165,10 +173,12 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        className="border-border/60 top-[15vh] max-h-[calc(85dvh-1rem)] max-w-lg translate-y-0 gap-0 rounded-xl p-0 shadow-2xl sm:p-0"
+        showCloseButton={false}
+        className="top-[15dvh] flex max-h-[calc(85dvh-1rem)] max-w-lg translate-y-0 flex-col gap-0 overflow-hidden rounded-xl border-border/60 p-0 sm:p-0"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          openerRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
           inputRef.current?.focus();
         }}
         onCloseAutoFocus={(event) => {
@@ -178,10 +188,11 @@ export function CommandPalette({
         }}
       >
         <DialogTitle className="sr-only">Search workspace</DialogTitle>
-        <DialogDescription className="sr-only">Search pages, actions and settings. Use arrow keys to navigate and Enter to open a result.</DialogDescription>
-        {/* Search input */}
-        <div className="border-border/40 flex items-center gap-3 border-b py-3 pl-4 pr-14">
-          <Search className="text-muted-foreground h-4 w-4 shrink-0" />
+        <DialogDescription className="sr-only">
+          Search pages, actions and settings. Use arrow keys to navigate and Enter to open a result.
+        </DialogDescription>
+        <div className="flex shrink-0 items-center gap-3 border-b border-border/40 py-1.5 pl-4 pr-2">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             ref={inputRef}
             type="text"
@@ -190,7 +201,9 @@ export function CommandPalette({
             aria-autocomplete="list"
             aria-expanded="true"
             aria-controls={resultsId}
-            aria-activedescendant={filtered[selectedIndex] ? `${resultsId}-${selectedIndex}` : undefined}
+            aria-activedescendant={
+              filtered[selectedIndex] ? `${resultsId}-${selectedIndex}` : undefined
+            }
             autoComplete="off"
             placeholder="Search pages, actions, settings…"
             value={query}
@@ -199,25 +212,29 @@ export function CommandPalette({
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
+            className="min-h-11 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
           />
-          <kbd className="border-border/40 bg-muted/50 text-muted-foreground/60 hidden rounded border px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">
-            ESC
-          </kbd>
+          <DialogCloseButton />
         </div>
 
         {/* Results */}
-        <div ref={listRef} id={resultsId} role="listbox" aria-label="Workspace pages and actions" className="max-h-80 overflow-y-auto p-2">
+        <div
+          ref={listRef}
+          id={resultsId}
+          role="listbox"
+          aria-label="Workspace pages and actions"
+          className="max-h-80 min-h-0 overflow-y-auto overscroll-contain p-2"
+        >
           {filtered.length === 0 ? (
-            <div className="text-muted-foreground flex flex-col items-center py-8 text-sm">
-              <Search className="text-muted-foreground/30 mb-2 h-6 w-6" />
+            <div className="flex flex-col items-center py-8 text-sm text-muted-foreground">
+              <Search className="mb-2 h-6 w-6 text-muted-foreground/30" />
               <p>No results for &ldquo;{query}&rdquo;</p>
-              <p className="text-muted-foreground/50 text-xs">Try a different search term</p>
+              <p className="text-xs text-muted-foreground/50">Try a different search term</p>
             </div>
           ) : (
             Object.entries(grouped).map(([category, items]) => (
               <div key={category} role="group" aria-label={category}>
-                <p className="text-muted-foreground/60 px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider first:pt-0">
+                <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 first:pt-0">
                   {category}
                 </p>
                 {items.map((item) => {
@@ -258,13 +275,13 @@ export function CommandPalette({
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{item.label}</p>
                         {item.description && (
-                          <p className="text-muted-foreground truncate text-xs">
+                          <p className="truncate text-xs text-muted-foreground">
                             {item.description}
                           </p>
                         )}
                       </div>
                       {item.href && (
-                        <ArrowRight className="text-muted-foreground/40 h-3.5 w-3.5 shrink-0" />
+                        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
                       )}
                     </button>
                   );
@@ -275,7 +292,7 @@ export function CommandPalette({
         </div>
 
         {/* Footer hints */}
-        <div className="border-border/40 text-muted-foreground/50 flex items-center gap-4 border-t px-4 py-2 text-[10px]">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/40 px-4 py-2 text-xs text-muted-foreground">
           <span>↑↓ Navigate</span>
           <span>↵ Open</span>
           <span>Esc Close</span>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard/actors",
@@ -21,11 +21,15 @@ import {
   DashboardFilterSummary,
   DashboardPageHeader,
   PageActionMenu,
+  ResponsiveFilterBar,
   SelectionActionBar,
 } from "./dashboard-workbench";
 
 describe("dashboard workbench primitives", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("renders one clear page title and primary action region", () => {
     render(
@@ -168,6 +172,25 @@ describe("dashboard workbench primitives", () => {
     expect(screen.getByText("Daily · UTC")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Reset/ }));
     expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the filter sheet and unlocks scrolling at the desktop breakpoint", async () => {
+    const media = Object.assign(new EventTarget(), { matches: false });
+    const matchMedia = vi.fn(() => media);
+    vi.stubGlobal("matchMedia", matchMedia);
+    render(<ResponsiveFilterBar renderFilters={() => <input aria-label="Filter Actors" />} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByRole("dialog", { name: "Filters" })).toBeTruthy();
+    expect(document.body.hasAttribute("data-scroll-locked")).toBe(true);
+    expect(matchMedia).toHaveBeenCalledWith("(min-width: 1280px)");
+
+    act(() => {
+      media.matches = true;
+      media.dispatchEvent(new Event("change"));
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
   });
 
   it("keeps a clear-selection action visible whenever rows are selected", () => {

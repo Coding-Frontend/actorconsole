@@ -12,8 +12,8 @@ debug configuration live in `apps/web/src/lib/firebase.ts`.
   existed. There is one Analytics component and no separate gtag or GTM snippet
   in the application source.
 - Local web Firebase configuration, including the measurement ID, is present in
-  `apps/web/.env.local`. Production build configuration and the linked GA4
-  property's settings/reports have not been inspected.
+  `apps/web/.env.local`. Production configuration and the linked GA4 property
+  were inspected on 2026-11-05; deployment and delivery results are recorded below.
 - Email registration returns the same response for new and existing addresses.
   It now records `sign_up_requested`; `sign_up` is recorded after successful
   email verification. This avoids counting accepted requests as new accounts.
@@ -27,8 +27,8 @@ debug configuration live in `apps/web/src/lib/firebase.ts`.
   route before asynchronous SDK loading or navigation.
 - Browser configuration and source code can be reviewed here; the available
   Firebase connector does not provide GA4 reporting or property administration.
-  This review does not establish current traffic totals or event delivery in
-  the live property.
+  Traffic totals have not been audited. Purchase and refund delivery in the live
+  property was verified through Chrome DebugView on 2026-11-05.
 
 ## Collection and parameters
 
@@ -273,6 +273,45 @@ extension is another way to enable DebugView without rebuilding.
 Regression tests cover consent races, unsupported browsers, route sanitization,
 originating-page attribution, navigation delivery bounds, social account
 classification, signup verification, and checkout outcomes.
+
+## Production verification — 2026-11-05
+
+Release `883b5902721ba3f608239cd4b6b4b0eb591660c7` was deployed through
+[PR #83](https://github.com/Coding-Frontend/actorconsole/pull/83) after CI,
+secret scanning, build, and authenticated browser checks passed. API, worker,
+web, and MCP image revisions and public health were verified.
+
+- The linked Firebase project is `actor-console`, GA4 property `548436142`, web
+  stream `15378401611`, measurement ID `G-NQ8L75Y117`.
+- A Measurement Protocol secret was created for that stream and configured in
+  the private server environment. Its value is not recorded in this document.
+  Both API and worker were checked after deployment.
+- Migration `20261105133000_payment_analytics` was applied after a database
+  backup. Backup gzip integrity, file permissions, and migration checksum passed.
+- Event dimensions `gateway`, `payment_mode`, and `billing_interval` were
+  registered in the GA4 property for payment reporting.
+- A dedicated fixture completed a Dodo sandbox checkout with an official test
+  card, followed by a settled full refund. Actual signed `payment.succeeded` and
+  `refund.succeeded` provider webhooks were processed. The ledger and outbox
+  contained one USD 19 purchase and one USD 19 refund; the worker sent each once.
+  Both events appeared in DebugView with the same transaction ID, currency, and
+  value.
+- Each webhook was replayed with a new signed delivery ID, then repeated with
+  that same ID. Responses were HTTP 200, repeated delivery IDs were acknowledged
+  as duplicates, and the analytics outbox remained at exactly two events.
+- The public consent-revocation endpoint returned HTTP 200, the attribution's
+  client/session IDs were cleared, the test subscription was cancelled at Dodo,
+  and the fixture account was suspended. API and worker were restored to
+  `GA4_INCLUDE_TEST_PAYMENTS=false`; the selected Dodo checkout mode remains live.
+
+This explicit end-to-end check sent the two sandbox events to the linked
+production stream with `payment_mode=test` and `debug_mode=true`. It made no live
+charge. The verification transaction ID is
+`ac_fd5eb9775295e415e261d83dccaa7b1f5b9e2ceb9c51139d8b8d7c9ea9a44fb3`.
+Use that ID or payment-mode reporting to distinguish this fixture from customer
+revenue; debug mode alone does not guarantee exclusion from reports. Stripe and
+Razorpay handlers passed automated tests, but those disabled/unconfigured
+gateways were not exercised against their provider sandboxes.
 
 ## References
 
