@@ -10,7 +10,7 @@ if (
   origin.search ||
   origin.hash
 ) {
-  throw new Error("Supply the staging origin without credentials, a path, or a query");
+  throw new Error("Supply the Pages origin without credentials, a path, or a query");
 }
 
 async function check(path, status, method = "GET") {
@@ -28,17 +28,17 @@ async function check(path, status, method = "GET") {
 if (revision) {
   let observed;
   for (let attempt = 0; attempt < 6; attempt++) {
-    observed = await check("/_staging/revision", 200);
+    observed = await check("/_pages/revision", 200);
     if (observed === revision) break;
     await new Promise((resolve) => setTimeout(resolve, 2_000));
   }
-  assert.equal(observed, revision, "The staging URL is serving a different revision");
+  assert.equal(observed, revision, "The Pages URL is serving a different revision");
 }
 
 const home = await check("/", 200);
 assert.match(home, /<title>[^<]*ActorConsole/i);
 const asset = home.match(/(?:href|src)="(\/_next\/static\/[^"]+)"/)?.[1];
-assert(asset, "The staging homepage must include a built static asset");
+assert(asset, "The Pages homepage must include a built static asset");
 await check(asset, 200);
 assert.match(await check("/faq", 200), /ActorConsole/i);
 assert.match(await check("/sitemap.xml", 200), /<urlset[\s>]/);
@@ -50,4 +50,4 @@ await check("/admin", 404);
 await check("/dashboard", 404);
 await check("/api/account/workspace-access", 404);
 assert.match(await check("/api/health", 405, "POST"), /accepts public reads only/i);
-console.log("Cloudflare staging passed its public pages, API, static asset, and access checks.");
+console.log("Cloudflare Pages passed its public pages, API, static asset, and access checks.");

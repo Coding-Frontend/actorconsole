@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "next dev -p 8080",
     "build": "node ../../scripts/check-web-boundary.mjs && next build",
-    "build:cloudflare": "opennextjs-cloudflare build",
-    "preview:cloudflare": "opennextjs-cloudflare preview",
-    "deploy:cloudflare": "wrangler deploy --no-autoconfig",
+    "build:pages": "opennextjs-cloudflare build && node ../../scripts/package-cloudflare-pages.mjs",
+    "preview:pages": "wrangler pages dev",
+    "deploy:pages": "wrangler pages deploy --project-name actorconsole --no-bundle",
     "start": "next start -p 8080",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",

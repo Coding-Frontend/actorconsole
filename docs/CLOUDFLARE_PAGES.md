@@ -1,20 +1,20 @@
-# Cloudflare staging for ActorConsole
+# ActorConsole on Cloudflare Pages
 
-The staging Worker runs the Next.js frontend with OpenNext. It serves public pages and reads from the existing public API. The Worker blocks sign-in, workspace and admin pages, private API paths, and write methods. Search engines receive `noindex`.
+The existing `actorconsole` Pages project serves the frontend preview at `cf-preview.actorconsole.com` and `actorconsole.pages.dev`. Pages Functions runs the bundled Next.js frontend and reads from the existing public API. The preview blocks sign-in, workspace and admin pages, private API paths, and write methods. Search engines receive `noindex`.
 
 ## Frontend deployment
 
-The **Deploy Cloudflare staging** GitHub Actions workflow publishes the current `main` revision after CI succeeds. It deploys the Worker named `actorconsole-web-staging` and verifies its revision, public pages, static assets, and API access.
+The **Deploy Cloudflare Pages** GitHub Actions workflow uploads the current `main` revision to `actorconsole` after CI succeeds. The workflow verifies both Pages hosts, including their revision, public pages, static assets, and API access. The existing Pages project uses Direct Upload.
 
-Configure the GitHub environment named `cloudflare-staging` for `main`. Set its `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_STAGING_URL` variables and the `CLOUDFLARE_WORKERS_API_TOKEN` secret. Use an account token with the Editor role scoped to `actorconsole-web-staging`.
+Configure the GitHub environment named `cloudflare-pages` for `main`. Set its `CLOUDFLARE_ACCOUNT_ID` variable and the `CLOUDFLARE_PAGES_API_TOKEN` secret. Use an API token with Cloudflare Pages Edit permission in the selected account.
 
 For a local preview, use the repository's Node and pnpm versions and run these commands from its root.
 
 ```bash
 corepack pnpm install --frozen-lockfile
 corepack pnpm --filter @actorconsole/shared build
-API_BASE_URL=https://api.actorconsole.com corepack pnpm --filter @actorconsole/web build:cloudflare
-corepack pnpm --filter @actorconsole/web preview:cloudflare
+API_BASE_URL=https://api.actorconsole.com corepack pnpm --filter @actorconsole/web build:pages
+corepack pnpm --filter @actorconsole/web preview:pages
 ```
 
 ## Logo storage
