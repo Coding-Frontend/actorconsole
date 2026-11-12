@@ -52,7 +52,8 @@
       "protobufjs@^7.0.0": "^7.6.5",
       "@grpc/grpc-js": "^1.14.5",
       "basic-ftp": "^6.2.3",
-      "@prisma/config>deepmerge-ts": "^8.0.2"
+      "@prisma/config>deepmerge-ts": "^8.0.2",
+      "@opennextjs/aws>@tsconfig/node18": "18.2.7"
     }
   },
   "devDependencies": {

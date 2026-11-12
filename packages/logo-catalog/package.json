@@ -2,7 +2,7 @@
   "name": "@actorconsole/logo-catalog",
   "version": "0.0.0",
   "private": true,
-  "description": "Safe website-logo discovery, normalization, and persistent filesystem storage.",
+  "description": "Safe website-logo discovery, normalization, and storage.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,6 +15,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "aws4fetch": "^1.0.20",
     "sharp": "^0.35.5"
   },
   "devDependencies": {

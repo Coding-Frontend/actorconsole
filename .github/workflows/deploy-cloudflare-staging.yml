@@ -1,0 +1,77 @@
+name: Deploy Cloudflare staging
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: actorconsole-cloudflare-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: cloudflare-staging
+    env:
+      REVISION: ${{ github.event.workflow_run.head_sha || github.sha }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_STAGING_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
+      WRANGLER_SEND_METRICS: "false"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://actorconsole.com' }}
+      NEXT_PUBLIC_API_BASE_URL: /api
+      API_BASE_URL: https://api.actorconsole.com
+    steps:
+      - name: Verify the main revision and staging settings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$REVISION"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_STAGING_URL"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.REVISION }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "9.15.0"
+
+      - name: Build the Cloudflare frontend
+        run: |
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter @actorconsole/shared build
+          corepack pnpm --filter @actorconsole/web build:cloudflare
+
+      - name: Deploy and verify staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" ]]; then
+            echo "::error::Set CLOUDFLARE_WORKERS_API_TOKEN in the cloudflare-staging environment."
+            exit 1
+          fi
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$REVISION"
+          corepack pnpm --filter @actorconsole/web deploy:cloudflare --var "ACTORCONSOLE_REVISION:$REVISION" --message "main-$REVISION"
+          node scripts/check-cloudflare-staging.mjs "$CLOUDFLARE_STAGING_URL" "$REVISION"
