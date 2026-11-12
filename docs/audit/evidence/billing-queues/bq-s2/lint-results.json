@@ -1,0 +1,145 @@
+[
+  {
+    "label": "apps/api",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/apps/api",
+    "exit": 0,
+    "seconds": 3.97,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-apps_api.log"
+  },
+  {
+    "label": "apps/chrome-extension",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/apps/chrome-extension",
+    "exit": 0,
+    "seconds": 1.23,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-apps_chrome-extension.log"
+  },
+  {
+    "label": "apps/mcp",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/apps/mcp",
+    "exit": 0,
+    "seconds": 1.02,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-apps_mcp.log"
+  },
+  {
+    "label": "apps/web",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/apps/web",
+    "exit": 0,
+    "seconds": 9.55,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-apps_web.log"
+  },
+  {
+    "label": "apps/worker",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/apps/worker",
+    "exit": 0,
+    "seconds": 1.6,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-apps_worker.log"
+  },
+  {
+    "label": "packages/ai",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/packages/ai",
+    "exit": 0,
+    "seconds": 0.77,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-packages_ai.log"
+  },
+  {
+    "label": "packages/apify",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/packages/apify",
+    "exit": 0,
+    "seconds": 1.38,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-packages_apify.log"
+  },
+  {
+    "label": "packages/config",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/packages/config",
+    "exit": 0,
+    "seconds": 0.62,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-packages_config.log"
+  },
+  {
+    "label": "packages/db",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/packages/db",
+    "exit": 0,
+    "seconds": 0.82,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-packages_db.log"
+  },
+  {
+    "label": "packages/logo-catalog",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/packages/logo-catalog",
+    "exit": 0,
+    "seconds": 0.67,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-packages_logo-catalog.log"
+  },
+  {
+    "label": "packages/shared",
+    "command": [
+      "node",
+      "/workspace/actorconsole/node_modules/eslint/bin/eslint.js",
+      ".",
+      "--max-warnings=0"
+    ],
+    "cwd": "/workspace/actorconsole/packages/shared",
+    "exit": 0,
+    "seconds": 1.22,
+    "log": "/tmp/actorconsole-billing-audit/implementation-gates/lint-packages_shared.log"
+  }
+]

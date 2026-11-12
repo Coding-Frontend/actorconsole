@@ -214,3 +214,12 @@ The reviewed release receiver backs up the database, applies the additive billin
 The subsequent [main CI](https://github.com/Coding-Frontend/actorconsole/actions/runs/40325045340) failed the immediate `document.activeElement` assertion in the recovery-code UI case: web **608 passed, one failed**. Main Secret scan passed. [Deploy VPS](https://github.com/Coding-Frontend/actorconsole/actions/runs/40325509714) was **skipped with no deployment steps**, so main publication did not establish deployment. The failure shows focus absent at that immediate assertion; it does not establish a permanent application focus defect. An exploratory forced-render fixture did not establish the hypothesized disabled-input transition and is retained only as scratch evidence.
 
 The focused follow-up from this main base changes only `email-password-form.test.tsx` and this record: the identical focus assertion now uses Testing Library's existing default bounded `waitFor`, allowing the passive effect to finish before typing. No application behavior, assertion requirement, configured timeout, threshold or workflow changes. All **five** focused tests pass. A temporary no-op `HTMLElement.focus` negative control makes **both** verification cases fail (two failed, three passed); it was removed before publication. Thus missing focus still fails the regression. Web typecheck and zero-warning lint pass. The full local coverage command with inherited `MCP_TRANSPORT=http` passes all **ten** suites, **2,094 passed and 32 opt-in DB skips**, under the documented reused Node24/pnpm9.15 environment. Remote required checks and the next main pipeline remain necessary; no deployment or policy approval is inferred from this local receipt.
+
+## Billing and UI audit evidence
+
+The October billing and UI fixes reached main through the original integration pull requests. [Billing PR #61](https://github.com/Coding-Frontend/actorconsole/pull/61) · [UI PR #50](https://github.com/Coding-Frontend/actorconsole/pull/50)
+
+- Billing and publishing evidence from the owner branch at `9df78b103ea934fbbd610babb8f6dbac2dd375d3`. [Billing audit evidence](evidence/billing-queues/)
+- UI browser logs and harnesses from the owner branch at `5469cd0f7506672e0e38105e08411079623ed676`. [UI audit evidence](../../audit/ui-ux/)
+
+The logs, scratch fixtures, and preserved patches document the October audit. The UI handoff records the original file digests as path and SHA-256 pairs.

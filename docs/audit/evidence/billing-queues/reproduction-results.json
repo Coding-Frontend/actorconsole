@@ -1,0 +1,54 @@
+{
+  "baseline": "fc52f547286b14de2f483899b4aa5dcdfca8b5ea",
+  "results": [
+    {
+      "group": "billing",
+      "exit": 1,
+      "command": [
+        "node",
+        "/workspace/actorconsole/node_modules/vitest/vitest.mjs",
+        "run",
+        "apps/api/test/routes/billing.test.ts",
+        "apps/api/test/routes/razorpay.test.ts"
+      ],
+      "cwd": "/tmp/actorconsole-billing-repro-w88el6eb",
+      "log": "/tmp/actorconsole-billing-repro-w88el6eb/audit-billing.txt"
+    },
+    {
+      "group": "usage",
+      "exit": 1,
+      "command": [
+        "node",
+        "/workspace/actorconsole/node_modules/vitest/vitest.mjs",
+        "run",
+        "apps/worker/test/lib/usage-accounting-audit.test.ts"
+      ],
+      "cwd": "/tmp/actorconsole-billing-repro-w88el6eb",
+      "log": "/tmp/actorconsole-billing-repro-w88el6eb/audit-usage.txt"
+    },
+    {
+      "group": "expiry",
+      "exit": 1,
+      "command": [
+        "node",
+        "/workspace/actorconsole/node_modules/vitest/vitest.mjs",
+        "run",
+        "apps/worker/test/lib/subscription-expiry-audit.test.ts"
+      ],
+      "cwd": "/tmp/actorconsole-billing-repro-w88el6eb",
+      "log": "/tmp/actorconsole-billing-repro-w88el6eb/audit-expiry.txt"
+    },
+    {
+      "group": "queue",
+      "exit": 1,
+      "command": [
+        "node",
+        "/workspace/actorconsole/node_modules/vitest/vitest.mjs",
+        "run",
+        "apps/api/test/lib/queue-timeout-audit.test.ts"
+      ],
+      "cwd": "/tmp/actorconsole-billing-repro-w88el6eb",
+      "log": "/tmp/actorconsole-billing-repro-w88el6eb/audit-queue.txt"
+    }
+  ]
+}

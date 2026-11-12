@@ -1,0 +1,61 @@
+BQ-S2 follow-up validation, 2026-10-26
+Repository: Coding-Frontend/actorconsole
+Branch: fixes/actorconsole-20261026-billing
+Exact follow-up base/dependency: ac5649bf6cdec57c0d0754687f47edf0b86ad6ed
+Original audit main: fc52f547286b14de2f483899b4aa5dcdfca8b5ea
+
+Only fake-clock/in-memory lease and mock provider fixtures were added.
+No production/provider/load-test/deployment request. BQ-S1 unchanged.
+
+Red reproduction (extracted unrenewed baseline wrapper; before fix):
+node node_modules/vitest/vitest.mjs run apps/worker/test/lib/publishing-lease.test.ts
+Exit 1; 1 failed assertion: expected second.acquired false, received true.
+Worker one remained active at two hours plus 1 virtual ms; nine 900000ms Actor steps.
+The red run was ~12ms test time. See red-reproduction.txt and baseline-source.txt.
+
+Focused lease/validation/leader-lock regression run:
+node node_modules/vitest/vitest.mjs run apps/worker/test/lib/publishing-lease.test.ts apps/worker/test/lib/bulk-publishing.test.ts apps/worker/test/lib/leader-election.test.ts
+Exit 0; 3 suites, 22 passed. See focused-tests.txt.
+
+All worker tests, after final handler guard/history changes:
+NODE_OPTIONS=--require=/tmp/actorconsole-billing-audit/local-only.cjs node node_modules/vitest/vitest.mjs run --project @actorconsole/worker
+Exit 0; 13 suites, 94 passed. See worker-tests-summary.txt.
+
+Full workspace tests, after final runtime changes:
+NODE_OPTIONS=--require=/tmp/actorconsole-billing-audit/local-only.cjs node node_modules/vitest/vitest.mjs run
+Exit 0; 236 suites passed, 2 skipped; 1879 tests passed, 32 skipped, total 1911.
+29 opt-in billing SQL/Redis tests and 3 intelligence DB tests skipped; no fresh services.
+See workspace-tests-summary.txt. No skipped gate is declared passed.
+
+Package typechecks and lint:
+python /tmp/actorconsole-billing-audit/bq-s2-gate.py typecheck
+python /tmp/actorconsole-billing-audit/bq-s2-gate.py lint
+Exit 0 for each runner and every package command; 11 typechecks and 11 lint checks passed.
+Exact per-package command/cwd/exit records: typecheck-results.json, lint-results.json.
+The runner invokes installed binaries matching package scripts. The config package's
+explicit compiler flags match its no-tsconfig script. No tests/gates were weakened.
+The pnpm launcher requires a non-workspace bootstrap; it was not used for these checks.
+
+Worker build (cwd apps/worker): npm run build
+Exit 0, tsc. Root: node scripts/fix-esm-imports.mjs apps/worker/dist
+Exit 0. Full other-package/frontend builds not repeated for this worker-only follow-up.
+
+Script tests: node --test scripts/*.test.mjs
+Exit 0; 6 passed, 0 failed/skipped. See script-tests.txt.
+
+Secret and whitespace checks:
+/tmp/actorconsole-billing-audit/gitleaks/gitleaks git --redact=100 --log-opts=--all --no-banner
+Pre-commit exit 0; 16 commits scanned, no leaks. The binary is CI-pinned v8.30.1.
+git diff --cached --no-ext-diff | /tmp/actorconsole-billing-audit/gitleaks/gitleaks stdin --redact=100 --no-banner
+Exit 0; no leaks in the staged follow-up. Post-commit scan and exact remote verification
+are recorded in the publication receipt outside the repository and the final handoff.
+git diff --check and git diff --cached --check: exit 0, including the documentation.
+
+Coverage limits:
+Fixture models atomic Redis token check/EXPIRE/DEL and shares a fake wall clock.
+No actual Redis Lua/failover/partition, full worker boot or provider acceptance test.
+Source handler checkpoints/run-history write reviewed; extracted helper executed.
+Already-in-flight provider requests cannot be canceled/retracted by the lock.
+Further guarded actions and this queue job's automatic retry stop on detected loss.
+Future manual/scheduled jobs remain enabled; last external outcome needs reconciliation.
+No migration is added. Earlier ac5649 SQL/Redis/fresh-migration gates are historical.

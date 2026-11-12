@@ -1,0 +1,14 @@
+✔ stable tags publish the exact package version to latest (1.831689ms)
+✔ prereleases cannot replace the stable npm dist-tag (0.300893ms)
+✔ branches, unrelated tags and mismatched package versions cannot release (2.586242ms)
+✔ noncanonical versions and output/path injection are rejected (0.660594ms)
+✔ private packages, other package names and other publish destinations cannot release (0.482841ms)
+✔ fresh setup isolates browser config and preserves existing credentials on rerun (190.34512ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 372.793173

@@ -1,0 +1,61 @@
+
+ RUN  v2.1.9 /tmp/actorconsole-billing-audit/baseline
+
+ ❯ |@actorconsole/worker| test/lib/usage-accounting-audit.test.ts (2 tests | 2 failed) 12ms
+   × untouched baseline operational accounting > audit fixture: an incremental sync retains the complete prior-day totals 10ms
+     → expected { actorId: 'actor_1', …(9) } to match object { runs: 2, usageCostUsd: '3', …(1) }
+(7 matching properties omitted from actual)
+   × untouched baseline operational accounting > audit fixture: a transient dataset outage must not erase a previously known count 2ms
+     → expected +0 to be 4 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@actorconsole/worker|  test/lib/usage-accounting-audit.test.ts > untouched baseline operational accounting > audit fixture: an incremental sync retains the complete prior-day totals
+AssertionError: expected { actorId: 'actor_1', …(9) } to match object { runs: 2, usageCostUsd: '3', …(1) }
+(7 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "resultCount": 5,
+-   "runs": 2,
+-   "usageCostUsd": "3",
++   "resultCount": 3,
++   "runs": 1,
++   "usageCostUsd": "2",
+  }
+
+ ❯ test/lib/usage-accounting-audit.test.ts:38:49
+     36|   vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+     37|   await syncActorOperationalData(apify as never, { id: "actor_1", apif…
+     38|   expect(daily.get("2026-10-25T00:00:00.000Z")).toMatchObject({ runs: …
+       |                                                 ^
+     39|  });
+     40|  it("audit fixture: a transient dataset outage must not erase a previo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL |@actorconsole/worker|  test/lib/usage-accounting-audit.test.ts > untouched baseline operational accounting > audit fixture: a transient dataset outage must not erase a previously known count
+AssertionError: expected +0 to be 4 // Object.is equality
+
+- Expected
++ Received
+
+- 4
++ 0
+
+ ❯ test/lib/usage-accounting-audit.test.ts:45:61
+     43|   apify.getDatasetItemCount.mockRejectedValue(new Error("Temporary ups…
+     44|   await syncActorOperationalData(apify as never, { id: "actor_1", apif…
+     45|   expect(daily.get("2026-10-26T00:00:00.000Z").resultCount).toBe(4);
+       |                                                             ^
+     46|  });
+     47| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  06:07:15
+   Duration  630ms (transform 114ms, setup 0ms, collect 245ms, tests 12ms, environment 0ms, prepare 43ms)

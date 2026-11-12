@@ -1,0 +1,35 @@
+Final full suite (real disposable billing DB/Redis, all payment providers mocked):
+ ✓ |@actorconsole/web| src/lib/plan-marketing-features.test.ts (2 tests) 6ms
+ ✓ |@actorconsole/web| src/lib/safe-callback-url.test.ts (5 tests) 2ms
+
+ Test Files  236 passed | 1 skipped (237)
+      Tests  1899 passed | 3 skipped (1902)
+   Start at  08:53:30
+   Duration  51.06s (transform 7.82s, setup 0ms, collect 46.37s, tests 33.53s, environment 25.33s, prepare 13.20s)
+
+
+Billing integration case result:
+ ✓ |@actorconsole/api| test/billing-integrity.integration.test.ts (29 tests) 1529ms
+
+Script tests:
+✔ fresh setup isolates browser config and preserves existing credentials on rerun (84.630484ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 150.291378
+
+Focused tests:
+ ✓ |@actorconsole/worker| test/lib/operational-usage.test.ts (5 tests) 23ms
+ ✓ |@actorconsole/api| test/lib/billing-amount.test.ts (10 tests) 6ms
+
+ Test Files  9 passed (9)
+      Tests  141 passed (141)
+   Start at  08:49:36
+   Duration  3.15s (transform 1.13s, setup 0ms, collect 4.34s, tests 354ms, environment 2ms, prepare 789ms)
+
+
+Final API TypeScript compile and affected-package lint exited 0 after the final guards. All 11 package typechecks, 11 package lints and 10 builds exited 0. Final ESM import postprocessing exited 0.

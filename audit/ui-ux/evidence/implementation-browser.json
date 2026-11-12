@@ -1,0 +1,167 @@
+{
+  "base": "http://127.0.0.1:4188/harness.html",
+  "snapshot": "implementation",
+  "checkedAt": "2026-10-26T08:14:35.815Z",
+  "checks": [
+    {
+      "id": "UI-01",
+      "title": "mobile marketing navigation contains keyboard focus",
+      "passed": true,
+      "evidence": {
+        "initialFocusInside": true,
+        "tabEscapes": false
+      }
+    },
+    {
+      "id": "UI-02",
+      "title": "resizing an open marketing menu releases the document",
+      "passed": true,
+      "evidence": {
+        "bodyOverflow": "visible",
+        "visibleDialogs": 0
+      }
+    },
+    {
+      "id": "UI-01-admin",
+      "title": "admin mobile navigation dismisses with Escape",
+      "passed": true,
+      "evidence": {
+        "visibleMobileSidebars": 0,
+        "dialogCount": 0
+      }
+    },
+    {
+      "id": "UI-03",
+      "title": "Enter submits the entered authenticator code",
+      "passed": true,
+      "evidence": {
+        "requestCount": 2,
+        "secondRequestKeys": [
+          "email",
+          "password",
+          "totpCode",
+          "challengeToken"
+        ],
+        "hasCode": true,
+        "hasChallenge": true
+      }
+    },
+    {
+      "id": "UI-04",
+      "title": "interrupted authenticator verification handles rejection",
+      "passed": true,
+      "evidence": {
+        "unhandledErrors": [],
+        "retryEnabled": true
+      }
+    },
+    {
+      "id": "UI-05-contact",
+      "title": "contact completion preserves a newer unsent draft",
+      "passed": true,
+      "evidence": {
+        "sentMessage": "Original message for local audit",
+        "draftAfterCompletion": "New unsent draft added while waiting"
+      }
+    },
+    {
+      "id": "UI-06",
+      "title": "contact button text meets normal-text contrast in both themes",
+      "passed": true,
+      "evidence": {
+        "light": {
+          "foreground": "rgb(255, 253, 250)",
+          "background": "rgba(25, 28, 36, 0.9)",
+          "ratio": 16.78
+        },
+        "dark": {
+          "foreground": "rgb(16, 18, 25)",
+          "background": "rgba(244, 241, 236, 0.9)",
+          "ratio": 16.6
+        }
+      }
+    },
+    {
+      "id": "UI-07",
+      "title": "pending newsletter subscribe button retains an accessible name",
+      "passed": true,
+      "evidence": {
+        "pending": true,
+        "buttonText": "Subscribing…",
+        "ariaLabel": null,
+        "ariaSnapshot": "- button \"Subscribing…\" [disabled]"
+      }
+    },
+    {
+      "id": "UI-05-ticket",
+      "title": "reply completion preserves a newer unsent draft",
+      "passed": true,
+      "evidence": {
+        "sentBody": "Original reply",
+        "draftAfterCompletion": "New reply written while waiting"
+      }
+    },
+    {
+      "id": "UI-08",
+      "title": "failed ticket close keeps its confirmation open for retry",
+      "passed": true,
+      "evidence": {
+        "remainingDialogs": 1,
+        "errorVisible": true
+      }
+    },
+    {
+      "id": "UI-09-name",
+      "title": "command palette has a valid accessible dialog title",
+      "passed": true,
+      "evidence": {
+        "title": "Search workspace"
+      }
+    },
+    {
+      "id": "UI-09-scroll",
+      "title": "arrow-key selected command stays in the results viewport",
+      "passed": true,
+      "evidence": {
+        "selection": {
+          "text": "MCP access",
+          "top": 439,
+          "bottom": 487,
+          "resultsTop": 167,
+          "resultsBottom": 487,
+          "scrollTop": 484,
+          "visible": true
+        }
+      }
+    },
+    {
+      "id": "UI-11",
+      "title": "documentation search receives focus when opened",
+      "passed": true,
+      "evidence": {
+        "focused": true
+      }
+    },
+    {
+      "id": "axe-public-fixture",
+      "title": "axe WCAG A/AA checks on actual public presentation components",
+      "passed": true,
+      "evidence": {
+        "violations": []
+      }
+    }
+  ],
+  "excluded": [
+    {
+      "id": "UI-10",
+      "reason": "Suspected editable integration was not established; shortcut policy preserved."
+    },
+    {
+      "id": "responsive-docs",
+      "reason": "Rejected fixture-only width hypothesis; actual built Next app passed all widths."
+    }
+  ],
+  "pageErrors": [],
+  "passed": 14,
+  "failed": 0
+}

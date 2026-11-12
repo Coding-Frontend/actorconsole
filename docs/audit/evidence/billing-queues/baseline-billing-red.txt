@@ -1,0 +1,335 @@
+
+ RUN  v2.1.9 /tmp/actorconsole-billing-audit/baseline
+
+stderr | test/routes/billing.test.ts > Provider-neutral billing routes > retries Stripe processing after a failed delivery instead of acknowledging it
+Error: Temporary database outage
+    at /tmp/actorconsole-billing-audit/baseline/apps/api/test/routes/billing.test.ts:257:53
+    at file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:146:14
+    at file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:533:11
+    at runWithTimeout (file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:39:7)
+    at runTest (file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:1056:17)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at runSuite (file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runSuite (file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/actorconsole/node_modules/@vitest/runner/dist/index.js:1271:3)
+
+ ❯ |@actorconsole/api| test/routes/billing.test.ts (35 tests | 9 failed) 64ms
+   × Provider-neutral billing routes > retries Stripe processing after a failed delivery instead of acknowledging it 8ms
+     → expected "spy" to be called 2 times, but got 1 times
+   × Provider-neutral billing routes > does not acknowledge a stripe delivery that is still processing 2ms
+     → expected 200 to be 503 // Object.is equality
+   × Provider-neutral billing routes > preserves a concurrent cancellation webhook when the provider request fails=false 2ms
+     → expected 'active' to be 'canceled' // Object.is equality
+   × Provider-neutral billing routes > preserves a concurrent cancellation webhook when the provider request fails=true 1ms
+     → expected 'active' to be 'canceled' // Object.is equality
+   × audit fixtures against baseline checkout and ordering > audit fixture: concurrent checkout must contact the provider at most once 1ms
+     → expected "spy" to be called 1 times, but got 2 times
+   × audit fixtures against baseline checkout and ordering > audit fixture: an entitled past_due subscription must block a second checkout 1ms
+     → expected 200 to be 409 // Object.is equality
+   × audit fixtures against baseline checkout and ordering > audit fixture: an older event must not restore a canceled subscription 4ms
+     → expected "spy" to not be called with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st spy call:
+
+  Array [
+-   ObjectContaining {
++   Object {
+      "data": Object {
+        "plan": "PRO",
++     },
++     "where": Object {
++       "id": "workspace_1",
+      },
+    },
+  ]
+
+
+Number of calls: 1
+
+   × audit fixtures for late payment failure ordering > audit fixture: a late Dodo failure must preserve captured ledger state 1ms
+     → expected 'failed' to be 'captured' // Object.is equality
+   × audit fixtures for late payment failure ordering > audit fixture: a late Dodo failure must preserve refunded ledger state 1ms
+     → expected 'failed' to be 'refunded' // Object.is equality
+ ❯ |@actorconsole/api| test/routes/razorpay.test.ts (12 tests | 3 failed) 42ms
+   × Razorpay routes > POST /razorpay/cancel-subscription > does not send another cancellation when period-end cancellation is already scheduled 6ms
+     → expected 200 to be 409 // Object.is equality
+   × Razorpay routes > retries a failed Razorpay webhook rather than dropping its side effects 2ms
+     → expected "spy" to be called once, but got 0 times
+   × audit fixtures against baseline Razorpay ledger > audit fixture: records the provider currency and its minor-unit exponent 5ms
+     → expected "spy" to be called with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st spy call:
+
+  Array [
+-   ObjectContaining {
+-     "create": ObjectContaining {
+-       "amount": 12.345,
+-       "currency": "KWD",
++   Object {
++     "create": Object {
++       "amount": 123.45,
++       "billingMode": "test",
++       "businessProfileId": "workspace_1",
++       "capturedAt": 2026-10-26T06:11:45.313Z,
++       "currency": "INR",
++       "method": undefined,
++       "provider": "razorpay",
++       "providerOrderId": "order_1",
++       "providerPaymentId": "pay_1",
++       "razorpayOrderId": "order_1",
++       "razorpayPaymentId": "pay_1",
++       "status": "captured",
++       "subscriptionId": "sub_local",
++       "userId": "u1",
++     },
++     "update": Object {
++       "capturedAt": 2026-10-26T06:11:45.313Z,
++       "status": "captured",
++     },
++     "where": Object {
++       "razorpayPaymentId": "pay_1",
+      },
+    },
+  ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > Provider-neutral billing routes > retries Stripe processing after a failed delivery instead of acknowledging it
+AssertionError: expected "spy" to be called 2 times, but got 1 times
+ ❯ test/routes/billing.test.ts:267:39
+    265|     mockDb.payment.updateMany.mockResolvedValue({ count: 1 });
+    266|     expect((await request()).status).toBe(200);
+    267|     expect(mockDb.payment.updateMany).toHaveBeenCalledTimes(2);
+       |                                       ^
+    268|   });
+    269|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > Provider-neutral billing routes > does not acknowledge a stripe delivery that is still processing
+AssertionError: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ test/routes/billing.test.ts:282:29
+    280|       method: "POST", headers: { "webhook-id": "evt_busy" }, body: "si…
+    281|     });
+    282|     expect(response.status).toBe(503);
+       |                             ^
+    283|     expect(mockDb.webhookDelivery.create).not.toHaveBeenCalled();
+    284|     expect(mockDb.webhookDelivery.updateMany).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > Provider-neutral billing routes > preserves a concurrent cancellation webhook when the provider request fails=false
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > Provider-neutral billing routes > preserves a concurrent cancellation webhook when the provider request fails=true
+AssertionError: expected 'active' to be 'canceled' // Object.is equality
+
+Expected: "canceled"
+Received: "active"
+
+ ❯ test/routes/billing.test.ts:463:28
+    461|     const response = await buildApp().request("/billing/cancel", { met…
+    462|     expect(response.status).toBe(fails ? 502 : 200);
+    463|     expect(current.status).toBe("canceled");
+       |                            ^
+    464|     expect(current.cancelAtPeriodEnd).toBe(true);
+    465|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > audit fixtures against baseline checkout and ordering > audit fixture: concurrent checkout must contact the provider at most once
+AssertionError: expected "spy" to be called 1 times, but got 2 times
+ ❯ test/routes/billing.test.ts:732:32
+    730|     const responses = await Promise.all([checkout(), checkout()]);
+    731|     expect(responses.map((response) => response.status)).toEqual([200,…
+    732|     expect(mockCreateCheckout).toHaveBeenCalledTimes(1);
+       |                                ^
+    733|   });
+    734|   it("audit fixture: an entitled past_due subscription must block a se…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > audit fixtures against baseline checkout and ordering > audit fixture: an entitled past_due subscription must block a second checkout
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ test/routes/billing.test.ts:737:29
+    735|     mockDb.subscription.findUnique.mockResolvedValue({ id: "sub_existi…
+    736|     const response = await checkout();
+    737|     expect(response.status).toBe(409);
+       |                             ^
+    738|     expect(mockCreateCheckout).not.toHaveBeenCalled();
+    739|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > audit fixtures against baseline checkout and ordering > audit fixture: an older event must not restore a canceled subscription
+AssertionError: expected "spy" to not be called with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st spy call:
+
+  Array [
+-   ObjectContaining {
++   Object {
+      "data": Object {
+        "plan": "PRO",
++     },
++     "where": Object {
++       "id": "workspace_1",
+      },
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ test/routes/billing.test.ts:746:47
+    744|     const response = await buildApp().request("/billing/webhooks/strip…
+    745|     expect(response.status).toBe(200);
+    746|     expect(mockDb.businessProfile.update).not.toHaveBeenCalledWith(exp…
+       |                                               ^
+    747|   });
+    748| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > audit fixtures for late payment failure ordering > audit fixture: a late Dodo failure must preserve captured ledger state
+AssertionError: expected 'failed' to be 'captured' // Object.is equality
+
+Expected: "captured"
+Received: "failed"
+
+ ❯ test/routes/billing.test.ts:767:26
+    765|     const response = await buildApp().request("/billing/webhooks/dodo"…
+    766|     expect(response.status).toBe(200);
+    767|     expect(ledgerStatus).toBe(priorStatus);
+       |                          ^
+    768|   });
+    769| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/billing.test.ts > audit fixtures for late payment failure ordering > audit fixture: a late Dodo failure must preserve refunded ledger state
+AssertionError: expected 'failed' to be 'refunded' // Object.is equality
+
+Expected: "refunded"
+Received: "failed"
+
+ ❯ test/routes/billing.test.ts:767:26
+    765|     const response = await buildApp().request("/billing/webhooks/dodo"…
+    766|     expect(response.status).toBe(200);
+    767|     expect(ledgerStatus).toBe(priorStatus);
+       |                          ^
+    768|   });
+    769| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/razorpay.test.ts > Razorpay routes > POST /razorpay/cancel-subscription > does not send another cancellation when period-end cancellation is already scheduled
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ test/routes/razorpay.test.ts:245:31
+    243|       mockSubscriptionsCancel.mockResolvedValueOnce({ status: "active"…
+    244|       const response = await buildApp().request("/razorpay/cancel-subs…
+    245|       expect(response.status).toBe(409);
+       |                               ^
+    246|       expect(mockSubscriptionsCancel).not.toHaveBeenCalled();
+    247|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/razorpay.test.ts > Razorpay routes > retries a failed Razorpay webhook rather than dropping its side effects
+AssertionError: expected "spy" to be called once, but got 0 times
+ ❯ test/routes/razorpay.test.ts:283:35
+    281|     });
+    282|     expect(response.status).toBe(200);
+    283|     expect(db.payment.updateMany).toHaveBeenCalledOnce();
+       |                                   ^
+    284|   });
+    285| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/12]⎯
+
+ FAIL |@actorconsole/api|  test/routes/razorpay.test.ts > audit fixtures against baseline Razorpay ledger > audit fixture: records the provider currency and its minor-unit exponent
+AssertionError: expected "spy" to be called with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st spy call:
+
+  Array [
+-   ObjectContaining {
+-     "create": ObjectContaining {
+-       "amount": 12.345,
+-       "currency": "KWD",
++   Object {
++     "create": Object {
++       "amount": 123.45,
++       "billingMode": "test",
++       "businessProfileId": "workspace_1",
++       "capturedAt": 2026-10-26T06:11:45.313Z,
++       "currency": "INR",
++       "method": undefined,
++       "provider": "razorpay",
++       "providerOrderId": "order_1",
++       "providerPaymentId": "pay_1",
++       "razorpayOrderId": "order_1",
++       "razorpayPaymentId": "pay_1",
++       "status": "captured",
++       "subscriptionId": "sub_local",
++       "userId": "u1",
++     },
++     "update": Object {
++       "capturedAt": 2026-10-26T06:11:45.313Z,
++       "status": "captured",
++     },
++     "where": Object {
++       "razorpayPaymentId": "pay_1",
+      },
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ test/routes/razorpay.test.ts:309:31
+    307|     });
+    308|     expect(response.status).toBe(200);
+    309|     expect(db.payment.upsert).toHaveBeenCalledWith(expect.objectContai…
+       |                               ^
+    310|   });
+    311| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/12]⎯
+
+ Test Files  2 failed (2)
+      Tests  12 failed | 35 passed (47)
+   Start at  06:11:44
+   Duration  929ms (transform 333ms, setup 0ms, collect 853ms, tests 106ms, environment 0ms, prepare 101ms)

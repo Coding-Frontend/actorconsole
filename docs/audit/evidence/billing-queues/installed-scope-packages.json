@@ -1,0 +1,90 @@
+[
+  {
+    "package": "stripe",
+    "version": "22.4.0",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "razorpay",
+    "version": "2.9.8",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "dodopayments",
+    "version": "2.55.0",
+    "license": "Apache-2.0",
+    "installScripts": {}
+  },
+  {
+    "package": "standardwebhooks",
+    "version": "1.1.1",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "bullmq",
+    "version": "5.81.5",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "ioredis",
+    "version": "5.11.1",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "apify-client",
+    "version": "2.25.0",
+    "license": "Apache-2.0",
+    "installScripts": {}
+  },
+  {
+    "package": "socket.io-client",
+    "version": "4.8.4",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "resend",
+    "version": "6.34.1",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "nodemailer",
+    "version": "7.0.7",
+    "license": "MIT-0",
+    "installScripts": {}
+  },
+  {
+    "package": "openai",
+    "version": "6.49.0",
+    "license": "Apache-2.0",
+    "installScripts": {}
+  },
+  {
+    "package": "@google/genai",
+    "version": "2.31.0",
+    "license": "Apache-2.0",
+    "installScripts": {
+      "preinstall": "echo 'preinstall: no-op'"
+    }
+  },
+  {
+    "package": "zod",
+    "version": "4.6.7",
+    "license": "MIT",
+    "installScripts": {}
+  },
+  {
+    "package": "@prisma/client",
+    "version": "6.19.3",
+    "license": "Apache-2.0",
+    "installScripts": {
+      "postinstall": "node scripts/postinstall.js"
+    }
+  }
+]
