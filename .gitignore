@@ -10,6 +10,8 @@ test-results/
 
 # next.js
 .next/
+.open-next/
+.dev.vars*
 out/
 
 # production

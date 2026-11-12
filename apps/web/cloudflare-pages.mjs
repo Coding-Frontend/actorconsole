@@ -1,0 +1,104 @@
+import next from "./.open-next/worker.js";
+// Load the Next server at startup so each isolate's first request can focus on rendering.
+import "./.open-next/server-functions/default/handler.mjs";
+
+const ASSET_PATHS = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_ASSETS ?? "[]"));
+
+const PRIVATE_PAGES = [
+  "/admin",
+  "/dashboard",
+  "/extension",
+  "/forgot-password",
+  "/login",
+  "/mimic-ended",
+  "/newsletter/unsubscribe",
+  "/signup",
+];
+
+function isUnder(pathname, prefix) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function isPublicApi(pathname) {
+  return (
+    pathname === "/api/health" ||
+    pathname === "/api/payment-gateways" ||
+    pathname.startsWith("/api/public/") ||
+    pathname.startsWith("/api/actors/public/") ||
+    /^\/api\/website-logo-assets\/[A-Za-z0-9_-]+$/.test(pathname)
+  );
+}
+
+function previewResponse(body, status, headers = {}) {
+  return new Response(body, {
+    status,
+    headers: { ...headers, "x-robots-tag": "noindex, nofollow" },
+  });
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    if (!["GET", "HEAD"].includes(request.method)) {
+      return previewResponse("This preview accepts public reads only.", 405, {
+        allow: "GET, HEAD",
+      });
+    }
+
+    let pathname;
+    try {
+      pathname = decodeURIComponent(new URL(request.url).pathname);
+    } catch {
+      return previewResponse("Invalid path.", 400);
+    }
+    if (
+      /[%\\]/.test(pathname) ||
+      pathname.includes("//") ||
+      pathname.split("/").some((segment) => segment === "." || segment === "..")
+    ) {
+      return previewResponse("Invalid path.", 400);
+    }
+    if (
+      PRIVATE_PAGES.some((prefix) => isUnder(pathname, prefix)) ||
+      (isUnder(pathname, "/api") && !isPublicApi(pathname))
+    ) {
+      return previewResponse("This route is unavailable in preview.", 404);
+    }
+    if (pathname === "/robots.txt") {
+      return previewResponse("User-agent: *\nDisallow: /\n", 200, {
+        "content-type": "text/plain; charset=utf-8",
+      });
+    }
+    if (pathname === "/_pages/revision") {
+      return previewResponse(
+        process.env.ACTORCONSOLE_PAGES_REVISION ?? env.CF_PAGES_COMMIT_SHA ?? "local",
+        200,
+        {
+          "cache-control": "no-store",
+          "content-type": "text/plain; charset=utf-8",
+        },
+      );
+    }
+
+    const headers = new Headers(request.headers);
+    for (const name of [
+      "authorization",
+      "cookie",
+      "proxy-authorization",
+      "x-admin-api-key",
+      "x-api-key",
+      "x-session-token",
+    ]) {
+      headers.delete(name);
+    }
+    const publicRequest = new Request(request, { headers });
+    const isAsset = ASSET_PATHS.has(pathname);
+    const response = isAsset
+      ? await env.ASSETS.fetch(publicRequest)
+      : await next.fetch(publicRequest, env, ctx);
+    const result = new Response(response.body, response);
+    result.headers.delete("set-cookie");
+    result.headers.set("x-robots-tag", "noindex, nofollow");
+    if (!isAsset) result.headers.set("cache-control", "private, no-store");
+    return result;
+  },
+};

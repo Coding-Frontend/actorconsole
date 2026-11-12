@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import sharp from "sharp";
+import { requireWebsiteLogoR2 } from "./r2";
 import { assertSafeLogoUrl, fetchLogoResource, readLimitedResponse } from "./safe-fetch";
 export { assertSafeLogoUrl, isPrivateAddress } from "./safe-fetch";
 
@@ -46,6 +47,14 @@ export type StoredLogo = {
   byteSize: number;
 };
 
+function logoStorageMode() {
+  const mode = process.env.WEBSITE_LOGO_STORAGE_BACKEND?.trim() || "filesystem";
+  if (mode !== "filesystem" && mode !== "r2" && mode !== "r2-mirror") {
+    throw new Error("Unknown website logo storage backend");
+  }
+  return mode;
+}
+
 function logoStorageRoot() {
   return resolve(
     process.env.WEBSITE_LOGO_STORAGE_PATH?.trim() ||
@@ -53,10 +62,14 @@ function logoStorageRoot() {
   );
 }
 
-function absoluteLogoPath(storagePath: string) {
+function assertLogoStoragePath(storagePath: string) {
   if (!/^website-logos\/[a-zA-Z0-9_-]+\/[a-f0-9]{64}\.webp$/.test(storagePath)) {
     throw new Error("Invalid website logo storage path");
   }
+}
+
+function absoluteLogoPath(storagePath: string) {
+  assertLogoStoragePath(storagePath);
   const root = logoStorageRoot();
   const absolutePath = resolve(root, storagePath);
   if (!absolutePath.startsWith(`${root}${sep}`)) {
@@ -70,6 +83,24 @@ function absoluteLogoPath(storagePath: string) {
  * persistent volume should fail the run itself, not mark every website broken.
  */
 export async function verifyWebsiteLogoStorage() {
+  const mode = logoStorageMode();
+  if (mode !== "r2") await verifyFilesystemStorage();
+  if (mode === "filesystem") return { path: logoStorageRoot() };
+
+  const r2 = requireWebsiteLogoR2();
+  const key = `website-logos/.storage-probe-${randomUUID()}`;
+  const probe = Buffer.from("actorconsole-logo-storage");
+  await r2.put(key, probe, "application/octet-stream");
+  try {
+    const stored = await r2.read(key);
+    if (!stored?.equals(probe)) throw new Error("R2 logo storage verification failed");
+  } finally {
+    await r2.remove(key);
+  }
+  return { bucket: r2.bucket };
+}
+
+async function verifyFilesystemStorage() {
   const root = logoStorageRoot();
   await mkdir(root, { recursive: true });
   const probePath = join(root, `.storage-probe-${randomUUID()}`);
@@ -81,7 +112,6 @@ export async function verifyWebsiteLogoStorage() {
   } finally {
     await unlink(probePath).catch(() => undefined);
   }
-  return { path: root };
 }
 
 function externalRetryDelay(headers: Headers, attempt: number) {
@@ -192,17 +222,24 @@ export async function storeWebsiteLogo(
 ): Promise<StoredLogo> {
   const normalized = await normalizeWebsiteLogo(source);
   const storagePath = websiteLogoStoragePath(websiteIdentityId, normalized.checksum);
+  const mode = logoStorageMode();
+  const r2 = mode === "filesystem" ? null : requireWebsiteLogoR2();
+  if (mode !== "r2") await writeFilesystemLogo(storagePath, normalized.bytes);
+  if (r2) await r2.put(storagePath, normalized.bytes);
+  const { bytes: _bytes, ...result } = normalized;
+  return { ...result, storagePath };
+}
+
+async function writeFilesystemLogo(storagePath: string, bytes: Buffer) {
   const absolutePath = absoluteLogoPath(storagePath);
   await mkdir(dirname(absolutePath), { recursive: true });
   const temporaryPath = `${absolutePath}.${randomUUID()}.tmp`;
   try {
-    await writeFile(temporaryPath, normalized.bytes, { flag: "wx", mode: 0o644 });
+    await writeFile(temporaryPath, bytes, { flag: "wx", mode: 0o644 });
     await rename(temporaryPath, absolutePath);
   } finally {
     await unlink(temporaryPath).catch(() => undefined);
   }
-  const { bytes: _bytes, ...result } = normalized;
-  return { ...result, storagePath };
 }
 
 export function websiteLogoStoragePath(websiteIdentityId: string, checksum: string) {
@@ -213,7 +250,37 @@ export function websiteLogoStoragePath(websiteIdentityId: string, checksum: stri
 }
 
 export async function readWebsiteLogo(storagePath: string): Promise<Buffer> {
+  assertLogoStoragePath(storagePath);
+  const mode = logoStorageMode();
+  if (mode !== "filesystem") {
+    const bytes = await requireWebsiteLogoR2().read(storagePath);
+    if (bytes) return bytes;
+    if (mode === "r2") throw new Error("Website logo is missing from R2");
+  }
   return readFile(absoluteLogoPath(storagePath));
+}
+
+/** Compare an R2 object with its database record, optionally copying it from disk first. */
+export async function verifyWebsiteLogoInR2(
+  logo: Pick<StoredLogo, "storagePath" | "checksum" | "byteSize">,
+  copyMissing = false,
+) {
+  const { storagePath, checksum, byteSize } = logo;
+  assertLogoStoragePath(storagePath);
+  if (!storagePath.endsWith(`/${checksum}.webp`)) {
+    throw new Error("Website logo key does not match its database checksum");
+  }
+  const matches = (bytes: Buffer | null) =>
+    bytes?.length === byteSize && createHash("sha256").update(bytes).digest("hex") === checksum;
+  const r2 = requireWebsiteLogoR2();
+  let remote = await r2.read(storagePath);
+  if (!remote && copyMissing) {
+    const local = await readFile(absoluteLogoPath(storagePath));
+    if (!matches(local)) throw new Error("VPS logo does not match its database checksum");
+    await r2.put(storagePath, local);
+    remote = await r2.read(storagePath);
+  }
+  if (!matches(remote)) throw new Error("R2 logo is missing or does not match its database checksum");
 }
 
 type IconCandidate = { url: string; kind: LogoSourceKind; score: number };

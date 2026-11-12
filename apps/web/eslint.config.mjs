@@ -8,7 +8,7 @@ import globals from "globals";
 
 export default [
   {
-    ignores: [".next/**", ".cache/**", "dist/**", "dist-pages*/**", "coverage/**", "next-env.d.ts", "node_modules/**"],
+    ignores: [".next/**", ".open-next/**", ".wrangler/**", ".cache/**", "dist/**", "dist-pages*/**", "coverage/**", "next-env.d.ts", "node_modules/**"],
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
