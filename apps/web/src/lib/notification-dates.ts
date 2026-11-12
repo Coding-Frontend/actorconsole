@@ -41,11 +41,3 @@ export function notificationDateReader(now: Date, timeZone: string) {
     return { group, relative };
   };
 }
-
-export function notificationTimeGroup(value: string, now: Date, timeZone: string) {
-  return notificationDateReader(now, timeZone)(value).group;
-}
-
-export function notificationRelativeTime(value: string, now: Date, timeZone: string) {
-  return notificationDateReader(now, timeZone)(value).relative;
-}

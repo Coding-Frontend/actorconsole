@@ -1,24 +1,6 @@
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
 export type ChangelogType = "FEATURE" | "FIX" | "PERF" | "SECURITY" | "UI" | "CHORE";
 
-export interface ChangelogEntryDTO {
-  id: string;
-  type: ChangelogType;
-  text: string;
-  sortOrder: number;
-}
-
-export interface ChangelogReleaseDTO {
-  version: string;
-  releaseDate: string;
-  summary: string | null;
-  entries: ChangelogEntryDTO[];
-}
-
-export interface ChangelogPayload {
-  releases: ChangelogReleaseDTO[];
-}
-
 export type ChangelogCategory = "RELEASE" | "IMPROVEMENT" | "RETIRED";
 export interface ChangelogArticle {
   id: string;
@@ -78,14 +60,3 @@ export async function getChangelogFeed() {
 
 const API_BASE = SERVER_API_BASE_URL;
 const CHANGELOG_FETCH_TIMEOUT_MS = 2_500;
-
-export async function getPublicChangelog(limit = 200): Promise<ChangelogPayload> {
-  const res = await fetch(`${API_BASE}/changelog?limit=${limit}`, {
-    next: { revalidate: 60 },
-    signal: AbortSignal.timeout(CHANGELOG_FETCH_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`Changelog API returned ${res.status}`);
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error?.message ?? "Failed to fetch changelog");
-  return json.data;
-}

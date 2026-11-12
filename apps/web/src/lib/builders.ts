@@ -1,5 +1,3 @@
-import { buildDailyPortfolioTrends } from "@actorconsole/shared/builder-history";
-export { buildDailyPortfolioTrends };
 import { backendData } from "./backend-data";
 import type { ActorEarnings, EarningsRollup } from "@actorconsole/shared/actor-earnings";
 export type BuilderMetric =
@@ -175,13 +173,6 @@ export interface BuilderActorDetail extends BuilderActorEntry {
   relatedActors: BuilderActorEntry[];
 }
 
-export function newlyPublishedWhere(start: Date, end?: Date): Record<string, unknown> {
-  const range = { gte: start, ...(end ? { lt: end } : {}) };
-  return {
-    firstPublishedAt: range,
-  };
-}
-
 export function metricLabel(metric: BuilderMetric, window: BuilderWindow) {
   if (metric === "new-actors") return `New Actors (${window} days)`;
   if (metric === "monthly-users") return `Active users (${window} days)`;
@@ -261,21 +252,6 @@ export function pricingEntries(value: unknown | null): BuilderActorPricing[] {
       },
     ];
   });
-}
-
-export function effectiveActorPicture(input: {
-  actorPictureUrl: string | null;
-  websiteLogoId: string | null;
-}) {
-  const websiteUrl = input.websiteLogoId ? `/api/website-logo-assets/${input.websiteLogoId}` : null;
-  return {
-    effectivePictureUrl: input.actorPictureUrl ?? websiteUrl,
-    pictureSource: input.actorPictureUrl
-      ? ("actor" as const)
-      : websiteUrl
-        ? ("website" as const)
-        : ("fallback" as const),
-  };
 }
 
 export async function getBuildersForComparison(

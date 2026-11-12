@@ -1,9 +1,7 @@
 export * from "./types";
-export { ApifyClientError, mapStatusToCode, toApifyClientError } from "./errors";
-export type { ApifyErrorCode } from "./errors";
+export { ApifyClientError, toApifyClientError } from "./errors";
 export { createApifyClient, ApifyClientWrapper } from "./client";
 export { collectWorkspaceAudience } from "./workspace-audience";
-export type { CreateApifyClientOptions } from "./client";
 export { normalizeConsoleCookies, normalizeConsoleUiToken } from "./credentials";
 export {
   APIFY_ACCOUNT_MISMATCH_CODE,
@@ -14,5 +12,4 @@ export {
   saveApifyToken,
   revokeApifyToken,
 } from "./auth";
-export type { ApifyAccountIdentity, ApifyAccountMatchResult } from "./auth";
-export { getPublicActor, getPublicUser, getLatestPublicRun } from "./public";
+export { getPublicActor } from "./public";

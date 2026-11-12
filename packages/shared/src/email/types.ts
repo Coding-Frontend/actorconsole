@@ -28,12 +28,6 @@ export interface ResetPasswordEmailProps extends EmailBaseProps {
   expiresInMinutes?: number;
 }
 
-/** Welcome email sent after successful signup. */
-export interface WelcomeEmailProps extends EmailBaseProps {
-  /** The user's email (used for the CTA link context). */
-  email: string;
-}
-
 /** Newsletter / blog digest email. */
 export interface NewsletterEmailProps extends EmailBaseProps {
   /** Newsletter title / subject. */

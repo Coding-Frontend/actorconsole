@@ -6,34 +6,31 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * We mock ./client at module level so that any call to
  * `createApifyClient()` (including the lazy singleton inside
  * `anon()`) returns our shared mock with controllable spies.
+ * Each test re-imports ./public so it starts with an empty cache.
  */
 
 const mockGetActor = vi.fn();
-const mockGetPublicUser = vi.fn();
-const mockGetLatestPublicRun = vi.fn();
 
 vi.mock("./client.js", () => ({
   createApifyClient: () => ({
     getActor: mockGetActor,
-    getPublicUser: mockGetPublicUser,
-    getLatestPublicRun: mockGetLatestPublicRun,
   }),
 }));
 
-import {
-  getPublicActor,
-  getPublicUser,
-  getLatestPublicRun,
-  clearPublicCache,
-  publicCacheSize,
-  PUBLIC_CACHE_MAX_ENTRIES,
-} from "./public.js";
+type PublicModule = typeof import("./public.js");
+let getPublicActor: PublicModule["getPublicActor"];
+let PUBLIC_CACHE_MAX_ENTRIES: PublicModule["PUBLIC_CACHE_MAX_ENTRIES"];
 
 describe("@actorconsole/apify/public", () => {
   it("bounds successful and negative entries even for unique arbitrary lookups", async () => {
     mockGetActor.mockResolvedValue(null);
     for (let index = 0; index < PUBLIC_CACHE_MAX_ENTRIES + 20; index++) await getPublicActor(`owner/actor-${index}`);
-    expect(publicCacheSize()).toBe(PUBLIC_CACHE_MAX_ENTRIES);
+    mockGetActor.mockClear();
+    // The oldest lookups were evicted to stay within the bound; the newest is still cached.
+    await getPublicActor("owner/actor-0");
+    await getPublicActor(`owner/actor-${PUBLIC_CACHE_MAX_ENTRIES + 19}`);
+    expect(mockGetActor).toHaveBeenCalledTimes(1);
+    expect(mockGetActor).toHaveBeenCalledWith("owner/actor-0");
   });
   it("coalesces simultaneous lookups for the same canonical Actor", async () => {
     mockGetActor.mockResolvedValue({ id: "one" });
@@ -44,14 +41,12 @@ describe("@actorconsole/apify/public", () => {
   it.each(["owner/actor/extra", "../actor", "owner/" + "x".repeat(101), "owner/actor?param=1"])("rejects malformed identifiers before cache/network use: %s", async (value) => {
     expect(await getPublicActor(value)).toBeNull();
     expect(mockGetActor).not.toHaveBeenCalled();
-    expect(publicCacheSize()).toBe(0);
   });
-  beforeEach(() => {
+  beforeEach(async () => {
     mockGetActor.mockReset();
-    mockGetPublicUser.mockReset();
-    mockGetLatestPublicRun.mockReset();
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    clearPublicCache();
+    vi.resetModules();
+    ({ getPublicActor, PUBLIC_CACHE_MAX_ENTRIES } = await import("./public.js"));
   });
 
   afterEach(() => {
@@ -82,31 +77,6 @@ describe("@actorconsole/apify/public", () => {
     });
   });
 
-  describe("getPublicUser", () => {
-    it("returns null for empty username without calling client", async () => {
-      expect(await getPublicUser("")).toBeNull();
-      expect(mockGetPublicUser).not.toHaveBeenCalled();
-    });
-
-    it("delegates non-empty username", async () => {
-      mockGetPublicUser.mockResolvedValue({ id: "u1" } as never);
-      await getPublicUser("alice");
-      expect(mockGetPublicUser).toHaveBeenCalledWith("alice");
-    });
-  });
-
-  describe("getLatestPublicRun", () => {
-    it("returns null for malformed input", async () => {
-      expect(await getLatestPublicRun("nope")).toBeNull();
-    });
-
-    it("delegates valid input", async () => {
-      mockGetLatestPublicRun.mockResolvedValue({ id: "r1" } as never);
-      await getLatestPublicRun("alice~my-actor");
-      expect(mockGetLatestPublicRun).toHaveBeenCalledWith("alice/my-actor");
-    });
-  });
-
   describe("in-process TTL cache", () => {
     it("caches getPublicActor results for the second call", async () => {
       mockGetActor.mockResolvedValue({ id: "abc" } as never);
@@ -116,7 +86,6 @@ describe("@actorconsole/apify/public", () => {
       expect(b).toEqual({ id: "abc" });
       // Only one network call thanks to the cache
       expect(mockGetActor).toHaveBeenCalledTimes(1);
-      expect(publicCacheSize()).toBeGreaterThanOrEqual(1);
     });
 
     it("bypassCache forces a fresh call", async () => {
@@ -141,30 +110,6 @@ describe("@actorconsole/apify/public", () => {
       await getPublicActor("alice~my-actor");
       // Only one attempt was made (the second call hit the cached null)
       expect(mockGetActor).toHaveBeenCalledTimes(1);
-    });
-
-    it("clearPublicCache wipes the in-process map", async () => {
-      mockGetActor.mockResolvedValue({ id: "abc" } as never);
-      await getPublicActor("alice~my-actor");
-      expect(publicCacheSize()).toBe(1);
-      clearPublicCache();
-      expect(publicCacheSize()).toBe(0);
-      await getPublicActor("alice~my-actor");
-      expect(mockGetActor).toHaveBeenCalledTimes(2);
-    });
-
-    it("caches getPublicUser results", async () => {
-      mockGetPublicUser.mockResolvedValue({ id: "u1" } as never);
-      await getPublicUser("alice");
-      await getPublicUser("alice");
-      expect(mockGetPublicUser).toHaveBeenCalledTimes(1);
-    });
-
-    it("caches getLatestPublicRun results", async () => {
-      mockGetLatestPublicRun.mockResolvedValue({ id: "r1" } as never);
-      await getLatestPublicRun("alice~my-actor");
-      await getLatestPublicRun("alice~my-actor");
-      expect(mockGetLatestPublicRun).toHaveBeenCalledTimes(1);
     });
   });
 });

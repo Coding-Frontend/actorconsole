@@ -241,26 +241,10 @@ export class ApifyClientWrapper {
     return me;
   }
 
-  async getPublicUser(username: string): Promise<ApifyUserProfile | null> {
-    if (!username) return null;
-    return this.wrap(async () => {
-      const u = await this.raw.user(username).get();
-      return u ? toUserProfile(u) : null;
-    });
-  }
-
   async getRun(runId: string): Promise<ApifyRun | null> {
     return this.wrap(async () => {
       const r = await this.raw.run(runId).get();
       return r ? toRun(r) : null;
-    });
-  }
-
-  async getLatestPublicRun(usernameActor: ApifyActorId): Promise<ApifyRun | null> {
-    return this.wrap(async () => {
-      const list = await this.raw.actor(usernameActor).runs().list({ limit: 1, desc: true });
-      const first = list.items[0];
-      return first ? toRun(first) : null;
     });
   }
 

@@ -199,61 +199,12 @@ export function textToHtml(s: string): string {
 // pattern — never throw on mail-provider errors.
 // ---------------------------------------------------------------------------
 
-import {
-  renderOtpEmail,
-  renderResetPasswordEmail,
-  renderWelcomeEmail,
-  renderTicketReplyEmail,
-  renderNewsletterEmail,
-  getAppBaseUrl,
-} from "@actorconsole/shared";
-import type {
-  OtpEmailProps,
-  ResetPasswordEmailProps,
-  WelcomeEmailProps,
-  TicketReplyEmailProps,
-  NewsletterEmailProps,
-} from "@actorconsole/shared";
+import { renderTicketReplyEmail, getAppBaseUrl } from "@actorconsole/shared";
+import type { TicketReplyEmailProps } from "@actorconsole/shared";
 
 /** Resolved app URL — falls back to AUTH_URL env or localhost. */
 function getAppUrl(): string {
   return getAppBaseUrl();
-}
-
-/** Send an OTP verification email. */
-export async function sendOtpEmail(
-  to: string,
-  props: Omit<OtpEmailProps, "appUrl">,
-): Promise<SendEmailResult> {
-  return sendEmail({
-    to,
-    subject: "Your ActorConsole verification code",
-    html: renderOtpEmail({ ...props, appUrl: getAppUrl() }),
-  });
-}
-
-/** Send a password-reset OTP email. */
-export async function sendResetPasswordEmail(
-  to: string,
-  props: Omit<ResetPasswordEmailProps, "appUrl">,
-): Promise<SendEmailResult> {
-  return sendEmail({
-    to,
-    subject: "Reset your ActorConsole password",
-    html: renderResetPasswordEmail({ ...props, appUrl: getAppUrl() }),
-  });
-}
-
-/** Send a welcome email after signup. */
-export async function sendWelcomeEmail(
-  to: string,
-  props: Omit<WelcomeEmailProps, "appUrl">,
-): Promise<SendEmailResult> {
-  return sendEmail({
-    to,
-    subject: "Welcome to ActorConsole! 🎉",
-    html: renderWelcomeEmail({ ...props, appUrl: getAppUrl() }),
-  });
 }
 
 /** Send a ticket-reply notification email. */
@@ -265,17 +216,5 @@ export async function sendTicketReplyEmail(
     to,
     subject: `[AL-${props.ticketNumber}] ${props.ticketSubject} — new reply`,
     html: renderTicketReplyEmail({ ...props, appUrl: getAppUrl() }),
-  });
-}
-
-/** Send a newsletter / blog digest email. */
-export async function sendNewsletterEmail(
-  to: string,
-  props: Omit<NewsletterEmailProps, "appUrl">,
-): Promise<SendEmailResult> {
-  return sendEmail({
-    to,
-    subject: props.newsletterTitle,
-    html: renderNewsletterEmail({ ...props, appUrl: getAppUrl() }),
   });
 }

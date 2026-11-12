@@ -29,7 +29,6 @@ export {
 // Individual templates
 export { renderOtpEmail } from "./otp";
 export { renderResetPasswordEmail } from "./reset-password";
-export { renderWelcomeEmail } from "./welcome";
 export { renderNewsletterEmail } from "./newsletter";
 export { renderTicketReplyEmail } from "./ticket-reply";
 
@@ -38,7 +37,6 @@ export type {
   EmailBaseProps,
   OtpEmailProps,
   ResetPasswordEmailProps,
-  WelcomeEmailProps,
   NewsletterEmailProps,
   TicketReplyEmailProps,
 } from "./types";

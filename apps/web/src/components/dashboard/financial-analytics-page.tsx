@@ -63,7 +63,6 @@ import {
   type ActorTableView,
 } from "@actorconsole/shared/financial-report";
 export {
-  aggregateFinancialLedger,
   dailyFinancialLedgerRows,
   weeklyFinancialLedgerRows,
   usagePeriodRows,
@@ -86,18 +85,6 @@ function utcTodayOffset(days = 0) {
   date.setUTCHours(0, 0, 0, 0);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
-}
-
-export function financialChartDay(entry: unknown) {
-  if (!entry || typeof entry !== "object") return null;
-  const candidate = entry as {
-    period?: unknown;
-    payload?: { period?: unknown };
-    activePayload?: Array<{ payload?: { period?: unknown } }>;
-  };
-  const period =
-    candidate.period ?? candidate.payload?.period ?? candidate.activePayload?.[0]?.payload?.period;
-  return typeof period === "string" && /^\d{4}-\d{2}-\d{2}$/.test(period) ? period : null;
 }
 
 function dateLabel(value: string) {

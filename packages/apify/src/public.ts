@@ -14,7 +14,7 @@
  */
 
 import { createApifyClient, type ApifyClientWrapper } from "./client";
-import type { ApifyActorDetail, ApifyRun, ApifyUserProfile } from "./types";
+import type { ApifyActorDetail } from "./types";
 import { getLogger, BoundedTtlCache, isRedisEnabled } from "@actorconsole/shared";
 import IORedis from "ioredis";
 
@@ -102,11 +102,6 @@ async function distributedCacheSet<T>(key: string, value: T, ttlMs: number): Pro
   }
 }
 
-/** Test/diagnostic helper — clear the in-process cache. */
-export function clearPublicCache(): void {
-  cache.clear();
-}
-
 async function lookup<T>(key: string, options: { ttlMs?: number; bypassCache?: boolean }, load: () => Promise<T>): Promise<T | null> {
   const underway = pending.get(key);
   if (underway) return underway as Promise<T>;
@@ -126,11 +121,6 @@ async function lookup<T>(key: string, options: { ttlMs?: number; bypassCache?: b
   try { return await operation; } finally { pending.delete(key); }
 }
 
-/** Test/diagnostic helper — how many entries are currently cached. */
-export function publicCacheSize(): number {
-  return cache.size;
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -143,22 +133,4 @@ export async function getPublicActor(
   if (!parts) return null;
   return lookup(`actor:${parts.username}/${parts.name}`, options,
     () => anon().getActor(`${parts.username}/${parts.name}`));
-}
-
-export async function getPublicUser(
-  username: string,
-  options: { ttlMs?: number; bypassCache?: boolean } = {},
-): Promise<ApifyUserProfile | null> {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}$/.test(username)) return null;
-  return lookup(`user:${username}`, options, () => anon().getPublicUser(username));
-}
-
-export async function getLatestPublicRun(
-  usernameActor: string,
-  options: { ttlMs?: number; bypassCache?: boolean } = {},
-): Promise<ApifyRun | null> {
-  const parts = toUsernameActor(usernameActor);
-  if (!parts) return null;
-  return lookup(`run:${parts.username}/${parts.name}`, options,
-    () => anon().getLatestPublicRun(`${parts.username}/${parts.name}`));
 }

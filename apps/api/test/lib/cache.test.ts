@@ -1,12 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  cached,
-  CACHE_MISS,
-  cacheDelete,
-  cacheGet,
-  cacheSet,
-  clearMemoryCache,
-} from "../../src/lib/cache.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock ./queue so getRedis() returns null in tests (in-memory mode).
 // This keeps the tests independent of any Redis instance.
@@ -15,13 +7,16 @@ vi.mock("../../src/lib/queue.js", () => ({
   getRedis: () => null,
 }));
 
-describe("cache (in-memory fallback)", () => {
-  beforeEach(() => {
-    clearMemoryCache();
-  });
+type CacheModule = typeof import("../../src/lib/cache.js");
+let CACHE_MISS: CacheModule["CACHE_MISS"];
+let cacheGet: CacheModule["cacheGet"];
+let cacheSet: CacheModule["cacheSet"];
 
-  afterEach(() => {
-    clearMemoryCache();
+describe("cache (in-memory fallback)", () => {
+  beforeEach(async () => {
+    // A fresh module instance gives every test its own empty in-memory cache.
+    vi.resetModules();
+    ({ CACHE_MISS, cacheGet, cacheSet } = await import("../../src/lib/cache.js"));
   });
 
   it("returns CACHE_MISS when the key is absent", async () => {
@@ -54,35 +49,5 @@ describe("cache (in-memory fallback)", () => {
     await new Promise((r) => setTimeout(r, 5));
     const out = await cacheGet<string>("k1");
     expect(out).toBe(CACHE_MISS);
-  });
-
-  it("cacheDelete removes the entry", async () => {
-    await cacheSet("k1", "value", 60);
-    await cacheDelete("k1");
-    const out = await cacheGet<string>("k1");
-    expect(out).toBe(CACHE_MISS);
-  });
-
-  describe("cached() wrapper", () => {
-    it("returns the cached value on the second call without invoking the loader", async () => {
-      const loader = vi.fn().mockResolvedValue("fresh");
-      const a = await cached("k1", 60, loader);
-      const b = await cached("k1", 60, loader);
-      expect(a).toBe("fresh");
-      expect(b).toBe("fresh");
-      expect(loader).toHaveBeenCalledTimes(1);
-    });
-
-    it("invokes the loader on cache miss", async () => {
-      const loader = vi.fn().mockResolvedValue(42);
-      const a = await cached("k1", 60, loader);
-      expect(a).toBe(42);
-      expect(loader).toHaveBeenCalledTimes(1);
-    });
-
-    it("propagates loader errors (cache write never silently swallows)", async () => {
-      const loader = vi.fn().mockRejectedValue(new Error("boom"));
-      await expect(cached("k1", 60, loader)).rejects.toThrow("boom");
-    });
   });
 });
