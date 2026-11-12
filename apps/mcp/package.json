@@ -64,9 +64,9 @@
     "zod": "^4.6.7"
   },
   "optionalDependencies": {
-    "@opentelemetry/auto-instrumentations-node": "^0.82.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
-    "@opentelemetry/sdk-node": "^0.300.0"
+    "@opentelemetry/auto-instrumentations-node": "^0.83.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.301.0",
+    "@opentelemetry/sdk-node": "^0.301.0"
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",
