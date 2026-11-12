@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCurrentServiceEntries } from "./usage-costs-analytics";
+import { resolveCurrentServiceEntries, type UsageCostsPayload } from "./usage-costs-analytics";
 
 describe("usage cost Actor breakdown", () => {
   it("uses current calendar services when Apify returns an empty current-cycle summary", () => {
