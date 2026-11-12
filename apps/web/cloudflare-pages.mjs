@@ -1,4 +1,6 @@
 import next from "./.open-next/worker.js";
+// Load the Next server at startup so each isolate's first request can focus on rendering.
+import "./.open-next/server-functions/default/handler.mjs";
 
 const ASSET_PATHS = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_ASSETS ?? "[]"));
 
