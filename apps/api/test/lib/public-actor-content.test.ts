@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePublicActorReviews, publicReviewFallback } from "./public-actor-content";
+import { parsePublicActorReviews, publicReviewFallback } from "../../src/lib/public-actor-content.js";
 
 describe("publicReviewFallback", () => {
   it("does not expose invalid Console credential errors to public visitors", () => {
