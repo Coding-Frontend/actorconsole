@@ -126,8 +126,6 @@ export const workspaceSections = [
   },
 ] as const;
 
-export type AdminWorkspaceSection = (typeof workspaceSections)[number];
-
 export interface AdminWorkspaceData {
   workspace: {
     id: string;

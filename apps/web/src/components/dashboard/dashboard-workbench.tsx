@@ -239,35 +239,6 @@ export function DashboardFilterSummary({
   );
 }
 
-export function DashboardTableToolbar({
-  title,
-  description,
-  children,
-  className,
-}: {
-  title: string;
-  description?: string;
-  children?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5",
-        className,
-      )}
-    >
-      <div className="min-w-0">
-        <h2 className="font-display-tight text-xl">{title}</h2>
-        {description ? (
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
-      {children ? <div className="flex flex-wrap items-center gap-2">{children}</div> : null}
-    </div>
-  );
-}
-
 export function PageActionMenu({
   items,
   label = "More actions",

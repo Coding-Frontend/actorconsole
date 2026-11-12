@@ -278,26 +278,6 @@ export function effectiveActorPicture(input: {
   };
 }
 
-export async function getBuilderCatalogSummary(): Promise<{
-  totalBuilders: number;
-  catalogActorCount: number;
-  enrichedActorCount: number;
-  users30Days: number;
-  totalUsers: number;
-  reportedUserActors: number;
-  earnings: EarningsRollup;
-}> {
-  return backendData<{
-    totalBuilders: number;
-    catalogActorCount: number;
-    enrichedActorCount: number;
-    users30Days: number;
-    totalUsers: number;
-    reportedUserActors: number;
-    earnings: EarningsRollup;
-  }>("summary", []);
-}
-
 export async function getBuildersForComparison(
   usernames: string[],
   window: BuilderWindow = 30,

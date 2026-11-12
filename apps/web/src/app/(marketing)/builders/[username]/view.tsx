@@ -26,8 +26,6 @@ import {
 } from "@/lib/builders";
 import type { CollectionViewMode } from "@/components/ui/view-mode-toggle";
 
-export const dynamic = "force-dynamic";
-
 export async function generateMetadata({
   params,
 }: {

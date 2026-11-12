@@ -79,9 +79,3 @@ export function SkeletonLines({
     </div>
   );
 }
-
-export function DarkSkeleton({ className = "" }: { className?: string }) {
-  // Use the current foreground token so route-transition skeletons remain
-  // visible in both themes. A fixed white wash disappears on light surfaces.
-  return <Skeleton className={`bg-foreground/10 ${className}`} />;
-}

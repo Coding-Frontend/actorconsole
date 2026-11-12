@@ -51,11 +51,6 @@ function memorySet<T>(key: string, value: T, ttlMs: number): void {
 export const CACHE_MISS = Symbol("cache-miss");
 export type CacheResult<T> = T | typeof CACHE_MISS;
 
-export interface CacheGetOptions {
-  /** TTL in seconds when writing to Redis. */
-  ttlSeconds: number;
-}
-
 export async function cacheGet<T>(key: string): Promise<CacheResult<T>> {
   const redis = getRedis();
   if (redis) {

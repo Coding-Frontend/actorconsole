@@ -11,7 +11,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("@/lib/client-navigation", () => ({ navigateInApp: navigate }));
 vi.mock("@/components/charts/chart-system", () => ({
   ChartFrame: () => <div>Daily earnings chart</div>,
-  ChartTooltip: () => null,
 }));
 import { DefaultDashboard } from "./default-dashboard";
 
