@@ -1,5 +1,7 @@
 import next from "./.open-next/worker.js";
 
+const ASSET_PATHS = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_ASSETS ?? "[]"));
+
 const PRIVATE_PAGES = [
   "/admin",
   "/dashboard",
@@ -87,12 +89,14 @@ export default {
       headers.delete(name);
     }
     const publicRequest = new Request(request, { headers });
-    const asset = await env.ASSETS.fetch(publicRequest);
-    if (asset.status === 404) await asset.body?.cancel();
-    const response = asset.status === 404 ? await next.fetch(publicRequest, env, ctx) : asset;
+    const isAsset = ASSET_PATHS.has(pathname);
+    const response = isAsset
+      ? await env.ASSETS.fetch(publicRequest)
+      : await next.fetch(publicRequest, env, ctx);
     const result = new Response(response.body, response);
     result.headers.delete("set-cookie");
     result.headers.set("x-robots-tag", "noindex, nofollow");
+    if (!isAsset) result.headers.set("cache-control", "private, no-store");
     return result;
   },
 };

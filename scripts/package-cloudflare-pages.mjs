@@ -10,11 +10,12 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const app = realpathSync(fileURLToPath(new URL("../apps/web/", import.meta.url)));
 const adapter = join(app, ".open-next");
+const assets = join(adapter, "assets");
 const bundled = join(adapter, "pages-bundle");
 const output = join(app, "dist-pages");
 const wrangler = fileURLToPath(
@@ -31,6 +32,10 @@ const revision = git.stdout?.trim() ?? "";
 if (git.status !== 0 || !/^[a-f0-9]{40}$/.test(revision)) {
   throw new Error("Build the Pages package from a Git checkout with a known revision");
 }
+const assetPaths = readdirSync(assets, { recursive: true, withFileTypes: true })
+  .filter((entry) => entry.isFile())
+  .map((entry) => `/${relative(assets, join(entry.parentPath, entry.name)).split(sep).join("/")}`)
+  .sort();
 
 // Bundle the OpenNext entry with Wrangler's module and Node compatibility rules.
 // The dry run writes a local bundle for Pages Functions.
@@ -43,7 +48,10 @@ writeFileSync(
     main: "../cloudflare-pages.mjs",
     compatibility_date,
     compatibility_flags,
-    define: { "process.env.ACTORCONSOLE_PAGES_REVISION": JSON.stringify(revision) },
+    define: {
+      "process.env.ACTORCONSOLE_PAGES_REVISION": JSON.stringify(revision),
+      "process.env.ACTORCONSOLE_PAGES_ASSETS": JSON.stringify(JSON.stringify(assetPaths)),
+    },
   }),
 );
 const result = spawnSync(
@@ -73,7 +81,7 @@ if (outputStat && (!outputStat.isDirectory() || realpathSync(output) !== output)
   throw new Error("Pages output is not the generated directory inside apps/web");
 }
 rmSync(output, { recursive: true, force: true });
-cpSync(join(adapter, "assets"), output, { recursive: true });
+cpSync(assets, output, { recursive: true });
 copyFileSync(join(bundled, "cloudflare-pages.js"), join(output, "_worker.js"));
 writeFileSync(
   join(output, "_routes.json"),
