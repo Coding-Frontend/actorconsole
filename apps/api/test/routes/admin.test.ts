@@ -41,7 +41,6 @@ const {
     },
     actor: { count: vi.fn(), findMany: vi.fn() },
     bulkPublishSchedule: { count: vi.fn() },
-    review: { count: vi.fn() },
     webhookDelivery: { count: vi.fn(), findMany: vi.fn() },
     appError: { count: vi.fn(), findMany: vi.fn() },
     ticket: { count: vi.fn(), findMany: vi.fn() },
@@ -155,7 +154,6 @@ describe("Admin routes", () => {
     mockDb.payment.aggregate.mockResolvedValueOnce({ _sum: { amount: 2500 }, _count: 1 });
     mockDb.actor.count.mockResolvedValueOnce(25);
     mockDb.bulkPublishSchedule.count.mockResolvedValueOnce(3);
-    mockDb.review.count.mockResolvedValueOnce(5);
     mockDb.webhookDelivery.count.mockResolvedValueOnce(6);
     mockDb.appError.count.mockResolvedValueOnce(0);
     mockDb.user.findMany.mockResolvedValueOnce([]);

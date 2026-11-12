@@ -295,7 +295,6 @@ export const adminRoutes = new Hono<AppEnv>()
       mrrRaw,
       actorCount,
       publishingScheduleCount,
-      reviewCount,
       webhookCount24h,
       errorCount24h,
       newUsersMonth,
@@ -319,7 +318,6 @@ export const adminRoutes = new Hono<AppEnv>()
       }),
       db.actor.count(),
       db.bulkPublishSchedule.count(),
-      db.review.count(),
       db.webhookDelivery.count({
         where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
       }),
@@ -368,7 +366,6 @@ export const adminRoutes = new Hono<AppEnv>()
         platform: {
           actors: actorCount,
           publishingSchedules: publishingScheduleCount,
-          reviews: reviewCount,
           openTickets,
         },
         health: {

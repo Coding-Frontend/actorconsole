@@ -99,8 +99,6 @@ model User {
   apifyTokens               ApifyToken[]
   apifyExtensionSessions    ApifyExtensionSession[]
   apifyExtensionDevices     ApifyExtensionDevice[]
-  githubTokens              GithubToken[]
-  installations             GithubInstallation[]
   subscriptions             Subscription[]
   bulkPublishSchedules      BulkPublishSchedule[]
   bulkActorStatusOperations BulkActorStatusOperation[]
@@ -112,7 +110,6 @@ model User {
   apiKeys                   ApiKey[]
   notificationPrefs         NotificationPreference[]
   announcementDismissals    AnnouncementDismissal[]
-  couponRedemptions         CouponRedemption[]
   createdCoupons            Coupon[]                   @relation("CreatedCoupon")
   usageRecords              UsageRecord[]
   billingAddresses          BillingAddress?
@@ -248,14 +245,6 @@ model Session {
 
   @@index([userId])
   @@index([impersonatedById])
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
 }
 
 model PasswordCredential {
@@ -603,38 +592,6 @@ model ApifyExtensionDevice {
   @@index([userId, expiresAt])
 }
 
-model GithubInstallation {
-  id             String       @id @default(cuid())
-  userId         String
-  installationId BigInt       @unique
-  accountLogin   String
-  accountType    String
-  suspendedAt    DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  repos          GithubRepo[]
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-model GithubRepo {
-  id             String   @id @default(cuid())
-  installationId String
-  repoId         BigInt   @unique
-  fullName       String
-  defaultBranch  String   @default("main")
-  actorId        String?
-  createdAt      DateTime @default(now())
-
-  installation GithubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  actor        Actor?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  pullRequests PullRequest[]
-
-  @@index([installationId])
-}
-
 // =====================================================
 // Admin-managed global Integration credentials
 // =====================================================
@@ -753,10 +710,8 @@ model Actor {
   pricingHistory      PricingHistory[]
   bulkPublishItems    BulkPublishScheduleActor[]
   bulkStatusItems     BulkActorStatusOperationItem[]
-  reviews             Review[]
   usageDaily          UsageDaily[]
   runSnapshots        ActorRunSnapshot[]
-  repos               GithubRepo[]
   optimizationResults ActorOptimizationResult[]
   websiteIdentity     WebsiteIdentity?               @relation(fields: [websiteIdentityId], references: [id], onDelete: SetNull)
   logoRecommendations ActorLogoRecommendation[]
@@ -1322,49 +1277,6 @@ model BulkActorStatusOperationItem {
 }
 
 // =====================================================
-// Code review (Phase 3+)
-// =====================================================
-
-model PullRequest {
-  id            String    @id @default(cuid())
-  repoId        String
-  prNumber      Int
-  title         String
-  state         String
-  headSha       String
-  baseSha       String
-  reviewStatus  String?
-  reviewSummary Json?
-  postedAt      DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  repo    GithubRepo @relation(fields: [repoId], references: [id], onDelete: Cascade)
-  reviews Review[]
-
-  @@unique([repoId, prNumber])
-  @@index([state])
-}
-
-model Review {
-  id         String    @id @default(cuid())
-  prId       String
-  actorId    String?
-  filePath   String
-  line       Int?
-  severity   String
-  message    String    @db.Text
-  suggestion String?   @db.Text
-  postedAt   DateTime?
-  createdAt  DateTime  @default(now())
-
-  pullRequest PullRequest @relation(fields: [prId], references: [id], onDelete: Cascade)
-  actor       Actor?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
-
-  @@index([prId])
-}
-
-// =====================================================
 // Apify account usage costs. The physical table and column names are retained
 // for compatibility with existing installations created before the billing
 // API's cost semantics were corrected in the application.
@@ -1557,35 +1469,6 @@ model AnalyticsEvent {
   @@index([name, createdAt])
   @@index([userId, createdAt])
   @@index([businessProfileId, userId, createdAt])
-}
-
-// =====================================================
-// GitHub PAT (per-user, optional on top of OAuth)
-// =====================================================
-
-model GithubToken {
-  id              String    @id @default(cuid())
-  userId          String
-  // The resolved GitHub login (e.g. "octocat") — used for display + admin lookups.
-  githubLogin     String
-  encryptedToken  String    @db.Text
-  // Last 4 chars of the plaintext token, for UI display ("…a1b2").
-  tokenLast4      String
-  // Scopes the token requested when we probed it; informational only.
-  scopes          Json      @default("[]")
-  // Set when the user re-validates the token (e.g. after a 401 from GitHub).
-  lastValidatedAt DateTime?
-  // Set when probing the token against GitHub failed.
-  invalidAt       DateTime?
-  invalidReason   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId])
-  @@index([userId])
-  @@index([githubLogin])
 }
 
 // =====================================================
@@ -1907,24 +1790,8 @@ model Coupon {
   createdAt     DateTime  @default(now())
 
   createdBy   User?              @relation("CreatedCoupon", fields: [createdById], references: [id])
-  redemptions CouponRedemption[]
 
   @@index([code, isActive])
-}
-
-model CouponRedemption {
-  id             String   @id @default(cuid())
-  couponId       String
-  userId         String
-  subscriptionId String?
-  discountAmount Decimal  @db.Decimal(12, 2)
-  createdAt      DateTime @default(now())
-
-  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([couponId])
-  @@index([userId])
 }
 
 // =====================================================
