@@ -154,10 +154,14 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Radix overlays temporarily lock the body while a select or dialog is
-     open. Modern browsers can reserve the scrollbar gutter at the root, so
-     keeping the library's fallback body margin would reserve that space a
-     second time and move the entire application shell. */
+  /* Let the viewport take over Radix's body scroll lock so sticky headers
+     and sidebars keep their position while an overlay is open. */
+  html:has(> body[data-scroll-locked]) {
+    overflow: visible;
+  }
+
+  /* The root's stable scrollbar gutter already reserves the space that
+     Radix would add to the body. */
   @supports (scrollbar-gutter: stable) {
     html body[data-scroll-locked] {
       margin-right: 0 !important;

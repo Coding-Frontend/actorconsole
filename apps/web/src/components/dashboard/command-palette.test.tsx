@@ -10,6 +10,15 @@ afterEach(() => {
   push.mockReset();
 });
 describe("command palette keyboard navigation", () => {
+  it("dismisses from the close button in the search row", () => {
+    const close = vi.fn();
+    render(<CommandPalette open onClose={close} />);
+    const closeButton = screen.getByRole("button", { name: /^Close$/ });
+    expect(closeButton.parentElement).toBe(screen.getByRole("combobox").parentElement);
+    fireEvent.click(closeButton);
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it("dismisses once when Escape is pressed in search", () => {
     const close = vi.fn();
     render(<CommandPalette open onClose={close} />);

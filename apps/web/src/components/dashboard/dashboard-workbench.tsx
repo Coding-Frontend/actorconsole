@@ -15,9 +15,16 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogCloseButton,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Tabs } from "@/components/ui/tabs";
 
@@ -474,6 +481,17 @@ export function ResponsiveFilterBar({
 }) {
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (!open) return;
+    const desktop = window.matchMedia("(min-width: 1280px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    closeOnDesktop();
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, [open]);
+
   return (
     <>
       <div
@@ -487,31 +505,37 @@ export function ResponsiveFilterBar({
       >
         {renderFilters()}
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="xl:hidden"
-        onClick={() => setOpen(true)}
-        aria-label={`${mobileLabel}${activeCount > 0 ? `, ${activeCount} active` : ""}`}
-      >
-        <Filter className="h-4 w-4" />
-        {mobileLabel}
-        {activeCount > 0 ? (
-          <span className="bg-signal-blue/15 rounded-sm px-1.5 font-mono text-[10px] text-signal-blue">
-            {activeCount}
-          </span>
-        ) : null}
-      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bottom-0 top-auto max-h-[82vh] w-full max-w-none translate-y-0 rounded-b-none rounded-t-md p-0 xl:hidden">
-          <DialogHeader className="border-b border-border px-5 py-4 text-left">
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="xl:hidden"
+            aria-label={`${mobileLabel}${activeCount > 0 ? `, ${activeCount} active` : ""}`}
+          >
+            <Filter className="h-4 w-4" />
+            {mobileLabel}
+            {activeCount > 0 ? (
+              <span className="bg-signal-blue/15 rounded-sm px-1.5 font-mono text-[10px] text-signal-blue">
+                {activeCount}
+              </span>
+            ) : null}
+          </Button>
+        </DialogTrigger>
+        <DialogContent
+          showCloseButton={false}
+          aria-describedby={undefined}
+          className="bottom-0 top-auto flex max-h-[82dvh] w-full max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-b-none rounded-t-md p-0 sm:p-0 xl:hidden"
+        >
+          <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 space-y-0 border-b px-5 py-1.5 pr-2">
             <DialogTitle>{mobileLabel}</DialogTitle>
+            <DialogCloseButton />
           </DialogHeader>
-          <div className="scroll-soft flex flex-col gap-3 overflow-y-auto p-5 [&>*]:w-full">
+          <div className="scroll-soft flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain p-5 [&>*]:w-full [&>*]:shrink-0">
             {renderFilters()}
           </div>
-          <div className="sticky bottom-0 border-t border-border bg-card p-4">
+          <div className="shrink-0 border-t border-border bg-card p-4">
             <Button variant="signal" className="w-full" onClick={() => setOpen(false)}>
               Show results
             </Button>
