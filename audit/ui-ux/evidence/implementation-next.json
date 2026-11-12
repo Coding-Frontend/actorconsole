@@ -1,0 +1,41 @@
+{
+  "pages": [
+    {
+      "path": "/docs/first-workspace",
+      "status": 200
+    },
+    {
+      "path": "/login",
+      "status": 200
+    },
+    {
+      "path": "/contact",
+      "status": 200
+    }
+  ],
+  "widths": [
+    {
+      "width": 320,
+      "searchRight": 283
+    },
+    {
+      "width": 375,
+      "searchRight": 323
+    },
+    {
+      "width": 768,
+      "searchRight": 696
+    },
+    {
+      "width": 1024,
+      "searchRight": 936
+    },
+    {
+      "width": 1440,
+      "searchRight": 1343.5
+    }
+  ],
+  "keyboardVerification": true,
+  "contactPreservesNewDraft": true,
+  "pageErrors": []
+}

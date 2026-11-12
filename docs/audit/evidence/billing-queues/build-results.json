@@ -1,0 +1,112 @@
+[
+  {
+    "label": "packages/shared",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 2.43,
+    "log": "/tmp/actorconsole-billing-audit/build-packages_shared.log"
+  },
+  {
+    "label": "packages/db",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 6.39,
+    "log": "/tmp/actorconsole-billing-audit/build-packages_db.log"
+  },
+  {
+    "label": "packages/apify",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 2.63,
+    "log": "/tmp/actorconsole-billing-audit/build-packages_apify.log"
+  },
+  {
+    "label": "packages/ai",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 2.48,
+    "log": "/tmp/actorconsole-billing-audit/build-packages_ai.log"
+  },
+  {
+    "label": "packages/logo-catalog",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 1.07,
+    "log": "/tmp/actorconsole-billing-audit/build-packages_logo-catalog.log"
+  },
+  {
+    "label": "apps/api",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 9.27,
+    "log": "/tmp/actorconsole-billing-audit/build-apps_api.log"
+  },
+  {
+    "label": "apps/worker",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 3.28,
+    "log": "/tmp/actorconsole-billing-audit/build-apps_worker.log"
+  },
+  {
+    "label": "apps/mcp",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 0.32,
+    "log": "/tmp/actorconsole-billing-audit/build-apps_mcp.log"
+  },
+  {
+    "label": "apps/chrome-extension",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 0.37,
+    "log": "/tmp/actorconsole-billing-audit/build-apps_chrome-extension.log"
+  },
+  {
+    "label": "apps/web",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 70.31,
+    "log": "/tmp/actorconsole-billing-audit/build-apps_web.log"
+  }
+]

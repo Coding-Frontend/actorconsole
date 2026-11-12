@@ -1,0 +1,24 @@
+Current edited workspace, not untouched baseline.
+ ✓ |@actorconsole/web| src/lib/safe-callback-url.test.ts (5 tests) 3ms
+ ✓ |@actorconsole/web| src/lib/plan-marketing-features.test.ts (2 tests) 6ms
+
+ Test Files  232 passed | 1 skipped (233)
+      Tests  1845 passed | 3 skipped (1848)
+   Start at  06:02:18
+   Duration  67.35s (transform 11.31s, setup 0ms, collect 65.47s, tests 40.40s, environment 29.40s, prepare 18.55s)
+
+
+✔ fresh setup isolates browser config and preserves existing credentials on rerun (80.782258ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149.072163
+
+Corrected config package typecheck exited 0:
+node /workspace/actorconsole/node_modules/typescript/bin/tsc --noEmit --module preserve --moduleResolution bundler --target ES2022 --skipLibCheck tailwind/tailwind.config.ts
+
+Backend ESM postprocessing exited 0.

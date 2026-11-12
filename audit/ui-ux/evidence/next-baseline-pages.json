@@ -1,0 +1,59 @@
+{
+  "snapshot": "fc52f547286b14de2f483899b4aa5dcdfca8b5ea",
+  "origin": "http://127.0.0.1:4191",
+  "errors": [],
+  "widths": [
+    {
+      "width": 320,
+      "left": 243,
+      "right": 283,
+      "clipped": false,
+      "bodyScrollWidth": 320,
+      "font": "\"IBM Plex Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif"
+    },
+    {
+      "width": 375,
+      "left": 283,
+      "right": 323,
+      "clipped": false,
+      "bodyScrollWidth": 360,
+      "font": "\"IBM Plex Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif"
+    },
+    {
+      "width": 768,
+      "left": 546.703125,
+      "right": 696,
+      "clipped": false,
+      "bodyScrollWidth": 753,
+      "font": "\"IBM Plex Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif"
+    },
+    {
+      "width": 1024,
+      "left": 786.703125,
+      "right": 936,
+      "clipped": false,
+      "bodyScrollWidth": 1009,
+      "font": "\"IBM Plex Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif"
+    },
+    {
+      "width": 1440,
+      "left": 1194.203125,
+      "right": 1343.5,
+      "clipped": false,
+      "bodyScrollWidth": 1425,
+      "font": "\"IBM Plex Sans\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif"
+    }
+  ],
+  "docsStatus": 200,
+  "mobileInitialFocusInside": false,
+  "marketingResizeOverflow": "hidden",
+  "loginStatus": 200,
+  "twoFactor": {
+    "requestCount": 2,
+    "secondRequestKeys": [
+      "email",
+      "password"
+    ],
+    "hasCode": false
+  }
+}

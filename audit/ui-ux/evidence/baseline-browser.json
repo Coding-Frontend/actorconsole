@@ -1,0 +1,237 @@
+{
+  "base": "http://127.0.0.1:4190/harness.html",
+  "snapshot": "fc52f547286b14de2f483899b4aa5dcdfca8b5ea",
+  "checkedAt": "2026-10-26T06:06:44.698Z",
+  "checks": [
+    {
+      "id": "UI-01",
+      "title": "mobile marketing navigation contains keyboard focus",
+      "passed": false,
+      "evidence": {
+        "initialFocusInside": false,
+        "tabEscapes": true
+      },
+      "failure": "Expected values to be strictly equal:\n\nfalse !== true\n"
+    },
+    {
+      "id": "UI-02",
+      "title": "resizing an open marketing menu releases the document",
+      "passed": false,
+      "evidence": {
+        "bodyOverflow": "hidden",
+        "visibleDialogs": 0
+      },
+      "failure": "Expected \"actual\" to be strictly unequal to:\n\n'hidden'"
+    },
+    {
+      "id": "UI-01-admin",
+      "title": "admin mobile navigation dismisses with Escape",
+      "passed": false,
+      "evidence": {
+        "visibleMobileSidebars": 1,
+        "dialogCount": 0
+      },
+      "failure": "Expected values to be strictly equal:\n\n1 !== 0\n"
+    },
+    {
+      "id": "UI-03",
+      "title": "Enter submits the entered authenticator code",
+      "passed": false,
+      "evidence": {
+        "requestCount": 2,
+        "secondRequestKeys": [
+          "email",
+          "password"
+        ],
+        "hasCode": false,
+        "hasChallenge": false
+      },
+      "failure": "Expected values to be strictly equal:\n\nfalse !== true\n"
+    },
+    {
+      "id": "UI-04",
+      "title": "interrupted authenticator verification handles rejection",
+      "passed": false,
+      "evidence": {
+        "unhandledErrors": [
+          {
+            "view": "auth",
+            "message": "Failed to fetch"
+          }
+        ],
+        "retryEnabled": true
+      },
+      "failure": "Expected values to be strictly equal:\n\n1 !== 0\n"
+    },
+    {
+      "id": "UI-05-contact",
+      "title": "contact completion preserves a newer unsent draft",
+      "passed": false,
+      "evidence": {
+        "sentMessage": "Original message for local audit",
+        "draftAfterCompletion": ""
+      },
+      "failure": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'New unsent draft added while waiting'\n"
+    },
+    {
+      "id": "UI-06",
+      "title": "contact button text meets normal-text contrast in both themes",
+      "passed": false,
+      "evidence": {
+        "light": {
+          "foreground": "rgb(255, 255, 255)",
+          "background": "rgb(248, 102, 6)",
+          "ratio": 3.05
+        },
+        "dark": {
+          "foreground": "rgb(255, 255, 255)",
+          "background": "rgb(255, 154, 103)",
+          "ratio": 2.09
+        }
+      },
+      "failure": "The expression evaluated to a falsy value:\n\n  assert.ok(e.light.ratio >= 4.5 && e.dark.ratio >= 4.5)\n"
+    },
+    {
+      "id": "UI-07",
+      "title": "pending newsletter subscribe button retains an accessible name",
+      "passed": false,
+      "evidence": {
+        "pending": true,
+        "buttonText": "",
+        "ariaLabel": null,
+        "ariaSnapshot": "- button [disabled]"
+      },
+      "failure": "The input did not match the regular expression /Subscribe|Subscribing|Sending/i. Input:\n\n'- button [disabled]'\n"
+    },
+    {
+      "id": "UI-05-ticket",
+      "title": "reply completion preserves a newer unsent draft",
+      "passed": false,
+      "evidence": {
+        "sentBody": "Original reply",
+        "draftAfterCompletion": ""
+      },
+      "failure": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'New reply written while waiting'\n"
+    },
+    {
+      "id": "UI-08",
+      "title": "failed ticket close keeps its confirmation open for retry",
+      "passed": false,
+      "evidence": {
+        "remainingDialogs": 0,
+        "errorVisible": true
+      },
+      "failure": "Expected values to be strictly equal:\n\n0 !== 1\n"
+    },
+    {
+      "id": "UI-09-name",
+      "title": "command palette has a valid accessible dialog title",
+      "passed": false,
+      "evidence": {
+        "title": null
+      },
+      "failure": "The expression evaluated to a falsy value:\n\n  assert.ok(e.title)\n"
+    },
+    {
+      "id": "UI-09-scroll",
+      "title": "arrow-key selected command stays in the results viewport",
+      "passed": false,
+      "evidence": {
+        "selection": {
+          "text": "MCP access",
+          "top": -70,
+          "bottom": -22,
+          "resultsTop": 211,
+          "resultsBottom": 531,
+          "scrollTop": 1037,
+          "visible": false
+        }
+      },
+      "failure": "Expected values to be strictly equal:\n\nfalse !== true\n"
+    },
+    {
+      "id": "UI-10",
+      "title": "slash remains editable inside contenteditable",
+      "passed": false,
+      "evidence": {
+        "dialogCount": 1
+      },
+      "failure": "locator.innerText: Timeout 6000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('textbox', { name: 'Editable audit note' })\u001b[22m\n"
+    },
+    {
+      "id": "UI-11",
+      "title": "documentation search receives focus when opened",
+      "passed": false,
+      "evidence": {
+        "focused": false
+      },
+      "failure": "Expected values to be strictly equal:\n\nfalse !== true\n"
+    },
+    {
+      "id": "responsive-docs",
+      "title": "documentation toolbar content fits 320/375/768/1024/1440px",
+      "passed": false,
+      "evidence": {
+        "widths": [
+          {
+            "width": 320,
+            "clippedItems": [
+              {
+                "text": "Search docs⌘K",
+                "left": 306.84375,
+                "right": 346.84375
+              }
+            ]
+          },
+          {
+            "width": 375,
+            "clippedItems": []
+          },
+          {
+            "width": 768,
+            "clippedItems": []
+          },
+          {
+            "width": 1024,
+            "clippedItems": []
+          },
+          {
+            "width": 1440,
+            "clippedItems": []
+          }
+        ]
+      },
+      "failure": "The expression evaluated to a falsy value:\n\n  assert.ok(e.widths.every((item) => item.clippedItems.length === 0))\n"
+    },
+    {
+      "id": "axe-public-fixture",
+      "title": "axe WCAG A/AA checks on actual public presentation components",
+      "passed": false,
+      "evidence": {
+        "violations": [
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "nodes": [
+              {
+                "target": [
+                  ".text-\\[14px\\]"
+                ],
+                "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.04 (foreground color: #ffffff, background color: #f86606, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ]
+          }
+        ]
+      },
+      "failure": "Expected values to be strictly equal:\n\n1 !== 0\n"
+    }
+  ],
+  "pageErrors": [
+    {
+      "view": "auth",
+      "message": "Failed to fetch"
+    }
+  ],
+  "passed": 0,
+  "failed": 16
+}
