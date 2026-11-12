@@ -1,9 +1,5 @@
 "use client";
-import { useState } from "react";
-import { Check, Copy } from "lucide-react";
 import { csvCell } from "@actorconsole/shared/actor-intelligence";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { trackEvent } from "@/lib/analytics-events";
 
 // Only known export types are sent to Analytics; never include file names or cells.
@@ -43,25 +39,4 @@ export function downloadCsv(name: string, rows: unknown[][]) {
   });
   // Allow the browser to begin reading the Blob before releasing its URL.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-export function CopyText({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          toast.success("Copied.");
-        } catch {
-          toast.error("Copy failed. Select and copy the text manually.");
-        }
-      }}
-    >
-      {copied ? <Check /> : <Copy />}
-      {copied ? "Copied" : label}
-    </Button>
-  );
 }

@@ -4,7 +4,7 @@ import { auditActorSeo } from "@actorconsole/shared/actor-intelligence";
 
 const mocks = vi.hoisted(() => ({ downloadCsv: vi.fn(), params: new URLSearchParams() }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => mocks.params }));
-vi.mock("./tool-actions", () => ({ downloadCsv: mocks.downloadCsv, CopyText: () => null }));
+vi.mock("./tool-actions", () => ({ downloadCsv: mocks.downloadCsv }));
 import { PricingTool, SeoTool } from "./research-tools";
 
 beforeEach(() => {
