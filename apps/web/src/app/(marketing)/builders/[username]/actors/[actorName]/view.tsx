@@ -19,8 +19,6 @@ import {
   type BuilderActorDetail,
 } from "@/lib/builders";
 
-export const dynamic = "force-dynamic";
-
 function compact(value: number) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
     value,

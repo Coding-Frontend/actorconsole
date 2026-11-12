@@ -68,21 +68,6 @@ export function Panel({
 }
 
 /**
- * PanelHeader — consistent heading area inside a Panel.
- */
-export function PanelHeader({
-  children,
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn("mb-6 max-w-2xl sm:mb-8", className)} {...props}>
-      {children}
-    </div>
-  );
-}
-
-/**
  * PanelTitle — large display heading using Space Grotesk.
  * line-height 1.13, letter-spacing -0.02em.
  */

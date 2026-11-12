@@ -17,7 +17,6 @@ import { ChangelogShare } from "@/components/marketing/changelog-share";
 import { PublicGridSection } from "@/components/marketing/public-grid-section";
 
 const getArticle = cache(getChangelogArticle);
-export const revalidate = 60;
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

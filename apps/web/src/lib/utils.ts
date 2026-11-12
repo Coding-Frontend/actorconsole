@@ -12,15 +12,6 @@ export function formatNumber(n: number): string {
   return `${(n / 1_000_000_000).toFixed(1)}B`;
 }
 
-export function formatUSD(n: number, opts: { compact?: boolean } = {}): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: opts.compact ? "compact" : "standard",
-    maximumFractionDigits: opts.compact ? 1 : 2,
-  }).format(n);
-}
-
 export function formatINR(n: number, opts: { compact?: boolean } = {}): string {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",

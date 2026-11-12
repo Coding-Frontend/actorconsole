@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { loadChartRenderer } from "./load-chart-renderer";
 import type { ChartJsRenderer } from "./chartjs-renderer";
 import type { ChartJsChartProps } from "./chartjs-types";
-export type { ChartJsChartProps, ChartJsSeries } from "./chartjs-types";
+export type { ChartJsChartProps } from "./chartjs-types";
 
 /** Keep chart code and canvas work off the initial render until the plot is near view. */
 export function ChartJsChart<T extends object>(props: ChartJsChartProps<T>) {

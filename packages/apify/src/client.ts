@@ -2437,6 +2437,3 @@ function extractRotatedConsoleCookies(headers: Headers): string | undefined {
 export function createApifyClient(opts: CreateApifyClientOptions = {}): ApifyClientWrapper {
   return new ApifyClientWrapper(opts);
 }
-
-// Suppress unused warning when mapStatusToCode isn't called from here.
-void mapStatusToCode;

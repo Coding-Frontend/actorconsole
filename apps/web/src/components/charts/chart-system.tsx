@@ -72,25 +72,6 @@ type ChartOptionsProps = {
   onDataLabelsChange: (visible: boolean) => void;
 };
 
-export type ChartTooltipPayloadItem<TData = unknown> = {
-  color?: string;
-  dataKey?: string | number;
-  name?: string | number;
-  value?: unknown;
-  payload?: TData;
-};
-
-export type ChartTooltipProps<TData = unknown> = {
-  active?: boolean;
-  label?: ReactNode;
-  payload?: readonly ChartTooltipPayloadItem<TData>[];
-  series?: readonly ChartSeriesDefinition[];
-  labelFormatter?: (
-    label: ReactNode,
-    payload: readonly ChartTooltipPayloadItem<TData>[],
-  ) => ReactNode;
-};
-
 const DEFAULT_CURRENCY = "USD";
 
 /**
@@ -360,62 +341,4 @@ export function formatChartValue(
     maximumFractionDigits: format.maximumFractionDigits ?? (unit === "compact" ? 1 : 2),
     minimumFractionDigits: format.minimumFractionDigits ?? 0,
   }).format(value);
-}
-
-export function ChartTooltip<TData = unknown>({
-  active,
-  label,
-  payload,
-  series = [],
-  labelFormatter,
-}: ChartTooltipProps<TData>) {
-  if (!active || !payload?.length) return null;
-  const visiblePayload = payload.filter(
-    (item) => item.dataKey !== undefined || item.name !== undefined,
-  );
-  if (!visiblePayload.length) return null;
-  const resolvedLabel = labelFormatter ? labelFormatter(label, payload) : label;
-
-  return (
-    <div className="min-w-36 rounded-sm border border-border bg-popover p-3 text-xs text-popover-foreground shadow-lg">
-      {resolvedLabel !== undefined && resolvedLabel !== null ? (
-        <p className="mb-2 font-medium text-muted-foreground">{resolvedLabel}</p>
-      ) : null}
-      <div className="grid gap-1.5">
-        {visiblePayload.map((item, index) => {
-          const definition = series.find(
-            (candidate) =>
-              candidate.key === String(item.dataKey) || candidate.label === String(item.name),
-          );
-          const numericValue =
-            typeof item.value === "number"
-              ? item.value
-              : typeof item.value === "string" && item.value.trim()
-                ? Number(item.value)
-                : null;
-          const formatted = definition?.formatValue
-            ? numericValue != null && Number.isFinite(numericValue)
-              ? definition.formatValue(numericValue)
-              : "—"
-            : formatChartValue(numericValue, definition?.format);
-          return (
-            <div
-              key={`${String(item.dataKey ?? item.name)}-${index}`}
-              className="flex items-center justify-between gap-5"
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: item.color ?? definition?.color ?? "currentColor" }}
-                  aria-hidden="true"
-                />
-                <span className="truncate">{definition?.label ?? item.name ?? item.dataKey}</span>
-              </span>
-              <span className="shrink-0 font-mono tabular-nums">{formatted}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 }

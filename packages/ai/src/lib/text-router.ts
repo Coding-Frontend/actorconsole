@@ -15,7 +15,6 @@ import {
   getLogger,
   incrementMetric,
   observeMetric,
-  type AiProviderKey,
 } from "@actorconsole/shared";
 
 const log = getLogger("ai:text-router");
@@ -475,5 +474,3 @@ export function extractJsonObject(value: string): string {
 export function parseJsonResponse(value: string): unknown {
   return JSON.parse(extractJsonObject(value));
 }
-
-export type { AiProviderKey };
