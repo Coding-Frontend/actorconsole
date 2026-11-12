@@ -15,6 +15,4 @@ export {
   revokeApifyToken,
 } from "./auth";
 export type { ApifyAccountIdentity, ApifyAccountMatchResult } from "./auth";
-export { getApifyFromEnv, resetApifyFromEnv } from "./env-token";
 export { getPublicActor, getPublicUser, getLatestPublicRun } from "./public";
-export { toActorSummary, toActorDetail } from "./converters";
