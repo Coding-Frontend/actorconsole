@@ -8,13 +8,7 @@ declare namespace NodeJS {
     AUTH_SECRET?: string;
     AUTH_URL?: string;
     AUTH_TRUST_HOST?: string;
-    AUTH_GITHUB_ID?: string;
-    AUTH_GITHUB_SECRET?: string;
     APIFY_API_BASE_URL?: string;
-    GITHUB_APP_ID?: string;
-    GITHUB_APP_PRIVATE_KEY?: string;
-    GITHUB_APP_WEBHOOK_SECRET?: string;
-    GITHUB_APP_SLUG?: string;
     RAZORPAY_KEY_ID?: string;
     RAZORPAY_KEY_SECRET?: string;
     RAZORPAY_WEBHOOK_SECRET?: string;

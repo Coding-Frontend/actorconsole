@@ -61,10 +61,6 @@ jobs:
       AUTH_TRUST_HOST: "true"
       ANTHROPIC_API_KEY: sk-test-not-real
       APIFY_API_TOKEN: apify-test-not-real
-      GITHUB_APP_ID: "0"
-      GITHUB_APP_PRIVATE_KEY: "test"
-      GITHUB_APP_WEBHOOK_SECRET: test-webhook-secret
-      GITHUB_APP_SLUG: actorconsole-test
       RAZORPAY_KEY_ID: rzp_test
       RAZORPAY_KEY_SECRET: rzp_test_secret
       RAZORPAY_WEBHOOK_SECRET: rzp_test_webhook
