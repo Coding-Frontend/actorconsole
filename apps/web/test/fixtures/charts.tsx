@@ -3,13 +3,10 @@ import { createRoot } from "react-dom/client";
 import { Chart } from "chart.js";
 import { Sparkline } from "@/components/admin/sparkline";
 import { PlanDistributionChart } from "@/components/admin/plan-distribution-chart";
-import { AccountUsageAnalytics } from "@/components/dashboard/account-usage-analytics";
 import { FinancialTrendChart } from "@/components/dashboard/financial-trend-chart";
-import { UsageCostChart } from "@/components/dashboard/usage-cost-chart";
 import { InteractiveBarChart } from "@/components/marketing/interactive-bar-chart";
 import { ChartFrame } from "@/components/charts/chart-system";
 import { ChartJsChart } from "@/components/charts/chartjs-chart";
-import { MiniTrendChart } from "@/components/charts/mini-trend-chart";
 import { ComparisonCharts } from "@/components/comparison/comparison-charts";
 import "@/app/globals.css";
 
@@ -83,24 +80,6 @@ function Fixture() {
               <PlanDistributionChart free={60} pro={40} total={100} />
             </section>
           </div>
-          <UsageCostChart data={points} />
-          <AccountUsageAnalytics
-            monthly={{
-              "2026-08": {
-                monthStartAt: "2026-08-01",
-                serviceUsages: {
-                  compute: { quantity: 10, baseAmountUsd: 4, baseUnitPriceUsd: 0.4 },
-                },
-              },
-              "2026-09": {
-                monthStartAt: "2026-09-01",
-                serviceUsages: {
-                  compute: { quantity: 20, baseAmountUsd: 8, baseUnitPriceUsd: 0.4 },
-                },
-              },
-            }}
-            currentServices={null}
-          />
           <InteractiveBarChart
             label="Observed users"
             tone="blue"
@@ -123,13 +102,6 @@ function Fixture() {
               />
             )}
           </ChartFrame>
-          <div className="h-36">
-            <MiniTrendChart
-              ariaLabel="Compact trend"
-              values={[1, 3, 2, 5, 4, 8]}
-              comparisonValues={[1, 2, 1, 3, 4, 5]}
-            />
-          </div>
           <ComparisonCharts
             kind="builder"
             window={30}
