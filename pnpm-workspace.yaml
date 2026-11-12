@@ -7,7 +7,6 @@ overrides:
 
 allowBuilds:
   '@firebase/util': true
-  '@google/genai': true
   '@prisma/client': true
   '@prisma/engines': true
   '@sentry/cli': true

@@ -322,14 +322,6 @@
   letter-spacing: -0.035em;
 }
 
-/* Editorial container — keep legacy surfaces on the same site-wide width. */
-.container-editorial {
-  margin-inline: auto;
-  width: 100%;
-  max-width: 1440px;
-  padding-inline: 1rem;
-}
-
 .type-kicker {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono, "IBM Plex Mono"), ui-monospace, monospace;
@@ -686,9 +678,7 @@
   border-block: 1px solid var(--blueprint-rule);
 }
 
-.blueprint-section-dark,
-.blueprint-section.bg-ink,
-.blueprint-section.bg-carbon {
+.blueprint-section.bg-ink {
   --blueprint-rule: rgb(255 255 255 / 0.15);
   --blueprint-rule-soft: rgb(255 255 255 / 0.1);
 }
@@ -706,11 +696,6 @@
   border-inline: 1px solid var(--blueprint-rule);
 }
 
-.blueprint-surface-dark {
-  --blueprint-rule: rgb(255 255 255 / 0.15);
-  --blueprint-rule-soft: rgb(255 255 255 / 0.1);
-}
-
 .blueprint-frame {
   border: 1px solid var(--blueprint-rule);
   border-radius: 2px;
@@ -726,31 +711,6 @@
 .blueprint-cell {
   border-inline-end: 1px solid var(--blueprint-rule-soft);
   border-block-end: 1px solid var(--blueprint-rule-soft);
-}
-
-.stat-service-cell {
-  border-inline-end: 0;
-}
-
-@media (min-width: 1024px) {
-  .stat-service-cell:not(:last-child) {
-    border-inline-end: 1px solid var(--blueprint-rule-soft);
-  }
-}
-
-.tech-tag {
-  align-items: center;
-  display: inline-flex;
-  gap: 0.45rem;
-  border: 1px solid var(--blueprint-rule);
-  border-radius: 2px;
-  color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono, "IBM Plex Mono"), ui-monospace, monospace;
-  font-size: 0.64rem;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  padding: 0.45rem 0.55rem;
-  text-transform: uppercase;
 }
 
 .blueprint-crosshair {
@@ -781,49 +741,6 @@
   left: 5px;
   top: 0;
   width: 1px;
-}
-
-.blueprint-crosshair-dark {
-  color: rgb(255 255 255 / 0.35);
-}
-
-.section-index {
-  align-items: center;
-  display: inline-flex;
-  gap: 0.6rem;
-  color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.section-index::before {
-  background: var(--color-signal-orange);
-  content: "";
-  display: inline-block;
-  height: 0.45rem;
-  width: 0.45rem;
-}
-
-.surface-rule {
-  border-block: 1px solid hsl(var(--border) / 0.85);
-}
-
-.surface-lift {
-  background: hsl(var(--card) / 0.76);
-  border: 1px solid hsl(var(--border) / 0.72);
-  box-shadow: none;
-}
-
-.surface-signal {
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-signal-orange) 12%, transparent),
-      transparent 52%
-    ),
-    hsl(var(--secondary) / 0.62);
 }
 
 /* ── Marketing section frame ────────────────────────────────────
@@ -927,11 +844,6 @@
    space before the footer. Avoid a second stroke on the last section. */
 .marketing-content :is(.home-grid-section, .blueprint-section):last-child:not(.home-grid-frame *) {
   border-bottom: 0;
-}
-
-.public-content-state > .home-grid-frame::before,
-.public-content-state > .home-grid-frame::after {
-  display: none;
 }
 
 .topic-rail {
@@ -1625,38 +1537,6 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
   }
 }
 
-/* Leaderboard metric emphasis is a continuous theme-derived wash, not a
-   bordered cell state. color-mix keeps the same treatment in both themes. */
-.leaderboard-selected-column {
-  background-color: color-mix(in srgb, var(--color-signal-blue) 14%, transparent);
-}
-
-.group:hover .leaderboard-selected-column {
-  background-color: color-mix(in srgb, var(--color-signal-blue) 20%, transparent);
-}
-
-/* The feature deck is a viewport-height presentation. The visual concepts are
-   intentionally information-dense, so give the larger widgets a controlled
-   optical reduction on shorter desktop viewports instead of clipping their
-   bottom rails inside the sticky scene. */
-@media (min-width: 1024px) and (max-height: 900px) {
-  .feature-deck-widget[data-widget-id="smart-pricing"] {
-    transform: scale(0.9);
-  }
-
-  .feature-deck-widget[data-widget-id="scheduled-publishing"] {
-    transform: scale(0.82);
-  }
-
-  .feature-deck-widget[data-widget-id="usage-analytics"] {
-    transform: scale(0.82);
-  }
-
-  .feature-deck-widget {
-    transform-origin: center;
-  }
-}
-
 /* Shared workbench primitives. Keep surfaces, controls, and states on the
    same compact geometry even when rendered by different page shells. */
 .app-shell-main {
@@ -1687,18 +1567,6 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
   box-shadow: 0 0 0 2px hsl(var(--ring) / 0.22);
 }
 
-@media (min-width: 640px) {
-  .container-editorial {
-    padding-inline: 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .container-editorial {
-    padding-inline: 2rem;
-  }
-}
-
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -1714,15 +1582,6 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
     transition-duration: 0.01ms !important;
   }
 
-  .animate-fade-in-up,
-  .animate-fade-in,
-  .animate-scale-in {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  .skeleton-pulse,
   [class*="before:animate-[shimmer"]::before {
     animation: none !important;
   }
@@ -1750,13 +1609,8 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
 /* Legacy palette utilities sometimes combine an adaptive foreground
    token with a deliberately fixed dark surface. Keep those pairs
    readable in dark mode without changing their public class names. */
-.bg-ink.text-paper,
-.bg-carbon.text-paper {
+.bg-ink.text-paper {
   color: #f8f6f3;
-}
-
-.dark .bg-carbon.text-paper {
-  background-color: #171513;
 }
 
 /* Shimmer keyframes for skeleton loaders */
@@ -1764,14 +1618,4 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
   100% {
     transform: translateX(100%);
   }
-}
-
-/* Legacy gradient utility — collapsed to a no-op so old call sites
-   don't paint purple anywhere. */
-.text-gradient {
-  background: none;
-  -webkit-background-clip: initial;
-  background-clip: initial;
-  -webkit-text-fill-color: currentColor;
-  color: inherit;
 }
