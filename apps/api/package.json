@@ -25,16 +25,16 @@
     "@hono/zod-validator": "^0.9.1",
     "@sentry/node": "^10.76.2",
     "bullmq": "^5.79.2",
-    "cron-parser": "^5.10.3",
-    "dodopayments": "2.59.0",
-    "hono": "^4.13.16",
+    "cron-parser": "^5.10.4",
+    "dodopayments": "2.61.1",
+    "hono": "^4.13.17",
     "ioredis": "^5.11.1",
-    "nodemailer": "10.3.1",
+    "nodemailer": "10.4.0",
     "razorpay": "^2.9.8",
     "resend": "^6.37.0",
     "stripe": "22.6.2",
     "zod": "^4.6.7",
-    "jose": "6.2.14"
+    "jose": "6.2.17"
   },
   "devDependencies": {
     "@actorconsole/config": "workspace:*",
