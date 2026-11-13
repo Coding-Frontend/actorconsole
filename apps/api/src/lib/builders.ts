@@ -6,51 +6,20 @@ import { getPublicActorStoreRating } from "./public-actor-content.js";
 import { db, Prisma } from "@actorconsole/db";
 import { publicCache } from "./public-cache.js";
 import { getBuilderEarnings } from "./builder-earnings.js";
+import { estimateActorEarnings } from "@actorconsole/shared/actor-earnings";
 import {
-  estimateActorEarnings,
-  type ActorEarnings,
-  type EarningsRollup,
-} from "@actorconsole/shared/actor-earnings";
-
-export type BuilderMetric =
-  | "new-actors"
-  | "actors"
-  | "monthly-users"
-  | "total-users"
-  | "monthly-runs"
-  | "total-runs"
-  | "estimated-revenue";
-
-export type BuilderWindow = 7 | 30 | 90;
-export type BuilderSortDirection = "asc" | "desc";
-export type BuilderActorSort =
-  "active-users" | "runs-30d" | "total-users" | "total-runs" | "rating" | "newest" | "name";
-
-export const BUILDER_ACTOR_SORTS: Array<{ value: BuilderActorSort; label: string }> = [
-  { value: "active-users", label: "Active users" },
-  { value: "runs-30d", label: "30-day runs" },
-  { value: "total-users", label: "Total users" },
-  { value: "total-runs", label: "Total runs" },
-  { value: "rating", label: "Rating" },
-  { value: "newest", label: "Newest published" },
-  { value: "name", label: "Actor name" },
-];
-
-export const BUILDER_METRICS: Array<{
-  value: BuilderMetric;
-  label: string;
-  group: "Publishing" | "Users" | "Runs" | "Earnings";
-}> = [
-  { value: "new-actors", label: "New Actors", group: "Publishing" },
-  { value: "actors", label: "Total Actors", group: "Publishing" },
-  { value: "monthly-users", label: "Active users", group: "Users" },
-  { value: "total-users", label: "Total users", group: "Users" },
-  { value: "monthly-runs", label: "30-day runs", group: "Runs" },
-  { value: "total-runs", label: "Total runs", group: "Runs" },
-  { value: "estimated-revenue", label: "Estimated revenue / 30d", group: "Earnings" },
-];
-
-export const BUILDER_WINDOWS: BuilderWindow[] = [7, 30, 90];
+  BUILDER_METRICS,
+  pricingEntries,
+  type BuilderActorDetail,
+  type BuilderActorEntry,
+  type BuilderActorSort,
+  type BuilderLeaderboardEntry,
+  type BuilderMetric,
+  type BuilderMetricRanks,
+  type BuilderProfile,
+  type BuilderSortDirection,
+  type BuilderWindow,
+} from "@actorconsole/shared/builders";
 
 async function optionalWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -138,137 +107,6 @@ type StoreActorRow = {
   }>;
 };
 
-export interface BuilderLeaderboardEntry {
-  earnings?: EarningsRollup;
-  username: string;
-  name: string | null;
-  bio: string | null;
-  pictureUrl: string | null;
-  actorCount: number;
-  activeUsers: number;
-  totalUsers: number;
-  recentRuns: number;
-  totalRuns: number;
-  newActorCount: number | null;
-  publicationDateCoverage?: { known: number; total: number };
-  runCounterCoverage?: { known: number; total: number };
-  lastUpdatedAt: Date;
-  rank: number;
-  changes: Record<BuilderMetric, number | null>;
-}
-
-export interface BuilderActorEntry {
-  earnings?: ActorEarnings;
-  id: string;
-  name: string;
-  title: string;
-  description: string | null;
-  pictureUrl: string | null;
-  effectivePictureUrl: string | null;
-  pictureSource: "actor" | "website" | "fallback";
-  website: { id: string; slug: string; name: string; canonicalDomain: string | null } | null;
-  activeUsers: number;
-  users7Days: number;
-  users30Days: number;
-  users90Days: number;
-  totalUsers: number;
-  runs30Days: number;
-  totalRuns: number;
-  rating: number | null;
-  reviewCount: number;
-  firstPublishedAt: Date | null;
-  internalUrl: string;
-  apifyUrl: string;
-}
-
-export type BuilderMetricRanks = Record<BuilderMetric, number>;
-
-export interface BuilderProfile {
-  isAvailable?: boolean;
-  earnings?: EarningsRollup;
-  username: string;
-  name: string | null;
-  bio: string | null;
-  pictureUrl: string | null;
-  apifyUrl: string;
-  actorCount: number;
-  activeUsers: number;
-  totalUsers: number;
-  recentRuns: number;
-  totalRuns: number;
-  newActorCount: number | null;
-  publicationDateCoverage?: { known: number; total: number };
-  runCounterCoverage?: { known: number; total: number };
-  ranks: BuilderMetricRanks;
-  totalBuilders: number;
-  lastUpdatedAt: Date;
-  window: BuilderWindow;
-  publishingChart: Array<{ date: string; actors: number }>;
-  discoveryChart: Array<{ date: string; actors: number }>;
-  actorConsolePublishingChart: Array<{ date: string; actors: number }>;
-  trendChart: Array<{
-    date: string;
-    observed: boolean;
-    runs: number | null;
-    users: number | null;
-    usersCoverage?: { known: number; total: number };
-    runsCoverage?: { known: number; total: number };
-  }>;
-  actors: BuilderActorEntry[];
-  actorPage: number;
-  actorPageCount: number;
-  actorTotal: number;
-  actorCategories: string[];
-  actorFilters: {
-    query: string;
-    category: string;
-    sort: BuilderActorSort;
-  };
-  changes: { users: number | null; runs: number | null };
-}
-
-export interface BuilderActorPricing {
-  model: string;
-  pricePerUnitUsd: number | null;
-  unitName: string | null;
-  trialMinutes: number | null;
-  eventCount: number;
-  events: Array<{
-    name: string;
-    title: string;
-    description: string | null;
-    priceUsd: number | null;
-    isPrimary: boolean;
-    isOneTime: boolean;
-  }>;
-}
-
-export interface BuilderActorDetail extends BuilderActorEntry {
-  isAvailable?: boolean;
-  username: string;
-  ownerName: string | null;
-  ownerPictureUrl: string | null;
-  apifyActorId: string;
-  createdAt: Date | null;
-  modifiedAt: Date | null;
-  firstSeenAt: Date;
-  lastSeenAt: Date;
-  detailsSyncedAt: Date | null;
-  bookmarks: number;
-  categories: string[];
-  metaLabels: string[];
-  pricing: BuilderActorPricing[];
-  trend: Array<{
-    date: string;
-    observed: boolean;
-    users: number | null;
-    runs: number | null;
-    totalUsers: number;
-    totalRuns: number;
-  }>;
-  relatedActors: BuilderActorEntry[];
-}
-
 type AggregatedBuilder = Omit<BuilderLeaderboardEntry, "name" | "bio" | "pictureUrl" | "changes">;
 
 function startOfUtcDay(date: Date) {
@@ -298,12 +136,6 @@ function activeUsersForWindow(
   if (window === 7) return value.users7Days ?? 0;
   if (window === 90) return value.users90Days ?? 0;
   return value.users30Days ?? 0;
-}
-
-export function metricLabel(metric: BuilderMetric, window: BuilderWindow) {
-  if (metric === "new-actors") return `New Actors (${window} days)`;
-  if (metric === "monthly-users") return `Active users (${window} days)`;
-  return BUILDER_METRICS.find((item) => item.value === metric)?.label ?? "Leaderboard";
 }
 
 const getCachedBuilderCatalogSummary = publicCache(
@@ -352,81 +184,6 @@ function jsonStringArray(value: Prisma.JsonValue | null): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
-}
-
-export function pricingEntries(value: Prisma.JsonValue | null): BuilderActorPricing[] {
-  if (!Array.isArray(value)) return [];
-  const records = value.filter((item): item is Prisma.JsonObject =>
-    Boolean(item && typeof item === "object" && !Array.isArray(item)),
-  );
-  const now = Date.now();
-  const effectiveRecords = records.filter((record) => {
-    if (typeof record.startedAt !== "string") return true;
-    const startedAt = Date.parse(record.startedAt);
-    return Number.isFinite(startedAt) && startedAt <= now;
-  });
-  const selected = [...(effectiveRecords.length ? effectiveRecords : records)]
-    .sort((left, right) => {
-      const leftTime = typeof left.startedAt === "string" ? Date.parse(left.startedAt) : 0;
-      const rightTime = typeof right.startedAt === "string" ? Date.parse(right.startedAt) : 0;
-      return (
-        (Number.isFinite(leftTime) ? leftTime : 0) - (Number.isFinite(rightTime) ? rightTime : 0)
-      );
-    })
-    .at(-1);
-  if (!selected) return [];
-
-  return [selected].flatMap((record) => {
-    const perEvent = record.pricingPerEvent;
-    const actorChargeEvents =
-      perEvent && typeof perEvent === "object" && !Array.isArray(perEvent)
-        ? (perEvent as Record<string, Prisma.JsonValue>).actorChargeEvents
-        : null;
-    const events =
-      actorChargeEvents &&
-      typeof actorChargeEvents === "object" &&
-      !Array.isArray(actorChargeEvents)
-        ? Object.entries(actorChargeEvents).flatMap(([name, event]) => {
-            if (!event || typeof event !== "object" || Array.isArray(event)) return [];
-            const details = event as Record<string, Prisma.JsonValue>;
-            const tieredPricing = details.eventTieredPricingUsd;
-            const freeTier =
-              tieredPricing && typeof tieredPricing === "object" && !Array.isArray(tieredPricing)
-                ? (tieredPricing as Record<string, Prisma.JsonValue>).FREE
-                : null;
-            const freeTierPrice =
-              freeTier && typeof freeTier === "object" && !Array.isArray(freeTier)
-                ? (freeTier as Record<string, Prisma.JsonValue>).tieredEventPriceUsd
-                : null;
-            return [
-              {
-                name,
-                title: typeof details.eventTitle === "string" ? details.eventTitle : name,
-                description:
-                  typeof details.eventDescription === "string" ? details.eventDescription : null,
-                priceUsd:
-                  typeof details.eventPriceUsd === "number"
-                    ? details.eventPriceUsd
-                    : typeof freeTierPrice === "number"
-                      ? freeTierPrice
-                      : null,
-                isPrimary: details.isPrimaryEvent === true,
-                isOneTime: details.isOneTimeEvent === true,
-              },
-            ];
-          })
-        : [];
-    return [
-      {
-        model: typeof record.pricingModel === "string" ? record.pricingModel : "UNKNOWN",
-        pricePerUnitUsd: typeof record.pricePerUnitUsd === "number" ? record.pricePerUnitUsd : null,
-        unitName: typeof record.unitName === "string" ? record.unitName : null,
-        trialMinutes: typeof record.trialMinutes === "number" ? record.trialMinutes : null,
-        eventCount: events.length,
-        events,
-      },
-    ];
-  });
 }
 
 function toSnapshotPoints(actor: StoreActorRow): SnapshotPoint[] {

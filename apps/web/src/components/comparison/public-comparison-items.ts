@@ -7,7 +7,7 @@ import type {
   BuilderProfile,
   BuilderWindow,
   BuilderMetric,
-} from "@/lib/builders";
+} from "@actorconsole/shared/builders";
 import type { ComparisonItem, ComparisonRow } from "./comparison-ui";
 import { publicComparisonHref } from "./comparison-paths";
 

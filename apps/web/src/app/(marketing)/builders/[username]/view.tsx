@@ -16,14 +16,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HomeGridCell, HomeGridRow, HomeGridSection } from "@/components/marketing/home-grid";
+import { getBuilderProfile } from "@/lib/builders";
 import {
   BUILDER_ACTOR_SORTS,
   BUILDER_WINDOWS,
-  getBuilderProfile,
   type BuilderActorSort,
   type BuilderWindow,
   type BuilderProfile,
-} from "@/lib/builders";
+} from "@actorconsole/shared/builders";
 import type { CollectionViewMode } from "@/components/ui/view-mode-toggle";
 
 export async function generateMetadata({

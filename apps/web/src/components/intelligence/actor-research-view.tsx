@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PublicCompareButton } from "@/components/comparison/public-comparison-provider";
 import type { PublicCompareItem } from "@/components/comparison/public-comparison-items";
-import { pricingEntries } from "@/lib/builders";
+import { pricingEntries } from "@actorconsole/shared/builders";
 import { WatchButton } from "./watch-button";
 import {
   categoryNames,

@@ -11,6 +11,10 @@
       "types": "./dist/builder-history.d.ts",
       "import": "./dist/builder-history.js"
     },
+    "./builders": {
+      "types": "./dist/builders.d.ts",
+      "import": "./dist/builders.js"
+    },
     "./default-dashboard": {
       "types": "./dist/default-dashboard.d.ts",
       "import": "./dist/default-dashboard.js"

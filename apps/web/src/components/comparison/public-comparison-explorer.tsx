@@ -7,7 +7,7 @@ import { Loader2, Plus, RotateCcw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { BuilderWindow } from "@/lib/builders";
+import type { BuilderWindow } from "@actorconsole/shared/builders";
 import { ComparisonPanel } from "./comparison-panel";
 import { ComparisonWorkspace } from "./comparison-workspace";
 import {
