@@ -1,4 +1,4 @@
-import { estimateActorEarnings, type ActorEarnings } from "@actorconsole/shared/actor-earnings";
+import { estimateActorEarnings } from "@actorconsole/shared/actor-earnings";
 import { db, Prisma } from "@actorconsole/db";
 import { publicCache } from "./public-cache.js";
 import {
