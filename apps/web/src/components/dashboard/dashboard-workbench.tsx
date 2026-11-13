@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Filter,
   Info,
-  Loader2,
   MoreHorizontal,
   RotateCcw,
   X,
@@ -26,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs } from "@/components/ui/tabs";
 
 export interface PageActionItem {
@@ -125,13 +125,13 @@ export function DashboardAsyncState({
     loading: {
       title: "Loading workspace data",
       description: "Your cached data will remain available while the latest snapshot loads.",
-      icon: <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />,
+      icon: <Spinner decorative />,
       tone: "border-border/70 bg-card text-muted-foreground",
     },
     refreshing: {
       title: "Refreshing workspace data",
       description: "The latest Apify snapshot is being fetched in the background.",
-      icon: <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />,
+      icon: <Spinner decorative />,
       tone: "border-signal-blue/30 bg-signal-blue/5 text-signal-blue",
     },
     empty: {

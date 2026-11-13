@@ -10,7 +10,6 @@ import {
   CalendarClock,
   CheckCircle2,
   History,
-  Loader2,
   Pause,
   Play,
   Plus,
@@ -31,6 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { BulkPublishingHeader } from "@/components/dashboard/bulk-publishing-header";
 import { BulkStatusOperations } from "@/components/dashboard/bulk-status-operations";
 import { DashboardAsyncState } from "@/components/dashboard/dashboard-workbench";
@@ -329,8 +329,8 @@ export function BulkPublishingSchedules({
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => void load(true)} disabled={refreshing}>
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+                <Button variant="outline" onClick={() => void load(true)} loading={refreshing}>
+                  <RefreshCw className="h-4 w-4" /> Refresh
                 </Button>
                 <Button asChild>
                   <Link href="/dashboard/publishing/schedules/new">
@@ -442,13 +442,10 @@ export function BulkPublishingSchedules({
                               size="sm"
                               variant="outline"
                               onClick={() => void scheduleAction(schedule, "run")}
-                              disabled={busyId === schedule.id || quotaBlocked || Boolean(liveRun)}
+                              loading={busyId === schedule.id || Boolean(liveRun)}
+                              disabled={busyId !== schedule.id && !liveRun && quotaBlocked}
                             >
-                              {busyId === schedule.id || liveRun ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Play className="h-3.5 w-3.5" />
-                              )}{" "}
+                              <Play className="h-3.5 w-3.5" />{" "}
                               {liveRun ? "Running" : "Run now"}
                             </Button>
                             <Button
@@ -480,7 +477,7 @@ export function BulkPublishingSchedules({
                           <div className="border-signal-blue/25 bg-signal-blue/[0.055] rounded-sm border px-4 py-3">
                             <div className="flex items-center justify-between gap-4 text-xs">
                               <span className="text-signal-blue flex items-center gap-2 font-semibold">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Publishing Actors
+                                <Spinner decorative size="sm" /> Publishing Actors
                               </span>
                               <span className="font-mono">
                                 {liveRun.completed} / {liveRun.total}
@@ -610,14 +607,11 @@ export function BulkPublishingSchedules({
                                       <Button
                                         size="sm"
                                         variant="secondary"
-                                        disabled={retryingActorId === item.actorId}
+                                        loading={retryingActorId === item.actorId}
                                         onClick={() =>
                                           void retryBlockedActor(schedule.id, item.actorId)
                                         }
                                       >
-                                        {retryingActorId === item.actorId ? (
-                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                        ) : null}
                                         Retry
                                       </Button>
                                     </div>

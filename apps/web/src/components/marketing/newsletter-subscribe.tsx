@@ -10,9 +10,10 @@ import { trackEvent } from "@/lib/analytics-events";
  */
 import { useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Mail, CheckCircle, Loader2 } from "lucide-react";
+import { Mail, CheckCircle } from "lucide-react";
 
 export function NewsletterSubscribe() {
   const [email, setEmail] = useState("");
@@ -79,11 +80,21 @@ export function NewsletterSubscribe() {
           required
         />
       </div>
-      <Button type="submit" size="lg" disabled={isPending} className="shrink-0 px-6">
-        {isPending ? <><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />Subscribing…</> : "Subscribe"}
+      <Button
+        type="submit"
+        size="lg"
+        loading={isPending}
+        loadingText="Subscribing…"
+        className="shrink-0 px-6"
+      >
+        Subscribe
       </Button>
       </div>
-      {error ? <p role="alert" className="text-destructive mt-2 text-sm">{error}</p> : null}
+      {error ? (
+        <Alert tone="danger" className="mt-2">
+          {error}
+        </Alert>
+      ) : null}
     </form>
   );
 }

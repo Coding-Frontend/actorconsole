@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ItemsPerPageSelect } from "@/components/ui/items-per-page";
@@ -1197,7 +1198,9 @@ export function FinancialAnalyticsPage({
               type="button"
               variant="outline"
               size="sm"
-              disabled={!rowCount || exporting || remoteTable.loading}
+              loading={exporting}
+              loadingText="Exporting…"
+              disabled={!exporting && (!rowCount || remoteTable.loading)}
               onClick={async () => {
                 setExporting(true);
                 setExportError(null);
@@ -1212,15 +1215,15 @@ export function FinancialAnalyticsPage({
                 }
               }}
             >
-              <Download className="h-4 w-4" /> {exporting ? "Exporting…" : "Export CSV"}
+              <Download className="h-4 w-4" /> Export CSV
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {exportError ? (
-            <p role="alert" className="mb-3 text-sm text-destructive">
+            <Alert tone="danger" className="mb-3">
               {exportError}
-            </p>
+            </Alert>
           ) : null}
           {kind === "costs" && revenue?.ledgerTruncated && tableView !== "total" && !selectedDay ? (
             <div className="border-signal-blue/35 bg-signal-blue/8 mb-4 rounded-sm border px-4 py-3 text-xs leading-5">

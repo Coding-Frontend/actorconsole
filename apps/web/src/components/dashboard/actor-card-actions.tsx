@@ -3,8 +3,9 @@
 import { API_BASE_URL } from "@/lib/api-base";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Check, X, Loader2 } from "lucide-react";
+import { Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface ActorCardActionsProps {
   actorId: string;
@@ -97,7 +98,7 @@ export function ActorCardActions({
             aria-label="Save actor name"
           >
             {renaming ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Spinner decorative size="xs" />
             ) : (
               <Check className="h-3 w-3" />
             )}

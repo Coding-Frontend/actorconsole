@@ -21,6 +21,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -329,9 +330,9 @@ export function BillingCard({
                     Your plan changes after payment is confirmed.
                   </p>
                   {checkoutOffer.gateway.mode === "test" ? (
-                    <p className="text-warning text-sm" role="status">
+                    <Alert tone="warning">
                       Test checkout — no real payment will be collected.
-                    </p>
+                    </Alert>
                   ) : null}
                   <BillingAddressForm
                     initial={billingAddress}
@@ -368,9 +369,9 @@ export function BillingCard({
                     <ProBenefits />
                   </div>
                   {selectedOffer?.gateway.mode === "test" ? (
-                    <p className="text-warning text-sm" role="status">
+                    <Alert tone="warning">
                       Test checkout — no real payment will be collected.
-                    </p>
+                    </Alert>
                   ) : null}
                   <Button
                     ref={upgradeButton}

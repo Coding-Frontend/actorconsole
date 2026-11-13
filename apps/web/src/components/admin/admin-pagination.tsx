@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 export function AdminPagination({
@@ -36,7 +37,7 @@ export function AdminPagination({
 }
 
 export function AdminApiError({ message }: { message: string }) {
-  return <div role="alert" className="border-destructive/30 bg-destructive/5 text-destructive rounded-md border p-4 text-sm">The admin API could not load this view: {message}</div>;
+  return <Alert tone="danger">The admin API could not load this view: {message}</Alert>;
 }
 
 export function AdminDetailError({

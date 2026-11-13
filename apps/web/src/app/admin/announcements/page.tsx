@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
@@ -153,12 +154,7 @@ export default function AdminAnnouncementsPage() {
       <PageHeader title="Announcements" description="In-app banners shown to all users." />
 
       {loadError ? (
-        <p
-          role="alert"
-          className="border-destructive/30 bg-destructive/5 text-destructive rounded-md border p-3 text-sm"
-        >
-          {loadError}
-        </p>
+        <Alert tone="danger">{loadError}</Alert>
       ) : null}
 
       <Card>

@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, User } from "lucide-react";
+import { User } from "lucide-react";
 import { accountMutation } from "@/lib/account-api";
 import { useAccountResource } from "@/lib/use-account-resource";
 import {
   DashboardAsyncState,
   DashboardPageHeader,
 } from "@/components/dashboard/dashboard-workbench";
+import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -180,12 +181,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               {Object.values(errors).some(Boolean) || saveError ? (
-                <div
-                  ref={summary}
-                  tabIndex={-1}
-                  role="alert"
-                  className="rounded-md border border-destructive/30 p-3 text-sm text-destructive"
-                >
+                <Alert ref={summary} tabIndex={-1} tone="danger">
                   <p>{saveError ?? "Check the highlighted fields."}</p>
                   <ul>
                     {(Object.entries(errors) as Array<[keyof Values, string | undefined]>)
@@ -198,7 +194,7 @@ export default function ProfilePage() {
                         </li>
                       ))}
                   </ul>
-                </div>
+                </Alert>
               ) : null}
               <fieldset
                 disabled={saving || resource.loading || Boolean(resource.error)}
@@ -304,17 +300,16 @@ export default function ProfilePage() {
                 </div>
                 <Button
                   type="submit"
-                  disabled={saving || !dirty || Boolean(resource.error)}
+                  loading={saving}
+                  loadingText="Saving changes…"
+                  disabled={!saving && (!dirty || Boolean(resource.error))}
                   className="min-h-11 w-full sm:w-auto"
                 >
-                  {saving ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-                  {saving ? "Saving changes…" : "Save changes"}
+                  Save changes
                 </Button>
               </fieldset>
               {saved ? (
-                <p role="status" className="text-sm text-signal-green">
-                  Profile updated.
-                </p>
+                <Alert tone="success">Profile updated.</Alert>
               ) : null}
             </form>
           </CardContent>

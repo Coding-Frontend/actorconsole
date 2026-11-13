@@ -39,9 +39,9 @@ describe("Mimic session banner", () => {
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain("Session service unavailable"),
     );
-    expect(
-      (screen.getByRole("button", { name: "Return to admin" }) as HTMLButtonElement).disabled,
-    ).toBe(false);
+    const retry = screen.getByRole("button", { name: "Return to admin" }) as HTMLButtonElement;
+    expect(retry.disabled).toBe(false);
+    expect(retry.getAttribute("aria-busy")).toBeNull();
     expect(screen.getByRole("region", { name: "Mimic user session" })).toBeTruthy();
   });
   it("automatically requests admin restoration as the mimic session expires", async () => {

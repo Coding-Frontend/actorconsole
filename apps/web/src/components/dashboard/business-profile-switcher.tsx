@@ -22,6 +22,7 @@ import {
   DEFAULT_DASHBOARD_PATH,
   isAllWorkspacesPath,
 } from "@actorconsole/shared/default-dashboard";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/action-dialog";
@@ -429,9 +430,9 @@ export function BusinessProfileSwitcher({
             ) : null}
           </div>
           {error && (
-            <p className="text-destructive mt-2 px-2 text-xs" role="alert">
+            <Alert tone="danger" className="mt-2">
               {error}
-            </p>
+            </Alert>
           )}
         </div>
       )}

@@ -6,7 +6,7 @@ import { safeCallbackUrl } from "@/lib/safe-callback-url";
 import { trackEvent } from "@/lib/analytics-events";
 import { notifySessionChanged } from "@/lib/session-events";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Inbox, Loader2, MailCheck, RefreshCw } from "lucide-react";
+import { CheckCircle2, Inbox, MailCheck, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { AuthBrandSteps, AuthFrame } from "@/components/auth/auth-frame";
 import { Button } from "@/components/ui/button";
@@ -141,12 +141,8 @@ export default function VerifyEmailPage() {
                   disabled={pending}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={pending}>
-                {pending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <MailCheck className="h-4 w-4" />
-                )}
+              <Button type="submit" className="w-full" loading={pending}>
+                <MailCheck className="h-4 w-4" />
                 Verify and continue
               </Button>
               <Button

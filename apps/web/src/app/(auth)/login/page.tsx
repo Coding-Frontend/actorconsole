@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BarChart3, CheckCircle2, Database } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { Panel } from "@/components/ui/panel";
 import { Separator } from "@/components/ui/separator";
 import { SocialButtons } from "@/components/auth/social-buttons";
@@ -66,12 +67,9 @@ export default async function LoginPage({
             </div>
 
             {params.reset === "success" ? (
-              <p
-                role="status"
-                className="border-signal-green/30 bg-signal-green/5 rounded-md border p-3 text-sm"
-              >
+              <Alert tone="success">
                 Your password was updated. Sign in with your new password.
-              </p>
+              </Alert>
             ) : null}
             {params.error && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">

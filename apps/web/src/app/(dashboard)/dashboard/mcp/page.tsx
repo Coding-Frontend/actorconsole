@@ -11,7 +11,6 @@ import {
   CircleSlash2,
   Copy,
   KeyRound,
-  Loader2,
   LockKeyhole,
   Pencil,
   Plus,
@@ -25,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -676,13 +676,13 @@ export default function McpPage() {
       </section>
 
       {workspaceRestricted ? (
-        <p role="status" className="rounded-md border p-4 text-sm text-muted-foreground">
+        <Alert tone="info">
           MCP connection and credentials remain available. This workspace needs Pro to use actor,
           publishing, and reporting tools.{" "}
           <Link href="/dashboard/billing" className="text-signal-orange underline">
             Upgrade workspace
           </Link>
-        </p>
+        </Alert>
       ) : null}
       {!mcpAvailable ? (
         <div className="border-signal-orange/30 bg-signal-orange/[0.04] flex flex-col gap-4 rounded-sm border p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -1151,29 +1151,23 @@ export default function McpPage() {
               </Button>
               <Button
                 type="submit"
+                loading={creating}
+                loadingText={editingCredential ? "Saving changes…" : "Issuing credential…"}
                 disabled={
-                  !mcpAvailable ||
-                  creating ||
-                  !name.trim() ||
-                  selectedPermissions.length === 0 ||
-                  (actorScope === "selected" &&
-                    (actorLoadState !== "ready" || selectedActorIds.length === 0))
+                  !creating &&
+                  (!mcpAvailable ||
+                    !name.trim() ||
+                    selectedPermissions.length === 0 ||
+                    (actorScope === "selected" &&
+                      (actorLoadState !== "ready" || selectedActorIds.length === 0)))
                 }
               >
-                {creating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : editingCredential ? (
+                {editingCredential ? (
                   <Check className="h-4 w-4" />
                 ) : (
                   <KeyRound className="h-4 w-4" />
                 )}
-                {creating
-                  ? editingCredential
-                    ? "Saving changes…"
-                    : "Issuing credential…"
-                  : editingCredential
-                    ? "Save changes"
-                    : "Issue MCP credential"}
+                {editingCredential ? "Save changes" : "Issue MCP credential"}
               </Button>
             </DialogFooter>
           </form>

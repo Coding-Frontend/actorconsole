@@ -10,7 +10,6 @@ import {
   ChevronRight,
   CircleDashed,
   Clock3,
-  Loader2,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -34,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { BulkPublishingHeader } from "@/components/dashboard/bulk-publishing-header";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
 import { useWorkspaceAccess } from "@/components/dashboard/workspace-access-context";
@@ -159,7 +159,7 @@ function actorStatuses(actor: ActorItem) {
 }
 
 function operationIcon(status: ActorOperationState) {
-  if (status === "RUNNING") return <Loader2 className="h-3.5 w-3.5 animate-spin" />;
+  if (status === "RUNNING") return <Spinner decorative size="sm" />;
   if (status === "SUCCEEDED") return <CheckCircle2 className="h-3.5 w-3.5" />;
   if (status === "FAILED") return <XCircle className="h-3.5 w-3.5" />;
   return <Clock3 className="h-3.5 w-3.5" />;
@@ -611,7 +611,7 @@ export function BulkPublishingWorkspace() {
             <div className="flex items-start gap-3">
               <div className="bg-signal-blue/10 mt-0.5 flex h-9 w-9 items-center justify-center rounded-sm text-signal-blue">
                 {operation.active ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner decorative size="md" />
                 ) : operation.failed ? (
                   <ShieldAlert className="h-4 w-4" />
                 ) : (
@@ -702,18 +702,18 @@ export function BulkPublishingWorkspace() {
           <Button
             variant="outline"
             onClick={() => void startInventoryRefresh()}
-            disabled={refreshStarting || Boolean(refreshJobId) || operation?.active}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${refreshStarting || refreshJobId ? "animate-spin" : ""}`}
-            />
-            {refreshStarting
-              ? "Queueing refresh"
-              : refreshJobId
-                ? refreshProgress?.total
+            loading={refreshStarting || Boolean(refreshJobId)}
+            loadingText={
+              refreshStarting
+                ? "Queueing refresh"
+                : refreshProgress?.total
                   ? `Checking ${refreshProgress.completed ?? 0}/${refreshProgress.total}`
                   : "Refresh queued"
-                : "Refresh from Apify"}
+            }
+            disabled={!refreshStarting && !refreshJobId && operation?.active}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh from Apify
           </Button>
         </div>
 
@@ -795,10 +795,9 @@ export function BulkPublishingWorkspace() {
             <Button
               size="sm"
               variant="outline"
-              disabled={selectingAll}
+              loading={selectingAll}
               onClick={() => void selectAllMatching()}
             >
-              {selectingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               Select all {total} matching Actors
             </Button>
           </div>
@@ -817,10 +816,10 @@ export function BulkPublishingWorkspace() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={selectingAll || operation?.active}
+                  loading={selectingAll}
+                  disabled={!selectingAll && operation?.active}
                   onClick={() => void selectAllMatching()}
                 >
-                  {selectingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   Select all {total} matching
                 </Button>
               ) : null}
@@ -891,7 +890,7 @@ export function BulkPublishingWorkspace() {
             role="status"
             aria-live="polite"
           >
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-signal-blue" />
+            <Spinner decorative size="sm" className="text-signal-blue" />
             <span>
               {refreshJobId
                 ? refreshProgress?.total

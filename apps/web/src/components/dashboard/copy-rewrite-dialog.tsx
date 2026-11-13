@@ -14,9 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Check, ArrowRight } from "lucide-react";
+import { Sparkles, Check, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const fields = [
@@ -200,12 +202,7 @@ export function CopyRewriteDialog({ open, onOpenChange, apifyActorId, onChanged 
         </DialogHeader>
         <div className="min-h-0 space-y-4 overflow-y-auto p-5 sm:p-6">
           {error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-            >
-              {error}
-            </p>
+            <Alert tone="danger">{error}</Alert>
           ) : null}
           {applied ? (
             <div className="flex items-start gap-3 py-5">
@@ -304,7 +301,7 @@ export function CopyRewriteDialog({ open, onOpenChange, apifyActorId, onChanged 
             <div className="space-y-4 py-6 text-center">
               {loading ? (
                 <>
-                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-signal-orange" />
+                  <Spinner decorative size="xl" className="mx-auto text-signal-orange" />
                   <p role="status">Analyzing actor and generating variants…</p>
                 </>
               ) : (
@@ -351,17 +348,12 @@ export function CopyRewriteDialog({ open, onOpenChange, apifyActorId, onChanged 
               {review ? (
                 <Button
                   onClick={() => void updateActor()}
-                  disabled={updating || !selectedFields.length}
+                  loading={updating}
+                  loadingText="Applying and verifying…"
+                  disabled={!updating && !selectedFields.length}
                   variant="gradient"
                 >
-                  {updating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Applying and verifying…
-                    </>
-                  ) : (
-                    "Apply selected fields"
-                  )}
+                  Apply selected fields
                 </Button>
               ) : null}
             </>
