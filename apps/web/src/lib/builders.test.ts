@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ unstable_cache: (callback: unknown) => callback }));
 
 import { buildDailyPortfolioTrends } from "@actorconsole/shared/builder-history";
-import { BUILDER_METRICS } from "./builders";
+import { BUILDER_METRICS } from "@actorconsole/shared/builders";
 
 describe("builder leaderboard metrics", () => {
   it("exposes every requested leaderboard filter", () => {

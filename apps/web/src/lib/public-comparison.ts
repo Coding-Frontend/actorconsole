@@ -2,15 +2,17 @@ import "server-only";
 import { getLogger } from "@actorconsole/shared";
 
 import {
-  BUILDER_WINDOWS,
   getBuilderActorDetail,
   getBuildersForComparison,
   getBuilderComparisonHistory,
   searchActorsForComparison,
   searchBuildersForComparison,
+} from "@/lib/builders";
+import {
+  BUILDER_WINDOWS,
   type BuilderWindow,
   type BuilderProfile,
-} from "@/lib/builders";
+} from "@actorconsole/shared/builders";
 import {
   actorCompareItem,
   builderCompareItem,

@@ -4,7 +4,7 @@ import { PublicComparisonPageSelection } from "./public-comparison-provider";
 import { PublicComparisonExplorer } from "./public-comparison-explorer";
 import type { PublicCompareKind } from "./public-comparison-items";
 import { loadPublicComparison } from "@/lib/public-comparison";
-import type { BuilderWindow } from "@/lib/builders";
+import type { BuilderWindow } from "@actorconsole/shared/builders";
 import { HomeGridSection } from "@/components/marketing/home-grid";
 
 export async function PublicComparisonPage({

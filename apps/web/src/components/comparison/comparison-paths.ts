@@ -1,4 +1,4 @@
-import type { BuilderWindow } from "@/lib/builders";
+import type { BuilderWindow } from "@actorconsole/shared/builders";
 
 export type ComparisonKind = "builder" | "actor";
 

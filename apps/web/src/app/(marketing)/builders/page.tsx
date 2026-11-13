@@ -12,15 +12,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PublicGridSection } from "@/components/marketing/public-grid-section";
 import { LeaderboardTableSkeleton } from "@/components/marketing/public-data-skeleton";
+import { getBuilderLeaderboard } from "@/lib/builders";
 import {
   BUILDER_METRICS,
   BUILDER_WINDOWS,
-  getBuilderLeaderboard,
   metricLabel,
   type BuilderMetric,
   type BuilderSortDirection,
   type BuilderWindow,
-} from "@/lib/builders";
+} from "@actorconsole/shared/builders";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
