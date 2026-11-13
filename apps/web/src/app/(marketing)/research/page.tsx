@@ -2,7 +2,7 @@ import { createPageMetadata } from "@/lib/seo";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ActorResearchView } from "@/components/intelligence/actor-research-view";
-import { researchFilters } from "@/lib/actor-research";
+import { researchFilters } from "@actorconsole/shared/actor-research";
 import { PublicGridSection } from "@/components/marketing/public-grid-section";
 import { ResearchResultsSkeleton } from "@/components/marketing/public-data-skeleton";
 export const dynamic = "force-dynamic";

@@ -1,6 +1,6 @@
 import { ActorResearchView } from "@/components/intelligence/actor-research-view";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
-import { researchFilters } from "@/lib/actor-research";
+import { researchFilters } from "@actorconsole/shared/actor-research";
 export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
