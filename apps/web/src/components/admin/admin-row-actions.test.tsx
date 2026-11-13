@@ -31,7 +31,7 @@ describe("Admin row actions", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Refund" }));
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Customer request" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Reason" }), { target: { value: "Customer request" } });
     fireEvent.change(screen.getByLabelText("Amount in paise (optional)"), {
       target: { value: "500" },
     });
@@ -53,7 +53,7 @@ describe("Admin row actions", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Refund" }));
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Correction" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Reason" }), { target: { value: "Correction" } });
     fireEvent.change(screen.getByLabelText("Amount in paise (optional)"), {
       target: { value: "0" },
     });
@@ -70,7 +70,7 @@ describe("Admin row actions", () => {
     render(<SubscriptionRowActions subscriptionId="subscription_1" status="active" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Customer request" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Reason" }), { target: { value: "Customer request" } });
     fireEvent.click(screen.getByRole("button", { name: "Cancel subscription" }));
 
     await waitFor(() =>
