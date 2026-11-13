@@ -23,6 +23,10 @@
       "types": "./dist/actor-earnings.d.ts",
       "import": "./dist/actor-earnings.js"
     },
+    "./actor-research": {
+      "types": "./dist/actor-research.d.ts",
+      "import": "./dist/actor-research.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
