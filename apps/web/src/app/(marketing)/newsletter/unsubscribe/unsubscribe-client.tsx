@@ -7,7 +7,8 @@ import { useSession } from "@/lib/session-client";
 import Link from "next/link";
 import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
-import { Sparkles, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { Sparkles, CheckCircle, XCircle } from "lucide-react";
 
 export function UnsubscribeClient() {
   const searchParams = useSearchParams();
@@ -68,7 +69,7 @@ export function UnsubscribeClient() {
       <div className="space-y-4 text-center">
         {status === "loading" && (
           <>
-            <Loader2 className="text-signal-blue mx-auto h-8 w-8 animate-spin" />
+            <Spinner decorative size="xl" className="text-signal-blue mx-auto" />
             <p className="text-muted-foreground text-sm">Processing your request…</p>
           </>
         )}
@@ -115,11 +116,12 @@ export function UnsubscribeClient() {
             {sessionStatus === "authenticated" ? (
               <Button
                 onClick={handleManualUnsubscribe}
-                disabled={isPending}
+                loading={isPending}
+                loadingText="Unsubscribing…"
                 variant="destructive"
                 className="w-full"
               >
-                {isPending ? "Unsubscribing…" : "Yes, unsubscribe me"}
+                Yes, unsubscribe me
               </Button>
             ) : sessionStatus === "loading" ? (
               <Button disabled className="w-full">

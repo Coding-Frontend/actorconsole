@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { dashboardActorComparisonHref } from "@/components/comparison/comparison-paths";
 import { API_BASE_URL } from "@/lib/api-base";
@@ -205,15 +206,15 @@ export function KeywordComparisonPage({
         ) : null}
       </header>
       {refreshError ? (
-        <p className="border-border bg-muted/20 border px-4 py-3 text-sm" role="status">
+        <Alert tone="warning">
           Keyword estimates could not be refreshed. Showing the available Store data.
-        </p>
+        </Alert>
       ) : null}
       {missing > 0 ? (
-        <p className="border-border bg-muted/20 border px-4 py-3 text-sm" role="status">
+        <Alert tone="warning">
           {missing} selected Actor{missing === 1 ? "" : "s"} could not be found in the public
           catalog.
-        </p>
+        </Alert>
       ) : null}
       {loaded && snapshot ? (
         <KeywordComparison

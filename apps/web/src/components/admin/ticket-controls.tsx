@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/admin/api";
 import { toast } from "sonner";
@@ -108,8 +108,8 @@ export function TicketControls({
           ))}
         </select>
       </div>
-      <Button size="sm" className="w-full" disabled={saving} onClick={save}>
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+      <Button size="sm" className="w-full" loading={saving} onClick={save}>
+        <Save className="h-4 w-4" />
         Update
       </Button>
     </div>

@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-base";
 import { trackEvent } from "@/lib/analytics-events";
 
@@ -131,23 +132,15 @@ export function ContactForm() {
         />
       </div>
 
-      {error ? <p role="alert" className="text-destructive text-sm">{error}</p> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
       <Button
         type="submit"
         className="mt-2 w-full"
-        disabled={loading}
+        loading={loading}
+        loadingText="Sending..."
       >
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Sending...
-          </>
-        ) : (
-          <>
-            <Send className="mr-2 h-4 w-4" />
-            Send Message
-          </>
-        )}
+        <Send className="mr-2 h-4 w-4" />
+        Send Message
       </Button>
     </form>
   );

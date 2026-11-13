@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { Loader2, Eye, Pencil } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -358,9 +358,9 @@ export function ChangelogEditor({
       <div className="flex flex-wrap gap-2">
         <Button
           type="submit"
-          disabled={saving || !valid || form.tags.some((tag) => tag.length > 64)}
+          loading={saving}
+          disabled={!saving && (!valid || form.tags.some((tag) => tag.length > 64))}
         >
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {form.isPublished
             ? editing
               ? "Save published update"

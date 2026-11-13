@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Download, Loader2, ShieldCheck } from "lucide-react";
+import { Download, ShieldCheck } from "lucide-react";
 
 const API_BASE = API_BASE_URL;
 
@@ -59,12 +59,8 @@ export default function ExportPage() {
             <ShieldCheck className="text-signal-green h-3.5 w-3.5" />
             Your data is yours. Export any time.
           </div>
-          <Button onClick={handleExport} disabled={exporting}>
-            {exporting ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-1 h-4 w-4" />
-            )}
+          <Button onClick={handleExport} loading={exporting}>
+            <Download className="mr-1 h-4 w-4" />
             {exported ? "Export again" : "Download my data"}
           </Button>
         </CardContent>

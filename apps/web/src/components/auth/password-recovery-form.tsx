@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, Mail, TimerReset } from "lucide-react";
+import { Eye, EyeOff, Mail, TimerReset } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +39,7 @@ export function PasswordRecoveryForm() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const request = useRef<AbortController | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const errorPanel = useRef<HTMLParagraphElement>(null);
+  const errorPanel = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -133,20 +134,11 @@ export function PasswordRecoveryForm() {
             : `Use the code for ${email.trim()} to choose a new password.`}
         </p>
       </div>
-      {notice ? (
-        <p role="status" className="rounded-md border border-border bg-muted/20 p-3 text-sm">
-          {notice}
-        </p>
-      ) : null}
+      {notice ? <Alert tone="info">{notice}</Alert> : null}
       {error ? (
-        <p
-          ref={errorPanel}
-          tabIndex={-1}
-          role="alert"
-          className="rounded-md border border-destructive/30 p-3 text-sm text-destructive"
-        >
+        <Alert ref={errorPanel} tabIndex={-1} tone="danger">
           {error}
-        </p>
+        </Alert>
       ) : null}
       {stage === "email" ? (
         <form onSubmit={sendCode} className="space-y-4">
@@ -166,14 +158,10 @@ export function PasswordRecoveryForm() {
           <Button
             type="submit"
             className="h-auto min-h-12 w-full whitespace-normal py-3"
-            disabled={pending}
+            loading={pending}
+            loadingText="Requesting code…"
           >
-            {pending ? (
-              <Loader2 aria-hidden="true" className="animate-spin" />
-            ) : (
-              <Mail aria-hidden="true" />
-            )}{" "}
-            {pending ? "Requesting code…" : "Send reset code"}
+            <Mail aria-hidden="true" /> Send reset code
           </Button>
         </form>
       ) : (
@@ -231,14 +219,10 @@ export function PasswordRecoveryForm() {
               <Button
                 type="submit"
                 className="h-auto min-h-12 w-full whitespace-normal py-3"
-                disabled={pending}
+                loading={pending}
+                loadingText="Updating password…"
               >
-                {pending ? (
-                  <Loader2 aria-hidden="true" className="animate-spin" />
-                ) : (
-                  <TimerReset aria-hidden="true" />
-                )}{" "}
-                {pending ? "Updating password…" : "Set new password"}
+                <TimerReset aria-hidden="true" /> Set new password
               </Button>
             </fieldset>
           </form>

@@ -4,8 +4,10 @@ import { navigateInApp } from "@/lib/client-navigation";
 
 import { API_BASE_URL } from "@/lib/api-base";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Puzzle, ShieldCheck } from "lucide-react";
+import { Puzzle, ShieldCheck } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 const WEB_SOURCE = "actorconsole-web";
 const EXTENSION_SOURCE = "actorconsole-extension";
@@ -337,46 +339,29 @@ export function ApifyExtensionConnect({
             </p>
           </div>
         </div>
-        <Button type="button" size="sm" onClick={startConnection} disabled={busy || waiting}>
-          {busy ? <Loader2 className="animate-spin" /> : <Puzzle />}
-          {connectionState === "starting"
-            ? "Starting…"
-            : connectionState === "completing"
-              ? "Validating…"
-              : waiting
-                ? "Waiting for extension"
-                : success
-                  ? "Connect again"
-                  : "Connect with extension"}
+        <Button
+          type="button"
+          size="sm"
+          onClick={startConnection}
+          loading={busy}
+          loadingText={connectionState === "starting" ? "Starting…" : "Validating…"}
+          disabled={!busy && waiting}
+        >
+          <Puzzle />
+          {waiting ? "Waiting for extension" : success ? "Connect again" : "Connect with extension"}
         </Button>
       </div>
 
       {message ? (
-        <div
-          className={
-            "flex items-start gap-2 border p-3 text-xs leading-5 " +
-            (success
-              ? "border-signal-green/30 bg-signal-green/[0.05]"
-              : failed
-                ? "border-destructive/30 bg-destructive/[0.04]"
-                : "border-border bg-background")
-          }
-          role={failed ? "alert" : "status"}
+        <Alert
+          tone={success ? "success" : failed ? "danger" : "info"}
+          icon={success || failed ? undefined : <Spinner decorative />}
         >
-          {success ? (
-            <CheckCircle2 className="text-signal-green mt-0.5 h-4 w-4 shrink-0" />
-          ) : failed ? (
-            <AlertTriangle className="text-destructive mt-0.5 h-4 w-4 shrink-0" />
-          ) : (
-            <Loader2 className="text-signal-blue mt-0.5 h-4 w-4 shrink-0 animate-spin" />
-          )}
-          <div>
-            <p>{message}</p>
-            {workspaceName && waiting ? (
-              <p className="text-muted-foreground mt-1">Target workspace: {workspaceName}</p>
-            ) : null}
-          </div>
-        </div>
+          <p>{message}</p>
+          {workspaceName && waiting ? (
+            <p className="mt-1">Target workspace: {workspaceName}</p>
+          ) : null}
+        </Alert>
       ) : null}
 
       {!compact ? (

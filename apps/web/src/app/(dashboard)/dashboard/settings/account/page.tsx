@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 const API_BASE = API_BASE_URL;
 
@@ -115,9 +115,8 @@ export default function DeleteAccountPage() {
                 className="mt-3"
                 variant="outline"
                 onClick={cancelDeletion}
-                disabled={cancelling}
+                loading={cancelling}
               >
-                {cancelling && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 Cancel deletion
               </Button>
             </div>
@@ -137,9 +136,9 @@ export default function DeleteAccountPage() {
           <Button
             variant="destructive"
             onClick={handleDelete}
-            disabled={deleting || cancelling || Boolean(scheduledFor) || confirm !== "DELETE"}
+            loading={deleting}
+            disabled={!deleting && (cancelling || Boolean(scheduledFor) || confirm !== "DELETE")}
           >
-            {deleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             Close my account
           </Button>
         </CardContent>

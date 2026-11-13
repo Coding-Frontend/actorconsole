@@ -6,6 +6,7 @@ import { ArrowUpDown, ExternalLink, Eye, Filter, Globe2, Search } from "lucide-r
 import { toast } from "sonner";
 import { api } from "@/lib/admin/api";
 import { formatDate } from "@/lib/utils";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -392,10 +393,12 @@ export function AdminActorsTable({
             <Button
               size="sm"
               variant="signal"
-              disabled={!websiteId || assigning}
+              loading={assigning}
+              loadingText="Assigning…"
+              disabled={!assigning && !websiteId}
               onClick={() => void assignSelected()}
             >
-              {assigning ? "Assigning…" : "Assign website"}
+              Assign website
             </Button>
             <Button
               size="sm"
@@ -413,15 +416,16 @@ export function AdminActorsTable({
         {loading ? (
           <AdminActorsTableSkeleton />
         ) : error ? (
-          <div
-            role="alert"
-            className="border-destructive/30 bg-destructive/5 rounded-md border p-4 text-sm"
+          <Alert
+            tone="danger"
+            action={
+              <Button variant="outline" size="sm" onClick={() => void loadActors()}>
+                Try again
+              </Button>
+            }
           >
-            <p className="text-destructive">The Actor registry could not load: {error}</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => void loadActors()}>
-              Try again
-            </Button>
-          </div>
+            The Actor registry could not load: {error}
+          </Alert>
         ) : data ? (
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">

@@ -172,7 +172,7 @@ describe("ActorsWorkspace", () => {
     await screen.findByText("1278 Actors matching");
     fireEvent.click(screen.getByRole("button", { name: "Refresh from Apify" }));
     expect(await screen.findByText("Syncing actors from Apify…")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Refreshing…" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Refreshing…" }).getAttribute("aria-busy")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Refreshing…" }));
     expect(refreshWorkspaceActors).toHaveBeenCalledOnce();
 

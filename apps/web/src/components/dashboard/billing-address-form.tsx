@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition, useId } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -145,14 +145,13 @@ export function BillingAddressForm({
           </label>
         ))}
         {error ? (
-          <p role="alert" className="text-destructive text-sm sm:col-span-2">
+          <Alert tone="danger" className="sm:col-span-2">
             {error}
-          </p>
+          </Alert>
         ) : null}
         <div className="flex flex-wrap gap-3 sm:col-span-2">
-          <Button type="submit" disabled={pending}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {pending ? "Please wait…" : checkout ? "Continue to checkout" : "Save billing address"}
+          <Button type="submit" loading={pending} loadingText="Please wait…">
+            {checkout ? "Continue to checkout" : "Save billing address"}
           </Button>
           {onBack ? (
             <Button type="button" variant="outline" disabled={pending} onClick={onBack}>

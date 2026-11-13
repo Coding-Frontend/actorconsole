@@ -2,6 +2,7 @@
 
 import { API_BASE_URL } from "@/lib/api-base";
 import { useEffect, useRef, useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,10 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { DollarSign, Loader2, Plus, Radar, Trash2 } from "lucide-react";
+import { DollarSign, Plus, Radar, Trash2 } from "lucide-react";
 
 interface EventConfig {
   eventPriceUsd?: number;
@@ -375,42 +377,44 @@ export function PricingDialog({ open, onOpenChange, apifyActorId, initial, onCha
 
         <div className="min-h-0 space-y-5 overflow-y-auto p-5 sm:p-6">
           {error ? (
-            <div
-              role="alert"
-              className="rounded-md border border-destructive/30 p-3 text-sm text-destructive"
+            <Alert
+              tone="danger"
+              action={
+                <Button
+                  variant="outline"
+                  disabled={saving}
+                  onClick={() => setRetry((old) => old + 1)}
+                >
+                  {pricingState ? "Refresh pricing for review" : "Retry pricing check"}
+                </Button>
+              }
             >
-              <p>{error}</p>
-              <Button
-                className="mt-2"
-                variant="outline"
-                disabled={saving}
-                onClick={() => setRetry((old) => old + 1)}
-              >
-                {pricingState ? "Refresh pricing for review" : "Retry pricing check"}
-              </Button>
-            </div>
+              {error}
+            </Alert>
           ) : null}
           {loadingPricing ? (
             <p role="status" className="flex items-center gap-2 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Spinner decorative />
               Loading current Apify pricing…
             </p>
           ) : null}
           {saved ? (
-            <div role="status" className="border-signal-green/30 space-y-3 rounded-md border p-4">
-              <p className="font-semibold">
-                {saved.changed
+            <Alert
+              tone="success"
+              title={
+                saved.changed
                   ? "New pricing period saved and verified on Apify."
-                  : "This pricing configuration is already saved on Apify."}
-              </p>
+                  : "This pricing configuration is already saved on Apify."
+              }
+            >
               <p>
                 Effective from <strong>{dateTime(saved.startedAt)}</strong>. Current prices remain
                 in effect until then.
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="mt-2">
                 The Actor’s History tab records the new period and its activation date.
               </p>
-            </div>
+            </Alert>
           ) : (
             <>
               {pricingState ? (
@@ -439,14 +443,11 @@ export function PricingDialog({ open, onOpenChange, apifyActorId, initial, onCha
                 </div>
               ) : null}
               {pricingState?.scheduled.length ? (
-                <div role="status" className="space-y-2 rounded-md border p-4 text-sm">
-                  <p className="font-semibold">A pricing change is already scheduled</p>
-                  <p className="text-muted-foreground">
-                    Apify accepts one future pricing period. You can make another change after the
-                    scheduled prices take effect. Contact Apify support if you need to change or
-                    cancel the pending period sooner.
-                  </p>
-                </div>
+                <Alert tone="info" title="A pricing change is already scheduled">
+                  Apify accepts one future pricing period. You can make another change after the
+                  scheduled prices take effect. Contact Apify support if you need to change or
+                  cancel the pending period sooner.
+                </Alert>
               ) : review ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
@@ -745,18 +746,12 @@ export function PricingDialog({ open, onOpenChange, apifyActorId, initial, onCha
                   if (!message) setReview(true);
                 }
               }}
-              disabled={saving || loadingPricing || !pricingState}
+              loading={saving}
+              loadingText="Scheduling…"
+              disabled={!saving && (loadingPricing || !pricingState)}
               variant="gradient"
             >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Scheduling…
-                </>
-              ) : review ? (
-                "Schedule pricing update"
-              ) : (
-                "Review pricing changes"
-              )}
+              {review ? "Schedule pricing update" : "Review pricing changes"}
             </Button>
           ) : null}
         </DialogFooter>

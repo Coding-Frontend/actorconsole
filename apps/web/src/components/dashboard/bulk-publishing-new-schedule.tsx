@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Loader2,
   Plus,
   Search,
   ShieldCheck,
@@ -635,14 +634,12 @@ export function BulkPublishingNewSchedule() {
               size="lg"
               variant="signal"
               onClick={() => setReviewOpen(true)}
-              disabled={!valid || submitting}
+              loading={submitting}
+              loadingText="Creating schedule"
+              disabled={!submitting && !valid}
             >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CalendarClock className="h-4 w-4" />
-              )}
-              {submitting ? "Creating schedule" : "Review and create"}
+              <CalendarClock className="h-4 w-4" />
+              Review and create
             </Button>
             {!actors.length ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">

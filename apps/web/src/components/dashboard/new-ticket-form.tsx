@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-base";
 import { useSessionDraft } from "@/lib/use-session-draft";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
 import { DashboardAsyncState } from "./dashboard-workbench";
@@ -358,21 +358,15 @@ export function NewTicketForm({
                 className={fieldClass}
               />
             </div>
-            {error ? (
-              <p
-                role="alert"
-                className="rounded-md border border-destructive/30 p-3 text-sm text-destructive"
-              >
-                {error}
-              </p>
-            ) : null}
+            {error ? <Alert tone="danger">{error}</Alert> : null}
             <Button
               type="submit"
-              disabled={saving || !draft.ready}
+              loading={saving}
+              loadingText="Opening ticket…"
+              disabled={!saving && !draft.ready}
               className="min-h-11 w-full sm:w-auto"
             >
-              {saving ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-              {saving ? "Opening ticket…" : "Open ticket"}
+              Open ticket
             </Button>
           </fieldset>
         </form>

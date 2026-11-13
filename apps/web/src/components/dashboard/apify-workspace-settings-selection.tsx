@@ -4,6 +4,7 @@ import { navigateInApp } from "@/lib/client-navigation";
 
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api-base";
+import { Alert } from "@/components/ui/alert";
 
 export function ApifyWorkspaceSettingsSelection() {
   const [message, setMessage] = useState<string | null>(null);
@@ -47,9 +48,5 @@ export function ApifyWorkspaceSettingsSelection() {
     };
   }, []);
 
-  return message ? (
-    <p role="status" className="border-border bg-card border px-4 py-3 text-sm">
-      {message}
-    </p>
-  ) : null;
+  return message ? <Alert>{message}</Alert> : null;
 }

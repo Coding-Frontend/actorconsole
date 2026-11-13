@@ -4,7 +4,7 @@ import { navigateInApp } from "@/lib/client-navigation";
 
 import { FormEvent, useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, Check, CreditCard, KeyRound, Loader2 } from "lucide-react";
+import { ArrowRight, Building2, Check, CreditCard, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { PLAN_ACTOR_LIMITS, PLAN_MARKETING_FEATURES } from "@actorconsole/shared/plans";
 import type { Plan } from "@actorconsole/shared";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { ApifyConnect } from "@/components/dashboard/apify-connect";
 import {
   DashboardAsyncState,
@@ -384,7 +385,7 @@ export default function OnboardingPage() {
   if (loading) {
     return (
       <div className="flex min-h-[65vh] items-center justify-center">
-        <Loader2 className="text-signal-orange h-7 w-7 animate-spin" />
+        <Spinner size="xl" label="Loading onboarding" className="text-signal-orange" />
       </div>
     );
   }
@@ -471,13 +472,13 @@ export default function OnboardingPage() {
                         type="button"
                         variant="outline"
                         onClick={detectApifyAccount}
-                        disabled={pending || workspaceApifyToken.trim().length < 20}
+                        loading={pending && !apifyIdentity}
+                        disabled={
+                          !(pending && !apifyIdentity) &&
+                          (pending || workspaceApifyToken.trim().length < 20)
+                        }
                       >
-                        {pending && !apifyIdentity ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <KeyRound className="h-4 w-4" />
-                        )}
+                        <KeyRound className="h-4 w-4" />
                         Find account name
                       </Button>
                     </div>
@@ -552,13 +553,10 @@ export default function OnboardingPage() {
                   <Button
                     type="submit"
                     size="lg"
-                    disabled={pending || (!workspaceName.trim() && !workspaceApifyToken.trim())}
+                    loading={pending}
+                    disabled={!pending && !workspaceName.trim() && !workspaceApifyToken.trim()}
                   >
-                    {pending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Building2 className="h-4 w-4" />
-                    )}
+                    <Building2 className="h-4 w-4" />
                     {apifyIdentity
                       ? "Confirm and create workspace"
                       : workspaceApifyToken.trim()
@@ -619,9 +617,8 @@ export default function OnboardingPage() {
                 size="lg"
                 variant="outline"
                 onClick={continueWithoutCredentialChanges}
-                disabled={pending}
+                loading={pending}
               >
-                {pending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {data.credentials.apiKeyConfigured ||
                 data.credentials.uiTokenConfigured ||
                 data.credentials.cookiesConfigured
@@ -707,9 +704,8 @@ export default function OnboardingPage() {
                         className="mt-6 w-full"
                         variant={current ? "default" : "outline"}
                         onClick={finishWithCurrentPlan}
-                        disabled={pending}
+                        loading={pending}
                       >
-                        {pending && <Loader2 className="h-4 w-4 animate-spin" />}
                         Continue with {current ? "current plan" : "Free"}
                       </Button>
                     ) : (
@@ -717,9 +713,8 @@ export default function OnboardingPage() {
                         className="mt-6 w-full"
                         variant={isPro ? "default" : "outline"}
                         onClick={() => upgradePlan()}
-                        disabled={pending}
+                        loading={pending}
                       >
-                        {pending && <Loader2 className="h-4 w-4 animate-spin" />}
                         Upgrade to {planCopy[plan].name}
                         <ArrowRight className="h-4 w-4" />
                       </Button>

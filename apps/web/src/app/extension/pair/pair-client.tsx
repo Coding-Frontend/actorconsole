@@ -4,8 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { signOut } from "@/lib/session-client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, CircleCheck, Loader2, Monitor, Puzzle, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, CircleCheck, Monitor, Puzzle, ShieldCheck } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { API_BASE_URL } from "@/lib/api-base";
 
 type PairState = "review" | "authorizing" | "waiting" | "connected" | "error" | "cancelled";
@@ -139,10 +141,10 @@ export function ExtensionPairClient({ challenge, delivery = "bridge", account }:
                 <ShieldCheck className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
                 <p>The extension can view your workspaces and manage the Apify connections you choose. You can revoke access by disconnecting in the extension sidebar.</p>
               </div>
-              {state === "error" && <p role="alert" className="text-destructive mb-5 text-sm leading-6">{error}</p>}
+              {state === "error" && <Alert tone="danger" className="mb-5">{error}</Alert>}
               {waiting ? (
                 <div role="status" className="flex gap-3 text-sm leading-6">
-                  <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                  <Spinner decorative size="md" className="mt-1" />
                   <p>{state === "authorizing" ? "Authorizing this browser…" : "Authorized. Waiting for the extension to finish sign-in. Keep its sidebar open; it will update automatically."}</p>
                 </div>
               ) : (

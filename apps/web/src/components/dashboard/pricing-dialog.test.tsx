@@ -279,6 +279,7 @@ describe("PricingDialog", () => {
     fireEvent.click(review);
     const save = screen.getByRole("button", { name: "Schedule pricing update" });
     fireEvent.click(save);
+    expect(save.getAttribute("aria-busy")).toBe("true");
     fireEvent.click(save);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onOpenChange).not.toHaveBeenCalled();

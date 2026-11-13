@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-base";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -168,19 +169,20 @@ export function ApifyOperationsSummaryPanel({
             size="sm"
             className="w-fit shrink-0"
             onClick={onRefresh}
-            disabled={refreshing}
+            loading={refreshing}
+            loadingText="Checking…"
             aria-label="Refresh live Apify data"
           >
-            <RefreshCw className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? "Checking…" : "Refresh live data"}
+            <RefreshCw />
+            Refresh live data
           </Button>
         ) : null}
       </div>
 
       {refreshError ? (
-        <p className="text-destructive mt-4 text-xs" role="status">
+        <Alert tone="danger" live="polite" className="mt-4">
           The last live refresh failed: {refreshError}
-        </p>
+        </Alert>
       ) : null}
 
       <section

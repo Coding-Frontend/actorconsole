@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, History, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, History, RefreshCw } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-base";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Spinner } from "@/components/ui/spinner";
 
 type RunResult = {
   id: string;
@@ -94,12 +95,8 @@ export function ActorImprovementHistory() {
             <option value="UPDATE_PRICING">Pay-per-event pricing</option>
           </select>
         </label>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
+        <Button variant="outline" size="sm" onClick={() => void load()} loading={loading}>
+          <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
       </div>
@@ -111,7 +108,7 @@ export function ActorImprovementHistory() {
       ) : loading && runs.length === 0 ? (
         <Card>
           <CardContent className="text-muted-foreground flex items-center gap-2 p-6 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading generation history…
+            <Spinner decorative size="md" /> Loading generation history…
           </CardContent>
         </Card>
       ) : runs.length === 0 ? (

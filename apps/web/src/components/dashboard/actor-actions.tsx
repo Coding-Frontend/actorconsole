@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, DollarSign, Loader2, MessageSquareText } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { Sparkles, DollarSign, MessageSquareText } from "lucide-react";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api-base";
 import { trackEvent } from "@/lib/analytics-events";
@@ -281,12 +282,10 @@ export function ActorActions({
             </Button>
             <Button
               variant="signal"
-              disabled={submittingCategoryFeedback || categoryFeedback.trim().length < 10}
+              loading={submittingCategoryFeedback}
+              disabled={!submittingCategoryFeedback && categoryFeedback.trim().length < 10}
               onClick={() => void submitCategoryFeedback()}
             >
-              {submittingCategoryFeedback ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
               Send feedback
             </Button>
           </DialogFooter>
@@ -319,7 +318,7 @@ function ActionRow({
       className="hover:border-signal-orange/40 group flex w-full items-start gap-3 rounded-md border border-border/40 bg-background p-3 text-left transition-colors hover:bg-accent"
     >
       <div className="bg-signal-orange/10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-signal-orange">
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+        {loading ? <Spinner decorative size="md" /> : <Icon className="h-4 w-4" />}
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-2">

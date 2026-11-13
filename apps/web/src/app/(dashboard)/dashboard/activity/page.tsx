@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Clock3, RefreshCw } from "lucide-react";
 import { authenticatedServerFetch } from "@/lib/server-api";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
@@ -170,13 +171,10 @@ export default async function WorkspaceActivityPage() {
         }
       />
       {unavailable ? (
-        <p
-          className="border-signal-orange/30 bg-signal-orange/5 rounded-md border p-3 text-sm"
-          role="status"
-        >
+        <Alert tone="warning">
           {unavailable} activity source{unavailable === 1 ? " is" : "s are"} temporarily
           unavailable. Available records are shown below.
-        </p>
+        </Alert>
       ) : null}
       {health ? (
         <section

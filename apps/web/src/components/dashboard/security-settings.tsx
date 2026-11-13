@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { Check, Copy, KeyRound, ShieldCheck } from "lucide-react";
 import { AccountApiError, accountMutation, accountRequest } from "@/lib/account-api";
 import { notifySessionChanged } from "@/lib/session-events";
 import { DashboardAsyncState, DashboardPageHeader } from "./dashboard-workbench";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -238,12 +239,7 @@ export function SecuritySettings() {
         </div>
       ) : null}
       {notice ? (
-        <p
-          role="status"
-          className="border-signal-green/30 bg-signal-green/5 rounded-md border p-4 text-sm"
-        >
-          {notice}
-        </p>
+        <Alert tone="success">{notice}</Alert>
       ) : null}
       {status && !loading ? (
         <Card>
@@ -347,14 +343,11 @@ export function SecuritySettings() {
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <Button
                       type="submit"
-                      disabled={busy || code.length !== 6}
+                      loading={busy}
+                      disabled={!busy && code.length !== 6}
                       className="h-auto min-h-11 whitespace-normal py-3"
                     >
-                      {busy ? (
-                        <Loader2 aria-hidden="true" className="animate-spin" />
-                      ) : (
-                        <KeyRound aria-hidden="true" />
-                      )}{" "}
+                      <KeyRound aria-hidden="true" />{" "}
                       Enable two-factor authentication
                     </Button>
                     <Button
@@ -380,15 +373,11 @@ export function SecuritySettings() {
                   </p>
                 ) : null}
                 <Button
-                  disabled={busy}
+                  loading={busy}
                   onClick={() => void startSetup()}
                   className="h-auto min-h-11 whitespace-normal py-3"
                 >
-                  {busy ? (
-                    <Loader2 aria-hidden="true" className="animate-spin" />
-                  ) : (
-                    <KeyRound aria-hidden="true" />
-                  )}{" "}
+                  <KeyRound aria-hidden="true" />{" "}
                   Set up authenticator
                 </Button>
               </div>
@@ -495,10 +484,10 @@ export function SecuritySettings() {
               <Button
                 type="submit"
                 variant={action === "disable" ? "destructive" : "default"}
-                disabled={busy || actionCode.trim().length < 6}
+                loading={busy}
+                disabled={!busy && actionCode.trim().length < 6}
                 className="h-auto min-h-11 whitespace-normal py-3"
               >
-                {busy ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
                 {action === "disable"
                   ? "Turn off two-factor authentication"
                   : "Generate new recovery codes"}

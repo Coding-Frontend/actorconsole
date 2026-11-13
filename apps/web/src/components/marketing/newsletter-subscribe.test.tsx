@@ -26,8 +26,8 @@ describe("newsletter states", () => {
     });
     fireEvent.submit(screen.getByRole("button", { name: "Subscribe" }).closest("form")!);
     expect(
-      (screen.getByRole("button", { name: /Subscribing/ }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+      screen.getByRole("button", { name: /Subscribing/ }).getAttribute("aria-busy"),
+    ).toBe("true");
     await act(async () => finish({ ok: true, json: async () => ({ ok: true }) }));
     expect(screen.getByRole("status").textContent).toContain("Check your inbox");
   });

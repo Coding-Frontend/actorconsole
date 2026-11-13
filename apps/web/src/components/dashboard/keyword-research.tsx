@@ -11,7 +11,6 @@ import {
   BookmarkCheck,
   ExternalLink,
   GitCompareArrows,
-  Loader2,
   RotateCcw,
   Search,
   SlidersHorizontal,
@@ -21,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { CollectionViewMode, ViewModeToggle } from "@/components/ui/view-mode-toggle";
 import { SelectionActionBar } from "@/components/dashboard/dashboard-workbench";
 import { ChartJsChart } from "@/components/charts/chartjs-chart";
@@ -293,12 +293,13 @@ export function KeywordResearch({ actors }: Props) {
             maxLength={120}
           />
         </div>
-        <Button type="submit" disabled={loading || !q.trim()} className="h-11 px-5">
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Search className="mr-2 h-4 w-4" />
-          )}
+        <Button
+          type="submit"
+          loading={loading}
+          disabled={!loading && !q.trim()}
+          className="h-11 px-5"
+        >
+          <Search className="mr-2 h-4 w-4" />
           Research keyword
         </Button>
       </form>
@@ -352,7 +353,7 @@ export function KeywordResearch({ actors }: Props) {
           className="flex items-center gap-3 border-y border-border/70 py-8 text-sm text-muted-foreground"
           role="status"
         >
-          <Loader2 className="h-4 w-4 animate-spin" /> Researching Store listings…
+          <Spinner decorative /> Researching Store listings…
         </div>
       ) : results === null ? (
         <section className="border border-border/70 bg-muted/15 px-5 py-8 sm:px-8">

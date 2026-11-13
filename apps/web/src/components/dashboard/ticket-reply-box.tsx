@@ -3,7 +3,8 @@
 import { API_BASE_URL } from "@/lib/api-base";
 import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
+import { Send } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
 import { useSessionDraft } from "@/lib/use-session-draft";
@@ -111,11 +112,7 @@ export function TicketReplyBox({ ticketId, userId }: { ticketId: string; userId:
         placeholder="Write a reply…"
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ring"
       />
-      {error && (
-        <p role="alert" className="text-xs text-destructive">
-          {error}
-        </p>
-      )}
+      {error && <Alert tone="danger">{error}</Alert>}
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
         <Button
           type="button"
@@ -129,13 +126,10 @@ export function TicketReplyBox({ ticketId, userId }: { ticketId: string; userId:
         <Button
           onClick={reply}
           className="min-h-11"
-          disabled={busy || !draft.ready || !body.trim()}
+          loading={busy}
+          disabled={!busy && (!draft.ready || !body.trim())}
         >
-          {busy ? (
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          ) : (
-            <Send className="mr-1 h-3 w-3" />
-          )}
+          <Send className="mr-1 h-3 w-3" />
           Send reply
         </Button>
       </div>

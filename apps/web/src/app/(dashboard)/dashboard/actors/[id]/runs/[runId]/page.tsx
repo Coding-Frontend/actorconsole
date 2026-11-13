@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { authenticatedServerFetch } from "@/lib/server-api";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -116,10 +117,10 @@ export default async function ActorRunPage({
       />
 
       {data.storageUnavailable && (
-        <div role="status" className="border-border bg-muted rounded-sm border p-4 text-sm">
+        <Alert tone="info">
           This run is no longer available on Apify. Its saved summary is shown below.
           Logs, datasets, and key-value storage are unavailable.
-        </div>
+        </Alert>
       )}
 
       <nav aria-label="Run details" className="border-border flex flex-wrap gap-1 border-b pb-2">

@@ -5,10 +5,11 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
 import { notifySessionChanged } from "@/lib/session-events";
 import { trackEvent } from "@/lib/analytics-events";
@@ -177,13 +178,10 @@ export function EmailPasswordForm({
             type="submit"
             className="w-full"
             size="lg"
-            disabled={isPending || !twoFactorCode.trim()}
+            loading={isPending}
+            disabled={!isPending && !twoFactorCode.trim()}
           >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Mail className="h-4 w-4" />
-            )}
+            <Mail className="h-4 w-4" />
             Verify and continue
           </Button>
         </div>
@@ -231,18 +229,19 @@ export function EmailPasswordForm({
             type="submit"
             className="w-full"
             size="lg"
-            disabled={isPending || (mode === "signup" && !termsAccepted)}
+            loading={isPending}
+            disabled={!isPending && mode === "signup" && !termsAccepted}
           >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Mail className="h-4 w-4" />
-            )}
+            <Mail className="h-4 w-4" />
             {mode === "login" ? "Sign in with email" : "Create account"}
           </Button>
         </>
       )}
-      {error ? <p id={errorId} role="alert" className="text-destructive text-sm">{error}</p> : null}
+      {error ? (
+        <Alert id={errorId} tone="danger">
+          {error}
+        </Alert>
+      ) : null}
     </form>
   );
 }

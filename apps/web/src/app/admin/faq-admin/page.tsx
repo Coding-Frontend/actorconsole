@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useTransition } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
@@ -11,7 +12,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { ClientCollectionControls } from "@/components/admin/client-collection-controls";
 import { api } from "@/lib/admin/api";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, Pencil, Save, X, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, Pencil, Save, X, ArrowUp, ArrowDown } from "lucide-react";
 
 interface FaqItem {
   id: string;
@@ -190,9 +191,7 @@ export default function AdminFaqPage() {
       <PageHeader title="FAQ" description="Manage frequently asked questions." />
 
       {loadError ? (
-        <p role="alert" className="text-destructive rounded-md border p-3 text-sm">
-          {loadError}
-        </p>
+        <Alert tone="danger">{loadError}</Alert>
       ) : null}
 
       <Card>
@@ -222,8 +221,7 @@ export default function AdminFaqPage() {
             <Label>Answer</Label>
             <Textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} />
           </div>
-          <Button onClick={create} disabled={saving || !question || !answer}>
-            {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+          <Button onClick={create} loading={saving} disabled={!saving && (!question || !answer)}>
             <Plus className="mr-1 h-4 w-4" /> Add
           </Button>
         </CardContent>

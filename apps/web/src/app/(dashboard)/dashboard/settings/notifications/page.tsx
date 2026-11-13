@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell } from "lucide-react";
 import { accountMutation } from "@/lib/account-api";
 import { useAccountResource } from "@/lib/use-account-resource";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/components/dashboard/dashboard-workbench";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 
 interface Prefs {
   marketing: boolean;
@@ -162,27 +163,17 @@ export default function NotificationPrefsPage() {
               </fieldset>
             </CardContent>
           </Card>
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/30 p-3 text-sm text-destructive"
-            >
-              {error}
-            </p>
-          ) : null}
+          {error ? <Alert tone="danger">{error}</Alert> : null}
           <Button
             type="submit"
-            disabled={saving || !dirty || resource.loading || Boolean(resource.error)}
+            loading={saving}
+            loadingText="Saving preferences…"
+            disabled={!saving && (!dirty || resource.loading || Boolean(resource.error))}
             className="min-h-11 w-full sm:w-auto"
           >
-            {saving ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-            {saving ? "Saving preferences…" : "Save preferences"}
+            Save preferences
           </Button>
-          {saved ? (
-            <p role="status" className="text-sm text-signal-green">
-              Preferences saved.
-            </p>
-          ) : null}
+          {saved ? <Alert tone="success">Preferences saved.</Alert> : null}
         </form>
       ) : null}
     </div>

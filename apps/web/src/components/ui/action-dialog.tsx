@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
+import { Field } from "@/components/ui/field";
 
 type MaybeAsync = void | Promise<void>;
 
@@ -66,11 +67,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <Alert tone="danger">{error}</Alert> : null}
         <DialogFooter>
           <Button
             type="button"
@@ -86,9 +83,8 @@ export function ConfirmDialog({
             variant={destructive ? "destructive" : "default"}
             className="h-auto min-h-11 whitespace-normal py-3"
             onClick={() => void handleConfirm()}
-            disabled={pending}
+            loading={pending}
           >
-            {pending ? <Loader2 className="animate-spin" /> : null}
             {confirmLabel}
           </Button>
         </DialogFooter>
@@ -159,12 +155,8 @@ export function PromptDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
-          <label htmlFor="action-dialog-input" className="text-sm font-medium">
-            {label}
-          </label>
+        <Field label={label} required={required}>
           <Input
-            id="action-dialog-input"
             type={inputType}
             value={value}
             placeholder={placeholder}
@@ -177,12 +169,8 @@ export function PromptDialog({
             }}
             disabled={pending}
           />
-        </div>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
+        </Field>
+        {error ? <Alert tone="danger">{error}</Alert> : null}
         <DialogFooter>
           <Button
             type="button"
@@ -195,9 +183,9 @@ export function PromptDialog({
           <Button
             type="button"
             onClick={() => void handleConfirm()}
-            disabled={pending || (required && !value.trim())}
+            loading={pending}
+            disabled={!pending && required && !value.trim()}
           >
-            {pending ? <Loader2 className="animate-spin" /> : null}
             {confirmLabel}
           </Button>
         </DialogFooter>

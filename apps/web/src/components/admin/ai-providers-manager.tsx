@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/admin/api";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -363,10 +364,10 @@ function ProviderCard({
         </div>
 
         {provider.disabledReason ? (
-          <p role="status" className="text-destructive break-words text-sm">
+          <Alert tone="danger" live="polite">
             {provider.disabledReason} Fix the settings or API key, test the provider, then enable it
             again.
-          </p>
+          </Alert>
         ) : null}
         {!provider.readiness.ready ? (
           <p className="text-muted-foreground text-xs">

@@ -2,6 +2,7 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * ActorConsole button system.
@@ -55,16 +56,88 @@ const buttonVariants = cva(
   },
 );
 
+/**
+ * While loading, the spinner takes the place of a leading icon so the width
+ * stays put. A leading icon is the first non-blank child when it is an element
+ * without children (`<Save />`); text, `<span>Label</span>` and trailing icons
+ * such as `Continue <ArrowRight />` are kept.
+ */
+function withoutLeadingIcon(children: React.ReactNode): React.ReactNode {
+  const items = React.Children.toArray(children);
+  const index = items.findIndex((item) => !(typeof item === "string" && item.trim() === ""));
+  const first = items[index];
+  if (React.isValidElement<{ children?: React.ReactNode }>(first) && first.props.children == null) {
+    return items.filter((_, i) => i !== index);
+  }
+  return children;
+}
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /**
+   * Show a busy state for an in-flight action. The button stays focusable
+   * (so keyboard users keep their place) but ignores clicks and blocks form
+   * submission until `loading` is false again.
+   */
+  loading?: boolean;
+  /** Label shown while `loading`; defaults to the regular children. */
+  loadingText?: React.ReactNode;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      loading = false,
+      loadingText,
+      children,
+      onClick,
+      ...props
+    },
+    ref,
+  ) => {
     const Comp = asChild ? Slot : "button";
+
+    const handleClick = loading
+      ? (event: React.MouseEvent<HTMLButtonElement>) => {
+          // Cancelling the click also cancels implicit form submission.
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      : onClick;
+
+    // Slot needs exactly one child, so `asChild` gets the busy semantics but
+    // no injected spinner; the caller owns the rendered content.
+    const content =
+      loading && !asChild ? (
+        <>
+          <Spinner decorative />
+          {loadingText ?? withoutLeadingIcon(children)}
+        </>
+      ) : (
+        children
+      );
+
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp
+        {...props}
+        className={cn(
+          buttonVariants({ variant, size }),
+          loading && "cursor-wait",
+          className,
+        )}
+        ref={ref}
+        aria-busy={loading || props["aria-busy"] || undefined}
+        aria-disabled={loading || props["aria-disabled"] || undefined}
+        data-loading={loading || undefined}
+        onClick={handleClick}
+      >
+        {content}
+      </Comp>
     );
   },
 );

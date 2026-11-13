@@ -11,6 +11,7 @@ import {
 import { ChartFrame, type ChartSeriesDefinition } from "@/components/charts/chart-system";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -151,16 +152,12 @@ export function DefaultDashboard({ payload }: { payload: DefaultDashboardPayload
         </Button>
         <span className="pb-2 text-xs text-muted-foreground">USD · Daily reporting in UTC</span>
       </form>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error && <Alert tone="danger">{error}</Alert>}
       {payload.partial && (
-        <p role="status" className="rounded-sm border border-border bg-muted/40 px-4 py-3 text-sm">
+        <Alert tone="warning">
           Some workspaces have incomplete financial data. Totals include available records; missing
           values appear as —. Open a workspace to sync its reporting.
-        </p>
+        </Alert>
       )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (

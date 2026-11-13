@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/admin/page-header";
 import { api } from "@/lib/admin/api";
 import { formatDate } from "@/lib/utils";
@@ -13,7 +15,6 @@ import {
   Mail,
   Trash2,
   Download,
-  Loader2,
   Users,
   UserX,
   AlertTriangle,
@@ -232,12 +233,7 @@ export default function AdminNewsletterPage() {
       />
 
       {error ? (
-        <div
-          role="alert"
-          className="border-destructive/30 bg-destructive/5 text-destructive rounded-md border p-3 text-sm"
-        >
-          {error}
-        </div>
+        <Alert tone="danger">{error}</Alert>
       ) : null}
 
       {/* Stats cards */}
@@ -344,15 +340,13 @@ export default function AdminNewsletterPage() {
         </fieldset>
         <Button
           onClick={() => setSendOpen(true)}
+          loading={sending}
           disabled={
-            sending || selectedPosts.length === 0 || !subject.trim() || !newsletterTitle.trim()
+            !sending &&
+            (selectedPosts.length === 0 || !subject.trim() || !newsletterTitle.trim())
           }
         >
-          {sending ? (
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="mr-1 h-4 w-4" />
-          )}
+          <Send className="mr-1 h-4 w-4" />
           Queue digest
         </Button>
       </Card>
@@ -498,7 +492,7 @@ export default function AdminNewsletterPage() {
       <Card>
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+            <Spinner size="lg" label="Loading subscribers" className="text-muted-foreground" />
           </div>
         ) : items.length === 0 ? (
           <div className="text-muted-foreground py-12 text-center text-sm">
@@ -541,13 +535,9 @@ export default function AdminNewsletterPage() {
                       size="sm"
                       aria-label={`Remove ${s.email}`}
                       onClick={() => setDeleteId(s.id)}
-                      disabled={deleting === s.id}
+                      loading={deleting === s.id}
                     >
-                      {deleting === s.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="text-destructive h-4 w-4" />
-                      )}
+                      <Trash2 className="text-destructive h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
