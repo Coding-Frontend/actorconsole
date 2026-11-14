@@ -36,16 +36,17 @@ const workspace = "workspace_1";
 const slug = "actorconsole-pro-monthly";
 const paymentId = "pay_Test123";
 
-function send(options: { mode?: "test" | "live"; amount?: number; refunded?: number; signer?: string; stale?: boolean } = {}) {
-  const { mode = "live", amount = 900, refunded, signer = secret, stale } = options;
-  const type = refunded ? "checkout.refunded" : "checkout.paid";
+function send(options: { mode?: "test" | "live"; amount?: number; refunded?: number; signer?: string; stale?: boolean; subtotal?: number; discount?: number } = {}) {
+  const { mode = "live", amount = 900, refunded, signer = secret, stale, subtotal, discount = subtotal } = options;
+  const type = subtotal ? "checkout.complimentary" : refunded ? "checkout.refunded" : "checkout.paid";
   const body = JSON.stringify({
     type,
     id: `${type}:${id}${refunded ? `:${refunded}` : ""}`,
     data: {
-      checkout_id: id, plan: slug, payment_id: paymentId, amount,
+      checkout_id: id, plan: slug, payment_id: subtotal ? null : paymentId, amount,
       currency: "USD", mode, paid_at: new Date().toISOString(),
       ...(refunded ? { refunded_amount: refunded } : {}),
+      ...(subtotal ? { subtotal, discount, payment_required: false } : {}),
     },
   });
   const time = String(Math.floor(Date.now() / 1000) - (stale ? 301 : 0));
@@ -104,6 +105,22 @@ it("records a test payment without changing workspace access", async () => {
     where: { id: "sub" }, data: expect.objectContaining({ status: "test_completed", currentPeriodEnd: null }),
   });
   expect(db.businessProfile.update).not.toHaveBeenCalled();
+});
+
+it("records a complimentary activation only when the signed full discount matches the reservation", async () => {
+  expect((await send({ amount: 0 })).status).toBe(400);
+  expect((await send({ amount: 0, subtotal: 900, discount: 800 })).status).toBe(400);
+  expect((await send({ amount: 0, subtotal: 901 })).status).toBe(409);
+  expect(db.payment.create).not.toHaveBeenCalled();
+  expect((await send({ amount: 0, subtotal: 900 })).status).toBe(200);
+  expect(db.payment.create).toHaveBeenCalledWith({
+    data: expect.objectContaining({ businessProfileId: workspace, amount: 0, status: "complimentary", providerPaymentId: `free_${id}`, capturedAt: null }),
+  });
+  expect(db.subscription.update).toHaveBeenCalledWith({
+    where: { id: "sub" }, data: expect.objectContaining({ status: "active", source: "coupon", paymentBacked: false }),
+  });
+  expect(db.businessProfile.update).toHaveBeenCalledWith({ where: { id: workspace }, data: { plan: "PRO" } });
+  expect(analytics).not.toHaveBeenCalled();
 });
 
 it("applies a full refund once and only to the original prepaid period", async () => {

@@ -20,11 +20,20 @@ const eventData = z.object({
 const eventSchema = z.discriminatedUnion("type", [
   z.object({ id: z.string(), type: z.literal("checkout.paid"), data: eventData }),
   z.object({
+    id: z.string(), type: z.literal("checkout.complimentary"),
+    data: eventData.extend({
+      payment_id: z.null(), amount: z.literal(0), payment_required: z.literal(false),
+      subtotal: z.number().int().min(100).max(100_000_000),
+      discount: z.number().int().min(100).max(100_000_000),
+    }),
+  }),
+  z.object({
     id: z.string(),
     type: z.literal("checkout.refunded"),
     data: eventData.extend({ refunded_amount: z.number().int().positive() }),
   }),
 ]);
+type CheckoutEventData = z.infer<typeof eventSchema>["data"];
 
 function periodEnd(paidAt: Date, interval: "month" | "year") {
   const end = new Date(paidAt);
@@ -64,6 +73,7 @@ export async function codingFrontendWebhook(c: Context<AppEnv>) {
   const paidAt = new Date(data.paid_at);
   const expectedId = `${type}:${data.checkout_id}${refunded ? `:${refunded}` : ""}`;
   if (id !== expectedId || data.mode !== mode || refunded > data.amount ||
+      ("subtotal" in data && data.subtotal !== data.discount) ||
       paidAt.getTime() > Date.now() + 5 * 60_000)
     return c.json({ ok: false }, 400);
 
@@ -71,7 +81,8 @@ export async function codingFrontendWebhook(c: Context<AppEnv>) {
     source: `${provider}:${mode}`,
     externalId: id,
     eventType: type,
-    payload: { checkoutId: data.checkout_id, paymentId: data.payment_id, amount: data.amount, currency: data.currency },
+    payload: { checkoutId: data.checkout_id, paymentId: data.payment_id, amount: data.amount, currency: data.currency,
+      ...("subtotal" in data ? { subtotal: data.subtotal, discount: data.discount } : {}) },
   });
   if (claim.state === "duplicate") return c.json({ ok: true });
   if (claim.state !== "claimed") return c.json({ ok: false }, 503);
@@ -90,13 +101,15 @@ export async function codingFrontendWebhook(c: Context<AppEnv>) {
 }
 
 async function applyEvent(
-  data: z.infer<typeof eventData>,
+  data: CheckoutEventData,
   mode: "test" | "live",
   refunded: number,
   verifiedIntervals: Array<"month" | "year">,
 ) {
   const paidAt = new Date(data.paid_at);
-  const paymentKey = { provider, providerPaymentId: data.payment_id };
+  const complimentary = "subtotal" in data;
+  const reservedAmount = complimentary ? data.subtotal : data.amount;
+  const paymentKey = { provider, providerPaymentId: data.payment_id ?? `free_${data.checkout_id}` };
   const known = await db.payment.findUnique({ where: { provider_providerPaymentId: paymentKey } });
   const operation = await db.billingCheckoutOperation.findUnique({ where: { id: data.checkout_id } });
   const workspaceId = operation?.businessProfileId ?? known?.businessProfileId;
@@ -107,11 +120,12 @@ async function applyEvent(
     const payment = await tx.payment.findUnique({ where: { provider_providerPaymentId: paymentKey } });
     const current = await tx.subscription.findUnique({ where: { businessProfileId: workspaceId } });
     if (payment) {
-      const notes = payment.notes as { interval?: unknown; plan?: unknown } | null;
+      const notes = payment.notes as { interval?: unknown; plan?: unknown; subtotal?: unknown } | null;
       if (payment.businessProfileId !== workspaceId || payment.billingMode !== mode ||
           payment.providerOrderId !== data.checkout_id ||
           Math.round(Number(payment.amount) * 100) !== data.amount || payment.currency !== data.currency ||
-          notes?.plan !== data.plan || !verifiedIntervals.some((interval) => interval === notes.interval))
+          notes?.plan !== data.plan || (complimentary && notes.subtotal !== reservedAmount) ||
+          !verifiedIntervals.some((interval) => interval === notes.interval))
         return false;
       const previous = Math.round(Number(payment.refundedAmount ?? 0) * 100);
       if (refunded > previous) {
@@ -142,7 +156,7 @@ async function applyEvent(
     const pending = await tx.billingCheckoutOperation.findUnique({ where: { id: data.checkout_id } });
     if (!pending || pending.provider !== provider || pending.billingMode !== mode ||
         pending.businessProfileId !== workspaceId || pending.status !== "RESERVED" ||
-        pending.productId !== data.plan || pending.amountMinor !== data.amount ||
+        pending.productId !== data.plan || pending.amountMinor !== reservedAmount ||
         pending.currency !== data.currency || !verifiedIntervals.some((interval) => interval === pending.interval) ||
         !current || current.provider !== provider || current.checkoutOperationId !== pending.id ||
         current.status !== "checkout_pending" || current.billingMode !== mode ||
@@ -151,24 +165,26 @@ async function applyEvent(
 
     const end = periodEnd(paidAt, pending.interval === "year" ? "year" : "month");
     const active = end > new Date();
-    const captured = await tx.payment.create({
+    const checkout = await tx.payment.create({
       data: {
         ...paymentKey, billingMode: mode, providerOrderId: data.checkout_id,
         businessProfileId: workspaceId, userId: pending.userId, subscriptionId: current.id,
-        amount: data.amount / 100, currency: data.currency, status: "captured", capturedAt: paidAt,
+        amount: data.amount / 100, currency: data.currency, status: complimentary ? "complimentary" : "captured",
+        capturedAt: complimentary ? null : paidAt,
         description: `ActorConsole Pro (${pending.interval === "year" ? "yearly" : "monthly"} prepaid)`,
-        notes: { interval: pending.interval, plan: data.plan },
-        analyticsAttributionId: current.analyticsAttributionId,
+        notes: { interval: pending.interval, plan: data.plan, ...(complimentary ? { subtotal: reservedAmount } : {}) },
+        analyticsAttributionId: complimentary ? null : current.analyticsAttributionId,
       },
     });
-    await queuePaymentAnalytics(tx, captured, "purchase", data.amount / 100, paidAt);
+    if (!complimentary) await queuePaymentAnalytics(tx, checkout, "purchase", data.amount / 100, paidAt);
     await tx.subscription.update({
       where: { id: current.id },
       data: {
         status: mode === "test" ? "test_completed" : active ? "active" : "expired",
         currentPeriodEnd: mode === "live" ? end : null,
         providerCheckoutId: data.checkout_id,
-        paymentBacked: true,
+        source: complimentary ? "coupon" : "gateway",
+        paymentBacked: !complimentary,
         stateVersion: { increment: 1 },
       },
     });
