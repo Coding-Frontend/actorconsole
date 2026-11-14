@@ -24,7 +24,7 @@ const wrangler = fileURLToPath(
 const { name, pages_build_output_dir, compatibility_date, compatibility_flags } = JSON.parse(
   readFileSync(join(app, "wrangler.json"), "utf8"),
 );
-if (name !== "actorconsole" || pages_build_output_dir !== "./dist-pages") {
+if (name !== "actorconsole-git" || pages_build_output_dir !== "./dist-pages") {
   throw new Error("Review the Pages project name and output directory before packaging");
 }
 const git = spawnSync("git", ["rev-parse", "HEAD"], { cwd: app, encoding: "utf8" });
