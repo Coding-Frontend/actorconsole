@@ -9,7 +9,6 @@ import {
   ChevronRight,
   CheckCircle2,
   ListChecks,
-  Loader2,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
@@ -19,6 +18,7 @@ import { trackEvent } from "@/lib/analytics-events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -657,8 +657,15 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
                   </div>
                   {["FAILED", "STALE", "APPLY_FAILED"].includes(result.status) ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" disabled={recheckingId !== null} onClick={() => void recheck(result.id)}>
-                        {recheckingId === result.id ? "Queuing recheck…" : "Recheck Actor"}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        loading={recheckingId === result.id}
+                        loadingText="Queuing recheck…"
+                        disabled={recheckingId !== null && recheckingId !== result.id}
+                        onClick={() => void recheck(result.id)}
+                      >
+                        Recheck Actor
                       </Button>
                       <Button size="sm" variant="ghost" asChild>
                         <Link
@@ -672,7 +679,7 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
                 </div>
               ) : resultProgress[result.status] ? (
                 <div role="status" className="text-muted-foreground flex items-center gap-2 text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner decorative size="md" />
                   {resultProgress[result.status]}
                 </div>
               ) : null}
@@ -738,13 +745,10 @@ export function ActorOptimizationReview({ runId }: { runId: string }) {
             </Button>
             <Button
               onClick={() => void approveSelected()}
-              disabled={approving || approvalItems.length === 0}
+              loading={approving}
+              disabled={!approving && approvalItems.length === 0}
             >
-              {approving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
+              <Sparkles className="h-4 w-4" />
               Apply to Apify
             </Button>
           </DialogFooter>

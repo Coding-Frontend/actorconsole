@@ -8,19 +8,20 @@ import { LeaderboardControls } from "@/components/marketing/leaderboard-controls
 import { PublicCompareButton } from "@/components/comparison/public-comparison-provider";
 import { builderCompareItem } from "@/components/comparison/public-comparison-items";
 import { EarningsBand, EarningsMethod } from "@/components/intelligence/earnings-summary";
+import { Alert } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PublicGridSection } from "@/components/marketing/public-grid-section";
 import { LeaderboardTableSkeleton } from "@/components/marketing/public-data-skeleton";
+import { getBuilderLeaderboard } from "@/lib/builders";
 import {
   BUILDER_METRICS,
   BUILDER_WINDOWS,
-  getBuilderLeaderboard,
   metricLabel,
   type BuilderMetric,
   type BuilderSortDirection,
   type BuilderWindow,
-} from "@/lib/builders";
+} from "@actorconsole/shared/builders";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -120,15 +121,17 @@ async function LeaderboardTable({ filters, page }: { filters: Filters; page: num
   } catch (error) {
     log.error({ error }, "Could not load builder leaderboard");
     return (
-      <div role="alert" className="border border-border p-6">
-        <h2 className="font-semibold">Leaderboard could not load</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Public catalog data is temporarily unavailable.
-        </p>
-        <Button className="mt-4" variant="outline" asChild>
-          <Link href={href(filters, { page: String(page) })}>Try again</Link>
-        </Button>
-      </div>
+      <Alert
+        tone="danger"
+        title="Leaderboard could not load"
+        action={
+          <Button variant="outline" asChild>
+            <Link href={href(filters, { page: String(page) })}>Try again</Link>
+          </Button>
+        }
+      >
+        Public catalog data is temporarily unavailable.
+      </Alert>
     );
   }
   const actorMetric: BuilderMetric = filters.metric === "new-actors" ? "new-actors" : "actors";

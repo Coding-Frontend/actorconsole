@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getLogger } from "@actorconsole/shared";
 
 import { ChangelogList } from "@/components/marketing/changelog-list";
+import { Alert } from "@/components/ui/alert";
 import { PublicGridSection } from "@/components/marketing/public-grid-section";
 
 import { getChangelogListing } from "@/services/changelog";
@@ -48,15 +49,17 @@ export default async function ChangelogPage({
         <PublicGridSection frameClassName="py-20">
           <div className="mx-auto max-w-4xl">
             <h1 className="font-display-tight text-4xl font-semibold">Changelog</h1>
-            <p role="alert" className="text-muted-foreground mt-8">
-              The changelog is temporarily unavailable. Please try again shortly.
-            </p>
-            <a
-              href={`/changelog?${query}`}
-              className="text-signal-blue mt-4 inline-block underline"
+            <Alert
+              tone="danger"
+              className="mt-8"
+              action={
+                <a href={`/changelog?${query}`} className="text-signal-blue inline-block underline">
+                  Try again
+                </a>
+              }
             >
-              Try again
-            </a>
+              The changelog is temporarily unavailable. Please try again shortly.
+            </Alert>
           </div>
         </PublicGridSection>
       )}

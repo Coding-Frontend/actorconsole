@@ -1,6 +1,7 @@
 import { absoluteUrl, breadcrumbStructuredData, createPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { SERVER_API_BASE_URL } from "@/lib/api-base";
+import { Alert } from "@/components/ui/alert";
 import { Container, Section } from "@/components/ui/layout";
 import { FaqSearch } from "@/components/marketing/faq-search";
 import { getLogger } from "@actorconsole/shared";
@@ -94,9 +95,9 @@ export default async function FaqPage() {
             <ChromeExtensionLink />
           </div>
           {loadFailed && (
-            <p className="mb-6 text-sm text-muted-foreground" role="status">
+            <Alert tone="warning" className="mb-6">
               Additional help-center answers are temporarily unavailable. Product help is below.
-            </p>
+            </Alert>
           )}
           <FaqSearch groups={groups} />
           <nav

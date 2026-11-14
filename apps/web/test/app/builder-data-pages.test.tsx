@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BuilderActorDetail, BuilderProfile } from "@/lib/builders";
+import type { BuilderActorDetail, BuilderProfile } from "@actorconsole/shared/builders";
 import BuilderPage from "@/app/(marketing)/builders/[username]/view";
 import ActorPage from "@/app/(marketing)/builders/[username]/actors/[actorName]/view";
 

@@ -3,7 +3,8 @@
 import { API_BASE_URL } from "@/lib/api-base";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { X, ShieldCheck, Loader2 } from "lucide-react";
+import { X, ShieldCheck } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 interface AcceptanceData {
   terms: { acceptedAt: string; version: string } | null;
@@ -123,7 +124,7 @@ export function PolicyAcceptanceBanner() {
             disabled={saving}
             className="bg-signal-orange hover:bg-signal-orange/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-60"
           >
-            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+            {saving && <Spinner decorative size="xs" />}
             Accept all
           </button>
           <button

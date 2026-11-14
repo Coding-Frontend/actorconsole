@@ -8,13 +8,14 @@ import {
   Check,
   Download,
   FileText,
-  Loader2,
   Minus,
   Search,
 } from "lucide-react";
 import { auditActorSeo } from "@actorconsole/shared/actor-intelligence";
 import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { downloadCsv } from "./tool-actions";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics-events";
@@ -152,15 +153,13 @@ export function SeoTool() {
           <Button
             type="submit"
             size="lg"
-            disabled={loading || !actor.trim()}
+            loading={loading}
+            loadingText="Auditing…"
+            disabled={!loading && !actor.trim()}
             className="w-full shrink-0 sm:w-auto"
           >
-            {loading ? (
-              <Loader2 className="motion-safe:animate-spin" aria-hidden="true" />
-            ) : (
-              <Search aria-hidden="true" />
-            )}
-            {loading ? "Auditing…" : "Audit listing"}
+            <Search aria-hidden="true" />
+            Audit listing
           </Button>
         </form>
         <p id="seo-actor-hint" className="text-muted-foreground mt-3 text-xs leading-5">
@@ -168,23 +167,15 @@ export function SeoTool() {
           information and leave the listing unchanged.
         </p>
         {error && (
-          <div
-            id="seo-error"
-            role="alert"
-            className="border-destructive/40 text-destructive mt-5 flex items-start gap-3 rounded-sm border p-4 text-sm leading-6"
-          >
-            <AlertCircle className="mt-1 h-4 w-4 shrink-0" aria-hidden="true" />
-            <p>{error}</p>
-          </div>
+          <Alert id="seo-error" tone="danger" className="mt-5">
+            {error}
+          </Alert>
         )}
       </section>
 
       {loading && (
         <div role="status" className="border-border flex items-center gap-4 border-y py-8">
-          <Loader2
-            className="text-signal-orange h-6 w-6 shrink-0 motion-safe:animate-spin"
-            aria-hidden="true"
-          />
+          <Spinner decorative size="lg" className="text-signal-orange" />
           <div>
             <p className="font-medium">Reading the public listing</p>
             <p className="text-muted-foreground mt-1 text-sm">

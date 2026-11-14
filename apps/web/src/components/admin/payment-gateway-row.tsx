@@ -9,14 +9,13 @@ import {
   FlaskConical,
   PackagePlus,
   Save,
-  AlertCircle,
   LockKeyhole,
   Webhook,
-  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api } from "@/lib/admin/api";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -73,6 +72,7 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
     Partial<Record<PaymentMode, Partial<Record<"month" | "year", string>>>>
   >({});
   const [action, setAction] = useState<string | null>(null);
+  const savingSettings = pending && action === "Saving settings";
   const hasPlanChanges = Object.values(planDrafts).some(
     (plans) => Object.keys(plans ?? {}).length > 0,
   );
@@ -370,24 +370,19 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
         </div>
 
         {!readiness.ready ? (
-          <div className="bg-muted/50 mt-6 flex items-start gap-3 rounded-sm p-4" role="status">
-            <AlertCircle
-              className="text-muted-foreground mt-0.5 size-4 shrink-0"
-              aria-hidden="true"
-            />
-            <div className="space-y-1 text-sm leading-relaxed">
-              <p className="font-medium">Finish {mode} setup before enabling checkout</p>
-              <p className="text-muted-foreground">
-                {missingCredentials.length > 0 ? `Add ${missingCredentials.join(", ")}. ` : ""}
-                {readiness.missingProducts.length > 0
-                  ? "Connect at least one Pro subscription option. "
-                  : ""}
-                {missingCredentials.length === 0 && readiness.missingProducts.length === 0
-                  ? "Save credentials and at least one Pro option to complete this environment."
-                  : "Save your settings, then test the connection."}
-              </p>
-            </div>
-          </div>
+          <Alert
+            tone="warning"
+            title={`Finish ${mode} setup before enabling checkout`}
+            className="mt-6"
+          >
+            {missingCredentials.length > 0 ? `Add ${missingCredentials.join(", ")}. ` : ""}
+            {readiness.missingProducts.length > 0
+              ? "Connect at least one Pro subscription option. "
+              : ""}
+            {missingCredentials.length === 0 && readiness.missingProducts.length === 0
+              ? "Save credentials and at least one Pro option to complete this environment."
+              : "Save your settings, then test the connection."}
+          </Alert>
         ) : null}
 
         <div className="grid min-w-0 gap-8 pt-6 xl:grid-cols-2">
@@ -491,6 +486,7 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
                 const value = planDrafts[mode]?.[cycle] ?? field?.value ?? "";
                 const changed = planDrafts[mode]?.[cycle] !== undefined;
                 const label = cycle === "year" ? "Yearly" : "Monthly";
+                const verifying = pending && action === `Verifying ${label.toLowerCase()} plan`;
                 const idLabel =
                   gateway.key === "stripe"
                     ? "Recurring price ID"
@@ -541,18 +537,15 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
                     <div className="flex flex-wrap gap-2">
                       <Button
                         variant="outline"
-                        disabled={pending || dirty || !value.trim()}
+                        loading={verifying}
+                        disabled={!verifying && (pending || dirty || !value.trim())}
                         onClick={() =>
                           runAction(`Verifying ${label.toLowerCase()} plan`, () =>
                             savePlan(cycle, value),
                           )
                         }
                       >
-                        {pending && action === `Verifying ${label.toLowerCase()} plan` ? (
-                          <Loader2 className="animate-spin" aria-hidden="true" />
-                        ) : (
-                          <Check aria-hidden="true" />
-                        )}
+                        <Check aria-hidden="true" />
                         Verify and save {label.toLowerCase()} plan
                       </Button>
                       {changed ? (
@@ -615,14 +608,11 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
           ) : null}
           <Button
             className="flex-1 sm:flex-none"
-            disabled={pending || !dirty}
+            loading={savingSettings}
+            disabled={!savingSettings && (pending || !dirty)}
             onClick={() => runAction("Saving settings", saveConfiguration)}
           >
-            {pending && action === "Saving settings" ? (
-              <Loader2 className="animate-spin" aria-hidden="true" />
-            ) : (
-              <Save aria-hidden="true" />
-            )}
+            <Save aria-hidden="true" />
             Save {mode} settings
           </Button>
         </div>

@@ -4,15 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PublicCompareButton } from "@/components/comparison/public-comparison-provider";
 import type { PublicCompareItem } from "@/components/comparison/public-comparison-items";
-import { pricingEntries } from "@/lib/builders";
+import { pricingEntries } from "@actorconsole/shared/builders";
 import { WatchButton } from "./watch-button";
+import { getActorResearch, getResearchCategories } from "@/lib/actor-research";
 import {
   categoryNames,
-  getActorResearch,
-  getResearchCategories,
   researchSorts,
   type ResearchFilters,
-} from "@/lib/actor-research";
+} from "@actorconsole/shared/actor-research";
 
 const number = (value: number | null) =>
   value == null

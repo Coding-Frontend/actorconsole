@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2, Wrench } from "lucide-react";
+import { CheckCircle2, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
@@ -129,11 +129,10 @@ export function NotificationDetailActions({
             key={action.id}
             type="button"
             onClick={() => void run(action)}
-            disabled={!actorId || Boolean(running) || isComplete}
+            loading={isRunning}
+            disabled={!isRunning && (!actorId || Boolean(running) || isComplete)}
           >
-            {isRunning ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : isComplete ? (
+            {isComplete ? (
               <CheckCircle2 className="mr-2 h-4 w-4" />
             ) : (
               <Wrench className="mr-2 h-4 w-4" />

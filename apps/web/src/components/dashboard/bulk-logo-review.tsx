@@ -11,14 +11,15 @@ import {
   ChevronRight,
   ExternalLink,
   ImageIcon,
-  Loader2,
   RefreshCw,
   Search,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -448,7 +449,8 @@ export function BulkLogoReview() {
         <Button
           type="button"
           variant="outline"
-          disabled={busy || loading}
+          loading={loading}
+          disabled={!loading && busy}
           aria-label="Refresh logo reviews"
           className="col-start-2 row-start-1 h-11 px-3 sm:col-span-2 sm:col-start-auto sm:row-start-auto xl:col-span-1"
           onClick={() => setReload((value) => value + 1)}
@@ -516,13 +518,14 @@ export function BulkLogoReview() {
               <Button
                 type="button"
                 variant="outline"
-                disabled={batch.stopping}
+                loading={batch.stopping}
+                loadingText="Stopping after current Actor…"
                 onClick={() => {
                   stopRequested.current = true;
                   setBatch((current) => (current ? { ...current, stopping: true } : current));
                 }}
               >
-                {batch.stopping ? "Stopping after current Actor…" : "Stop after current"}
+                Stop after current
               </Button>
             ) : null}
           </div>
@@ -591,23 +594,23 @@ export function BulkLogoReview() {
       ) : null}
 
       {loadError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/5 p-5 text-sm"
+        <Alert
+          tone="danger"
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setReload((value) => value + 1)}
+            >
+              Try again
+            </Button>
+          }
         >
-          <p>{loadError}</p>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-3"
-            onClick={() => setReload((value) => value + 1)}
-          >
-            Try again
-          </Button>
-        </div>
+          {loadError}
+        </Alert>
       ) : loading && !data ? (
         <p role="status" className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          <Spinner decorative size="md" />
           Loading logo reviews…
         </p>
       ) : items.length ? (
@@ -882,12 +885,10 @@ export function BulkLogoReview() {
               variant="signal"
               aria-label={`Apply ${logos(selected.size)} to Apify`}
               className="h-11 min-w-0 px-3 dark:text-primary-foreground sm:px-5"
-              disabled={disabled || !selected.size}
+              loading={Boolean(batch?.running)}
+              disabled={!batch?.running && (disabled || !selected.size)}
               onClick={() => setConfirm("apply")}
             >
-              {batch?.running ? (
-                <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              ) : null}
               <span className="sm:hidden">Apply {logos(selected.size)}</span>
               <span className="hidden sm:inline">Apply {logos(selected.size)} to Apify</span>
               <ArrowRight aria-hidden="true" />

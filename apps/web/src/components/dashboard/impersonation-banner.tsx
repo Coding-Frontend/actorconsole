@@ -54,8 +54,14 @@ export function ImpersonationBanner({ status }: { status: MimicStatus | null }) 
             <span className="ml-2 font-normal">Actions apply to this user&apos;s account.</span>
           </span>
         </div>
-        <Button size="sm" variant="outline" onClick={() => void exit()} disabled={busy}>
-          {busy ? "Returning…" : "Return to admin"}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void exit()}
+          loading={busy}
+          loadingText="Returning…"
+        >
+          Return to admin
         </Button>
       </div>
       {error ? (

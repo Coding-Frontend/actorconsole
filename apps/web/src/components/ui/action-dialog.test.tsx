@@ -41,7 +41,7 @@ describe("action dialogs", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Workspace name"), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Workspace name" }), {
       target: { value: "Research" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));

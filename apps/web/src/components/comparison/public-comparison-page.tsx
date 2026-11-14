@@ -4,8 +4,9 @@ import { PublicComparisonPageSelection } from "./public-comparison-provider";
 import { PublicComparisonExplorer } from "./public-comparison-explorer";
 import type { PublicCompareKind } from "./public-comparison-items";
 import { loadPublicComparison } from "@/lib/public-comparison";
-import type { BuilderWindow } from "@/lib/builders";
+import type { BuilderWindow } from "@actorconsole/shared/builders";
 import { HomeGridSection } from "@/components/marketing/home-grid";
+import { Alert } from "@/components/ui/alert";
 
 export async function PublicComparisonPage({
   kind,
@@ -54,10 +55,10 @@ export async function PublicComparisonPage({
           </p>
         </header>
         {missing > 0 ? (
-          <p className="border-border bg-card mb-6 border px-4 py-3 text-sm" role="status">
+          <Alert tone="warning" className="mb-6">
             {missing} selected {kind === "actor" ? "Actor" : "builder"}
             {missing === 1 ? "" : "s"} could not be found in the public catalog.
-          </p>
+          </Alert>
         ) : null}
         <div>
           <PublicComparisonExplorer

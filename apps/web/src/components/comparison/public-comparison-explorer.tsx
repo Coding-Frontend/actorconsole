@@ -3,11 +3,13 @@
 import { EarningsMethod } from "@/components/intelligence/earnings-summary";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, RotateCcw, Search } from "lucide-react";
+import { Plus, RotateCcw, Search } from "lucide-react";
 import { toast } from "sonner";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { BuilderWindow } from "@/lib/builders";
+import { Spinner } from "@/components/ui/spinner";
+import type { BuilderWindow } from "@actorconsole/shared/builders";
 import { ComparisonPanel } from "./comparison-panel";
 import { ComparisonWorkspace } from "./comparison-workspace";
 import {
@@ -233,13 +235,13 @@ export function PublicComparisonExplorer({
       ) : null}
       {searching ? (
         <p className="text-muted-foreground mt-2 flex items-center gap-2 text-xs" role="status">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+          <Spinner decorative size="sm" /> Searching…
         </p>
       ) : null}
       {searchError ? (
-        <p className="text-destructive mt-2 text-xs" role="alert">
+        <Alert tone="danger" className="mt-2">
           {searchError}
-        </p>
+        </Alert>
       ) : null}
       {!searching && query.trim().length >= 2 && !searchError && suggestions.length === 0 ? (
         <p className="text-muted-foreground mt-2 text-xs">
@@ -325,16 +327,11 @@ export function PublicComparisonExplorer({
       ) : null}
 
       {detailError ? (
-        <p
-          className="border-destructive/30 bg-destructive/5 text-destructive border px-4 py-3 text-xs"
-          role="alert"
-        >
-          {detailError}
-        </p>
+        <Alert tone="danger">{detailError}</Alert>
       ) : null}
       {refreshing ? (
         <p className="text-muted-foreground flex items-center gap-2 text-xs" role="status">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Updating comparison details…
+          <Spinner decorative size="sm" /> Updating comparison details…
         </p>
       ) : null}
       {displayItems.length && mode === "page" ? (

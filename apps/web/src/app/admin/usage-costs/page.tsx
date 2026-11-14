@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { DollarSign, TrendingUp, RefreshCw, Calendar, Filter, X } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatCard } from "@/components/admin/stat-card";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/admin/api";
@@ -113,20 +114,17 @@ export default function UsageCostsPage() {
         title="Apify usage costs"
         description="Daily platform expenses charged to the configured Apify account"
         actions={
-          <Button size="sm" onClick={handleSync} disabled={syncing}>
-            <RefreshCw className={`mr-1 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+          <Button size="sm" onClick={handleSync} loading={syncing}>
+            <RefreshCw className="mr-1 h-4 w-4" />
             Sync
           </Button>
         }
       />
 
       {loadError ? (
-        <div
-          role="alert"
-          className="border-destructive/30 bg-destructive/5 text-destructive mt-6 rounded-md border p-3 text-sm"
-        >
+        <Alert tone="danger" className="mt-6">
           {loadError}
-        </div>
+        </Alert>
       ) : null}
 
       <div className="border-border mt-6 grid gap-3 rounded-lg border p-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_160px_160px_180px_120px_110px_auto_auto]">

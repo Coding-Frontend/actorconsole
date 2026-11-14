@@ -1,13 +1,14 @@
 "use client";
 
 import * as Popover from "@radix-ui/react-popover";
-import { AlertCircle, Bell, ChevronRight, Inbox, Loader2 } from "lucide-react";
+import { AlertCircle, Bell, ChevronRight, Inbox } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE_URL } from "@/lib/api-base";
 import { NotificationLink } from "@/components/dashboard/notification-link";
 import { DASHBOARD_STATUS_CHANGED_EVENT } from "@/components/dashboard/dashboard-navigation";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 interface NotificationPreview {
@@ -136,7 +137,9 @@ export function NotificationCenter({ unreadNotifications = 0 }: { unreadNotifica
                   : "No unread notifications"}
               </p>
             </div>
-            {loading ? <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" /> : null}
+            {loading ? (
+              <Spinner label="Loading notifications" className="text-muted-foreground" />
+            ) : null}
           </div>
 
           <div className="max-h-[min(28rem,calc(100vh-10rem))] overflow-y-auto">

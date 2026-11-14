@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 export function MimicSessionRecovery() {
@@ -31,13 +32,11 @@ export function MimicSessionRecovery() {
         Return to your administrator account to continue.
       </p>
       {error ? (
-        <p role="alert" className="text-destructive text-sm">
-          {error}
-        </p>
+        <Alert tone="danger">{error}</Alert>
       ) : null}
       <div className="flex gap-3">
-        <Button onClick={() => void restore()} disabled={busy}>
-          {busy ? "Returning…" : "Return to admin"}
+        <Button onClick={() => void restore()} loading={busy} loadingText="Returning…">
+          Return to admin
         </Button>
         <Button variant="outline" asChild>
           <Link href="/login">Sign in again</Link>

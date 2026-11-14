@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, RotateCcw } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api-base";
 import { Button } from "@/components/ui/button";
@@ -42,12 +42,8 @@ export function DeletionPendingScreen({ scheduledFor }: { scheduledFor: string }
             permanent deletion on {new Date(scheduledFor).toLocaleString()}.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={cancelDeletion} disabled={cancelling}>
-              {cancelling ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RotateCcw className="h-4 w-4" />
-              )}
+            <Button onClick={cancelDeletion} loading={cancelling}>
+              <RotateCcw className="h-4 w-4" />
               Cancel deletion
             </Button>
             <Button variant="outline" asChild>

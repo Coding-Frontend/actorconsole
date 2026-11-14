@@ -10,6 +10,7 @@ import {
 } from "@actorconsole/shared/default-dashboard";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-workbench";
 import { WORKSPACE_CHANGED_EVENT } from "@/components/dashboard/onboarding-gate";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { API_BASE_URL } from "@/lib/api-base";
@@ -53,11 +54,7 @@ export function PublishingOverview({ payload }: { payload: PublishingOverviewPay
           </Button>
         }
       />
-      {error && (
-        <p role="alert" className="text-destructive text-sm">
-          {error}
-        </p>
-      )}
+      {error && <Alert tone="danger">{error}</Alert>}
       <Card>
         <CardContent className="p-4 sm:p-5">
           <dl className="grid grid-cols-2 gap-5 lg:grid-cols-4">

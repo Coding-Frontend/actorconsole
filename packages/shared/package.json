@@ -11,6 +11,10 @@
       "types": "./dist/builder-history.d.ts",
       "import": "./dist/builder-history.js"
     },
+    "./builders": {
+      "types": "./dist/builders.d.ts",
+      "import": "./dist/builders.js"
+    },
     "./default-dashboard": {
       "types": "./dist/default-dashboard.d.ts",
       "import": "./dist/default-dashboard.js"
@@ -18,6 +22,10 @@
     "./actor-earnings": {
       "types": "./dist/actor-earnings.d.ts",
       "import": "./dist/actor-earnings.js"
+    },
+    "./actor-research": {
+      "types": "./dist/actor-research.d.ts",
+      "import": "./dist/actor-research.js"
     },
     ".": {
       "types": "./dist/index.d.ts",

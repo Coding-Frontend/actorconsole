@@ -10,7 +10,6 @@ import {
   ChevronUp,
   Clock3,
   History,
-  Loader2,
   RefreshCw,
   XCircle,
 } from "lucide-react";
@@ -19,6 +18,7 @@ import { API_BASE_URL } from "@/lib/api-base";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import type {
   BulkStatusOperation,
   BulkStatusOperationDetail,
@@ -59,7 +59,7 @@ function statusClasses(status: string) {
 }
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === "RUNNING") return <Loader2 className="h-4 w-4 animate-spin" />;
+  if (status === "RUNNING") return <Spinner decorative size="md" />;
   if (status === "SUCCEEDED") return <CheckCircle2 className="h-4 w-4" />;
   if (status === "FAILED") return <XCircle className="h-4 w-4" />;
   if (status === "PARTIAL") return <AlertTriangle className="h-4 w-4" />;
@@ -177,8 +177,8 @@ export function BulkStatusOperations({ initialOperationId }: { initialOperationI
             Immediate Store lifecycle operations with a durable result for every Actor.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void load(true)} disabled={refreshing}>
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+        <Button variant="outline" onClick={() => void load(true)} loading={refreshing}>
+          <RefreshCw className="h-4 w-4" /> Refresh
         </Button>
       </div>
 

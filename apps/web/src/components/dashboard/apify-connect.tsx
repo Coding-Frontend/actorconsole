@@ -4,6 +4,7 @@ import { API_BASE_URL } from "@/lib/api-base";
 import { trackEvent } from "@/lib/analytics-events";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ChromeExtensionLink } from "@/components/chrome-extension-link";
 import { Input, Textarea } from "@/components/ui/input";
@@ -392,11 +393,12 @@ export function ApifyConnect({
           variant="outline"
           size="sm"
           onClick={checkConnection}
-          disabled={pending}
+          loading={pending}
+          loadingText="Checking…"
           className="w-fit shrink-0"
         >
-          <RefreshCw className={pending ? "animate-spin" : ""} />
-          {pending ? "Checking…" : "Check connection now"}
+          <RefreshCw />
+          Check connection now
         </Button>
       </div>
     );
@@ -405,16 +407,9 @@ export function ApifyConnect({
   function renderValidationError() {
     if (!status.validationError) return null;
     return (
-      <div
-        className="border-destructive/35 bg-destructive/[0.045] flex items-start gap-2 border p-3 text-sm"
-        role="alert"
-      >
-        <AlertTriangle className="text-destructive mt-0.5 h-4 w-4 shrink-0" />
-        <div>
-          <p className="font-medium">Connection validation details</p>
-          <p className="text-muted-foreground mt-1">{status.validationError}</p>
-        </div>
-      </div>
+      <Alert tone="danger" title="Connection validation details">
+        {status.validationError}
+      </Alert>
     );
   }
 
@@ -780,20 +775,20 @@ export function ApifyConnect({
         </a>
         <Button
           onClick={connect}
-          disabled={pending || !hasCredentialInput || !connectionReady || credentialInputInvalid}
+          loading={pending}
+          loadingText="Connecting…"
+          disabled={!pending && (!hasCredentialInput || !connectionReady || credentialInputInvalid)}
         >
-          {pending
-            ? "Connecting…"
-            : (submitLabel ??
-              (editingCredential === "api"
-                ? status.apiKeyConfigured
-                  ? "Replace API key"
-                  : "Add API key"
-                : editingCredential === "publishing"
-                  ? publishingConfigured
-                    ? "Replace Console credential"
-                    : "Connect Console session"
-                  : "Connect Apify"))}
+          {submitLabel ??
+            (editingCredential === "api"
+              ? status.apiKeyConfigured
+                ? "Replace API key"
+                : "Add API key"
+              : editingCredential === "publishing"
+                ? publishingConfigured
+                  ? "Replace Console credential"
+                  : "Connect Console session"
+                : "Connect Apify")}
         </Button>
       </div>
     </div>

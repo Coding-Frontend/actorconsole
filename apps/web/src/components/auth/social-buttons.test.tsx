@@ -145,8 +145,8 @@ describe("SocialButtons", () => {
       expect(
         screen
           .getByRole("button", { name: `Continue with ${provider}` })
-          .hasAttribute("disabled"),
-      ).toBe(true);
+          .getAttribute("aria-busy"),
+      ).toBe("true");
 
       await act(async () => {
         window.dispatchEvent(new Event("blur"));

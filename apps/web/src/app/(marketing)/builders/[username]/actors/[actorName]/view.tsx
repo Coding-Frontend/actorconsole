@@ -12,12 +12,12 @@ import { ObservedMetricBarChart } from "@/components/marketing/observed-metric-b
 import { PublicActorDocumentation } from "@/components/marketing/public-actor-documentation";
 import { PublicCompareButton } from "@/components/comparison/public-comparison-provider";
 import { actorCompareItem } from "@/components/comparison/public-comparison-items";
+import { getBuilderActorDetail } from "@/lib/builders";
 import {
   BUILDER_WINDOWS,
-  getBuilderActorDetail,
   type BuilderWindow,
   type BuilderActorDetail,
-} from "@/lib/builders";
+} from "@actorconsole/shared/builders";
 
 function compact(value: number) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(

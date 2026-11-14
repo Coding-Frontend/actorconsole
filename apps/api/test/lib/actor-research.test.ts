@@ -7,7 +7,8 @@ vi.mock("@actorconsole/db", async () => {
 });
 vi.mock("../../src/lib/public-cache.js", () => ({ publicCache: (load: unknown) => load }));
 
-import { getActorResearch, researchFilters } from "../../src/lib/actor-research.js";
+import { getActorResearch } from "../../src/lib/actor-research.js";
+import { researchFilters } from "@actorconsole/shared/actor-research";
 import { encodeApiData } from "@actorconsole/shared/api-data";
 
 describe("Actor research raw SQL metrics", () => {

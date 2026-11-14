@@ -28,6 +28,7 @@ import { trackEventBeforeNavigation } from "@/lib/analytics-events";
 import { ActorCardActions } from "@/components/dashboard/actor-card-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -1013,12 +1014,9 @@ export function ActorsWorkspace({
     <div className="space-y-8">
       <WorkspaceState {...earnings} retry={earnings.refresh} />
       {notice === "add-actor-first" ? (
-        <div
-          className="border-signal-orange/30 bg-signal-orange/10 rounded-lg border px-4 py-3 text-sm text-signal-orange"
-          role="status"
-        >
+        <Alert tone="warning">
           Connect Apify and sync at least one Actor before creating a publishing schedule.
-        </div>
+        </Alert>
       ) : null}
 
       <div className="dashboard-filter-rail flex flex-col gap-3 rounded-sm border border-border/70 bg-card/95 p-3 sm:p-4">
@@ -1049,23 +1047,19 @@ export function ActorsWorkspace({
               variant="outline"
               size="sm"
               onClick={() => void refreshFromApify()}
-              disabled={syncing || !apiStatus?.apiKeyConfigured}
-              aria-busy={syncing}
+              loading={syncing}
+              loadingText="Refreshing…"
+              disabled={!syncing && !apiStatus?.apiKeyConfigured}
               title={
                 !apiStatus?.apiKeyConfigured
                   ? "Connect an Apify API key to refresh actors"
                   : undefined
               }
             >
-              <RefreshCw
-                className={syncing ? "motion-safe:animate-spin" : undefined}
-                aria-hidden="true"
-              />
-              {syncing
-                ? "Refreshing…"
-                : syncProgress && !["completed", "failed"].includes(syncProgress.state)
-                  ? "Check sync progress"
-                  : "Refresh from Apify"}
+              <RefreshCw aria-hidden="true" />
+              {syncProgress && !["completed", "failed"].includes(syncProgress.state)
+                ? "Check sync progress"
+                : "Refresh from Apify"}
             </Button>
             <ViewModeToggle value={view} onValueChange={updateView} label="Actors view" />
             <div className="hidden xl:block">
@@ -1107,9 +1101,7 @@ export function ActorsWorkspace({
           </div>
         </div>
         {syncError ? (
-          <p className="text-sm text-destructive" role="alert">
-            {syncError}
-          </p>
+          <Alert tone="danger">{syncError}</Alert>
         ) : syncMessage ? (
           <p className="text-sm text-muted-foreground" role="status">
             {syncMessage}
@@ -1241,13 +1233,9 @@ export function ActorsWorkspace({
                   size="sm"
                   variant="outline"
                   onClick={() => void selectAllMatchingActors()}
-                  disabled={selectingAll}
+                  loading={selectingAll}
                 >
-                  {selectingAll ? (
-                    <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
-                  ) : (
-                    <CheckSquare2 className="mr-2 h-4 w-4" />
-                  )}
+                  <CheckSquare2 className="mr-2 h-4 w-4" />
                   Select all {total} results
                 </Button>
               ) : null}
@@ -1488,10 +1476,12 @@ export function ActorsWorkspace({
             </Button>
             <Button
               onClick={() => void startOptimizationAudit()}
-              disabled={startingAudit || improvementFields.length === 0}
+              loading={startingAudit}
+              loadingText="Starting generation…"
+              disabled={!startingAudit && improvementFields.length === 0}
             >
               <Sparkles className="mr-2 h-4 w-4" />
-              {startingAudit ? "Starting generation…" : "Generate selected improvements"}
+              Generate selected improvements
             </Button>
           </DialogFooter>
         </DialogContent>

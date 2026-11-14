@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Loader2, Save, Send, Trash2 } from "lucide-react";
+import { Save, Send, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
@@ -200,12 +200,21 @@ export function PolicyEditor({ slug, versions }: { slug: string; versions: Polic
       </div>
 
       <div className="flex gap-2">
-        <Button disabled={saving || !editable} onClick={() => save("DRAFT")} variant="outline">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        <Button
+          loading={saving}
+          disabled={!saving && !editable}
+          onClick={() => save("DRAFT")}
+          variant="outline"
+        >
+          <Save className="h-4 w-4" />
           Save draft
         </Button>
-        <Button disabled={saving || !editable} onClick={() => setPublishOpen(true)}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        <Button
+          loading={saving}
+          disabled={!saving && !editable}
+          onClick={() => setPublishOpen(true)}
+        >
+          <Send className="h-4 w-4" />
           Publish
         </Button>
       </div>
