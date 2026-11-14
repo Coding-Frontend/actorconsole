@@ -12,3 +12,5 @@ CodingFrontend collects a one-time Razorpay payment for one calendar month or ye
 6. Process refunds from the Razorpay account used by CodingFrontend. Razorpay’s confirmed refund event updates ActorConsole. If capture notification delivery fails, retry the partner webhook for the order from CodingFrontend's Orders screen.
 
 Keep a plan’s signing secret available for late payment and refund notifications. For an interrupted checkout, select the same plan again to reopen the same order. If its price or plan was changed while payment was pending, reconcile the original order before replacing the reservation.
+
+For a no-charge checkout, apply CodingFrontend D1 migration `0007_single_use_partner_coupons.sql` and deploy ActorConsole's complimentary webhook handler before issuing any codes. In **CodingFrontend Admin → Checkout → Coupons**, create a 100% percentage code for one specific ActorConsole plan. Each code can complete one signed checkout and grants the selected period through a signed `checkout.complimentary` event. Regular prices and capture checks still apply when a customer does not use a coupon.

@@ -17,6 +17,7 @@ export function providerSubscriptionPlan(
   periodEnd: Date | null,
   now = new Date(),
   paymentBacked = false,
+  source?: string,
 ): "PRO" | "FREE" | null {
   const future = !!periodEnd && periodEnd > now;
   if (provider === "stripe") {
@@ -32,7 +33,7 @@ export function providerSubscriptionPlan(
       : "FREE";
   }
   if (provider === "codingfrontend") {
-    return status === "active" && paymentBacked && future ? "PRO" : "FREE";
+    return status === "active" && (paymentBacked || source === "coupon") && future ? "PRO" : "FREE";
   }
   if (provider === "razorpay") {
     // Mandate authorization and checkout creation are not subscription payments.

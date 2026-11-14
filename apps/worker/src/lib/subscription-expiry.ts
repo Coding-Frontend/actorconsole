@@ -29,6 +29,7 @@ export async function reconcileExpiredSubscriptions(now = new Date(), prepaidOnl
         subscription.currentPeriodEnd,
         now,
         subscription.paymentBacked,
+        subscription.source,
       ) !== "FREE"
     )
       continue;
