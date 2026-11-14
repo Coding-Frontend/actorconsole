@@ -336,7 +336,7 @@ export function BillingCard({
                 Cancel subscription
               </Button>
             ) : null}
-            {plan === "PRO" && subscription?.provider !== "codingfrontend" && !gateways.some((gateway) => gateway.key === "codingfrontend") ? (
+            {plan === "PRO" && subscription?.provider !== "codingfrontend" ? (
               <details className="border-border border-t pt-4">
                 <summary className="focus-visible:ring-ring cursor-pointer text-sm font-medium focus-visible:ring-2">
                   Manage billing address

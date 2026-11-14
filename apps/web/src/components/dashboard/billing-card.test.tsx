@@ -41,6 +41,19 @@ function checkoutFetch() {
 }
 
 describe("BillingCard purchase choices", () => {
+  it.each([["codingfrontend", false], ["dodo", true]] as const)(
+    "shows the address editor according to the existing %s subscription",
+    (provider, showAddress) => {
+      render(<BillingCard
+        plan="PRO"
+        canCancelSubscription={false}
+        gateways={[{ ...gateways[0], key: "codingfrontend" }]}
+        subscription={{ provider, status: "active", currentPeriodEnd: null, cancelAtPeriodEnd: false }}
+      />);
+      expect(Boolean(screen.queryByText("Manage billing address"))).toBe(showAddress);
+    },
+  );
+
   it.each(["month", "year"] as const)("opens the %s hosted checkout without saving a billing address", async (interval) => {
     const navigate = vi.spyOn(window.location, "href", "set").mockImplementation(() => {});
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
