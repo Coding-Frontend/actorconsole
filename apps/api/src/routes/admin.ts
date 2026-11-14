@@ -874,6 +874,10 @@ export const adminRoutes = new Hono<AppEnv>()
       const sub = await db.subscription.findUnique({ where: { id } });
       if (!sub) return c.json({ ok: false, error: { code: "not_found" } }, 404);
 
+      if (sub.provider === "codingfrontend") {
+        return c.json({ ok: false, error: { code: "prepaid_access", message: "Prepaid access ends automatically." } }, 409);
+      }
+
       const claimed = await db.subscription.updateMany({
         where: { id, status: sub.status },
         data: { status: "cancellation_pending" },
@@ -883,9 +887,6 @@ export const adminRoutes = new Hono<AppEnv>()
       }
 
       let providerResult: { status: string; cancelAtPeriodEnd: boolean } | null = null;
-      if (sub.provider === "codingfrontend") {
-        return c.json({ ok: false, error: { code: "prepaid_access", message: "Prepaid access ends automatically." } }, 409);
-      }
       if (sub.provider !== "manual" && (sub.providerSubscriptionId || sub.razorpaySubscriptionId)) {
         try {
           providerResult = await cancelProviderSubscription(sub);

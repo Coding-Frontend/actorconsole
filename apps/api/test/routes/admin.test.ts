@@ -22,6 +22,7 @@ const {
     subscription: {
       count: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       upsert: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -714,6 +715,18 @@ describe("Admin routes", () => {
     });
     expect(response.status).toBe(409);
     expect(mockDb.paymentGateway.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["active", "checkout_pending"])("leaves %s prepaid access intact on admin cancellation", async (status) => {
+    mockDb.subscription.findUnique.mockResolvedValueOnce({ id: "prepaid", status, provider: "codingfrontend" });
+    const response = await adminRequest("/admin/subscriptions/prepaid/cancel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: "prepaid_access" } });
+    expect(mockDb.subscription.updateMany).not.toHaveBeenCalled();
   });
 
   it("disables Dodo only as part of a verified CodingFrontend live activation", async () => {
