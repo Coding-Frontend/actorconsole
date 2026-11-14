@@ -5,7 +5,7 @@
  * for use in frontend/admin code without a DB import.
  */
 
-export const PAYMENT_GATEWAY_KEYS = ["stripe", "razorpay", "dodo"] as const;
+export const PAYMENT_GATEWAY_KEYS = ["stripe", "razorpay", "dodo", "codingfrontend"] as const;
 export type PaymentGatewayKey = (typeof PAYMENT_GATEWAY_KEYS)[number];
 export type PaymentMode = "test" | "live";
 
@@ -51,7 +51,9 @@ export function proCheckoutProductKey(gateway: PaymentGatewayKey, interval: Bill
       ? "stripe_price_id_pro"
       : gateway === "razorpay"
         ? "razorpay_plan_id_pro"
-        : "dodo_product_id_pro";
+        : gateway === "codingfrontend"
+          ? "codingfrontend_plan_slug_pro"
+          : "dodo_product_id_pro";
   return `${base}_${interval}`;
 }
 
@@ -92,11 +94,21 @@ export interface PaymentGatewayDefinition {
   sortOrder: number;
   credentialKeys: readonly string[];
   productKeys: readonly string[];
-  callbackKey: string;
+  callbackKey: string | null;
   webhookPath: string;
 }
 
 export const PAYMENT_GATEWAY_DEFAULTS: PaymentGatewayDefinition[] = [
+  {
+    key: "codingfrontend",
+    name: "CodingFrontend Checkout",
+    enabled: false,
+    sortOrder: 5,
+    credentialKeys: ["codingfrontend_origin"],
+    productKeys: ["codingfrontend_plan_slug_pro"],
+    callbackKey: null,
+    webhookPath: "/api/billing/webhooks/codingfrontend",
+  },
   {
     key: "stripe",
     name: "Stripe",
@@ -141,6 +153,7 @@ export function paymentGatewayLabel(key: string): string {
     stripe: "Stripe",
     razorpay: "Razorpay",
     dodo: "Dodo Payments",
+    codingfrontend: "CodingFrontend Checkout",
   };
   return map[key] ?? key;
 }

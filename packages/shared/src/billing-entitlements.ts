@@ -31,6 +31,9 @@ export function providerSubscriptionPlan(
       ? "PRO"
       : "FREE";
   }
+  if (provider === "codingfrontend") {
+    return status === "active" && paymentBacked && future ? "PRO" : "FREE";
+  }
   if (provider === "razorpay") {
     // Mandate authorization and checkout creation are not subscription payments.
     return paymentBacked && future && ["active", "pending", "cancelled", "completed"].includes(status)

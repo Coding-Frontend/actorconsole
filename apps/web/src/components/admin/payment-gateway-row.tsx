@@ -102,7 +102,9 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
       return;
     }
 
-    toast.success(`${gateway.name} ${enabled ? "enabled" : "disabled"}`);
+    toast.success(enabled && gateway.key === "codingfrontend" && activeMode === "live"
+      ? "CodingFrontend enabled. Dodo checkout disabled."
+      : `${gateway.name} ${enabled ? "enabled" : "disabled"}`);
     router.refresh();
   }
 
@@ -115,8 +117,10 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
       ? [
           ...definition.credentialKeys,
           ...(gateway.key === "dodo" ? ["dodo_brand_id"] : []),
+          ...(gateway.key === "codingfrontend"
+            ? ["codingfrontend_webhook_secret_month", "codingfrontend_webhook_secret_year"] : []),
           ...gatewayProductKeys(definition.key),
-          definition.callbackKey,
+          ...(definition.callbackKey ? [definition.callbackKey] : []),
         ].map((key) => ({
           key,
           label: INTEGRATION_BY_KEY[key]?.label ?? key,
@@ -346,6 +350,9 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
                 ? "Test payments do not charge real money."
                 : "Live payments charge customers using live credentials."}{" "}
               Saving settings does not change the checkout mode.
+              {gateway.key === "codingfrontend" && mode === "live" ? (
+                <> Switching to live checkout requires both plans and turns off new Dodo checkout.</>
+              ) : null}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -398,10 +405,12 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
                 className="flex items-center gap-2 font-semibold"
               >
                 <LockKeyhole className="size-4" aria-hidden="true" />
-                API credentials
+                {gateway.key === "codingfrontend" ? "Hosted checkout" : "API credentials"}
               </h3>
               <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-                Use credentials from your provider&apos;s {mode} environment.
+                {gateway.key === "codingfrontend"
+                  ? "Create an integration for each Pro period in CodingFrontend Checkout and require a signed link."
+                  : <>Use credentials from your provider&apos;s {mode} environment.</>}
               </p>
               <div className="mt-5 space-y-5">{credentialFields.map(renderField)}</div>
               <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
@@ -475,7 +484,7 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
               className="flex items-center gap-2 font-semibold"
             >
               <PackagePlus className="size-4" aria-hidden="true" />
-              Pro subscriptions
+              {gateway.key === "codingfrontend" ? "Prepaid Pro plans" : "Pro subscriptions"}
             </h3>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Set up monthly and yearly billing for this environment.
@@ -496,7 +505,7 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
                     ? "Recurring price ID"
                     : gateway.key === "razorpay"
                       ? "Plan ID"
-                      : "Subscription product ID";
+                      : gateway.key === "codingfrontend" ? "Checkout plan slug" : "Subscription product ID";
                 return (
                   <div key={cycle} className="min-w-0 space-y-4 p-4 sm:p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -576,9 +585,9 @@ export function PaymentGatewayRow({ gateway, webhookUrl }: PaymentGatewayRowProp
               })}
             </div>
             <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
-              Prices and currency are read from the provider. Edit pricing in your provider
-              dashboard, then verify and save the plan to refresh it here. Each ID must bill once
-              per month or once per year. Existing subscriptions keep their current plan.
+              {gateway.key === "codingfrontend"
+                ? "Set prices in CodingFrontend, then verify and save each plan here. Buyers prepay for one month or one year."
+                : "Prices and currency are read from the provider. Edit pricing in your provider dashboard, then verify and save the plan here. Each ID must bill once per month or year."}
             </p>
           </section>
         </div>

@@ -1,4 +1,4 @@
-import type { ProBillingOption, PaymentMode } from "@actorconsole/shared/payment-gateways";
+import type { ProBillingOption, PaymentMode, PaymentGatewayKey } from "@actorconsole/shared/payment-gateways";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ export default async function BillingPage({
   searchParams,
 }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
+  const returnCheckoutId = typeof query?.checkout_id === "string" && /^[a-f0-9]{32}$/.test(query.checkout_id)
+    ? query.checkout_id : null;
   const billingDestination =
     query?.interval === "year" ? "/dashboard/billing?interval=year" : "/dashboard/billing";
   const [response, gatewayResponse] = await Promise.all([
@@ -36,6 +38,8 @@ export default async function BillingPage({
       billingMode?: string | null;
       providerSubscriptionId: string | null;
       providerProductId: string | null;
+      providerCheckoutId?: string | null;
+      checkoutOperationId?: string | null;
       razorpaySubscriptionId: string | null;
     }>;
     billingAddresses: {
@@ -50,15 +54,19 @@ export default async function BillingPage({
   };
   const gatewayBody = gatewayResponse.ok ? await gatewayResponse.json() : { data: [] };
   const gateways = (gatewayBody.data ?? []) as Array<{
-    key: "stripe" | "razorpay" | "dodo";
+    key: PaymentGatewayKey;
     name: string;
     billingOptions: ProBillingOption[];
     mode?: PaymentMode;
   }>;
 
+  const paymentReturn = Boolean(returnCheckoutId && user.subscriptions.some(
+    (sub) => sub.provider === "codingfrontend" && sub.checkoutOperationId === returnCheckoutId,
+  ));
   const activeSub = user.subscriptions.find(
     (subscription) =>
       ["active", "cancellation_pending"].includes(subscription.status) ||
+      (subscription.provider === "codingfrontend" && subscription.status === "test_completed" && paymentReturn) ||
       (subscription.cancelAtPeriodEnd &&
         subscription.currentPeriodEnd !== null &&
         new Date(subscription.currentPeriodEnd) > new Date()),
@@ -83,6 +91,7 @@ export default async function BillingPage({
 
       <BillingCard
         plan={user.plan}
+        paymentReturn={paymentReturn}
         initialInterval={query?.interval === "year" ? "year" : "month"}
         canCancelSubscription={Boolean(
           (activeSub?.providerSubscriptionId ?? activeSub?.razorpaySubscriptionId) &&
@@ -94,6 +103,7 @@ export default async function BillingPage({
         subscription={
           activeSub
             ? {
+                provider: activeSub.provider,
                 status: activeSub.status,
                 billingMode: activeSub.billingMode,
                 currentPeriodEnd: activeSub.currentPeriodEnd,

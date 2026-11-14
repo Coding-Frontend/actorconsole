@@ -19,6 +19,7 @@ describe("terminal subscription expiry", () => {
     ["dodo", "cancelled"],
     ["razorpay", "active"],
     ["razorpay", "pending"],
+    ["codingfrontend", "active"],
   ])("removes expired %s %s entitlement", async (provider, status) => {
     let plan = "PRO";
     const row = {

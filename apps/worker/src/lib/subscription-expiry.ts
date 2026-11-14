@@ -1,16 +1,21 @@
 import { db } from "@actorconsole/db";
 import { EXPIRING_SUBSCRIPTION_STATUSES, providerSubscriptionPlan } from "@actorconsole/shared";
 
-export async function reconcileExpiredSubscriptions(now = new Date()) {
+export async function reconcileExpiredSubscriptions(now = new Date(), prepaidOnly = false) {
   const candidates = await db.subscription.findMany({
     where: {
       currentPeriodEnd: { lte: now },
       businessProfileId: { not: null },
-      OR: [
-        { provider: "manual", status: "active" },
-        { provider: "razorpay", status: { in: ["active", "pending"] } },
-        { status: { in: [...EXPIRING_SUBSCRIPTION_STATUSES] } },
-      ],
+      ...(prepaidOnly
+        ? { provider: "codingfrontend", status: "active" }
+        : {
+            OR: [
+              { provider: "manual", status: "active" },
+              { provider: "codingfrontend", status: "active" },
+              { provider: "razorpay", status: { in: ["active", "pending"] } },
+              { status: { in: [...EXPIRING_SUBSCRIPTION_STATUSES] } },
+            ],
+          }),
     },
   });
   let expired = 0;

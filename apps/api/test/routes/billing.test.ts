@@ -8,6 +8,8 @@ const {
   mockReadiness,
   mockDodoClient,
   mockConfiguredProduct,
+  mockBillingOptions,
+  mockHostedPlan,
   mockStripeClient,
   mockGetIntegration,
   mockRetrieveSubscription,
@@ -42,6 +44,8 @@ const {
   mockReadiness: vi.fn(),
   mockDodoClient: vi.fn(),
   mockConfiguredProduct: vi.fn(),
+  mockBillingOptions: vi.fn(),
+  mockHostedPlan: vi.fn(),
   mockStripeClient: vi.fn(),
   mockGetIntegration: vi.fn(),
   mockRetrieveSubscription: vi.fn(),
@@ -59,6 +63,7 @@ vi.mock("../../src/lib/billing-providers.js", () => ({
   retrieveProviderSubscription: (...args: unknown[]) => mockRetrieveSubscription(...args),
   createProviderCheckout: (...args: unknown[]) => mockCreateCheckout(...args),
   configuredCheckoutProduct: (...args: unknown[]) => mockConfiguredProduct(...args),
+  gatewayBillingOptions: mockBillingOptions,
   cancelProviderSubscription: (...args: unknown[]) => mockCancel(...args),
   gatewayReadiness: (...args: unknown[]) => mockReadiness(...args),
   getDodoClient: (...args: unknown[]) => mockDodoClient(...args),
@@ -66,6 +71,10 @@ vi.mock("../../src/lib/billing-providers.js", () => ({
 }));
 vi.mock("../../src/lib/integrations.js", () => ({
   getIntegration: (...args: unknown[]) => mockGetIntegration(...args),
+}));
+vi.mock("../../src/lib/codingfrontend-checkout.js", async (original) => ({
+  ...await original<typeof import("../../src/lib/codingfrontend-checkout.js")>(),
+  fetchCodingFrontendPlan: mockHostedPlan,
 }));
 vi.mock("../../src/lib/analytics.js", () => ({ trackEvent: vi.fn() }));
 vi.mock("@actorconsole/shared", async (importOriginal) => ({
@@ -99,6 +108,37 @@ let storedCheckout: any;
 const applyUpdate = (row: any, data: any) => Object.fromEntries(Object.entries({ ...row, ...data }).map(([key, value]) => [key, value && typeof value === "object" && "increment" in value ? (row?.[key] ?? 0) + value.increment : value]));
 
 describe("Provider-neutral billing routes", () => {
+  it("issues a signed hosted link and resumes the same workspace order", async () => {
+    mockDb.paymentGateway.findUnique.mockResolvedValue({
+      key: "codingfrontend", name: "CodingFrontend Checkout", enabled: true, config: { mode: "live" },
+    });
+    mockConfiguredProduct.mockResolvedValue("actorconsole-monthly");
+    mockBillingOptions.mockResolvedValue([{ interval: "month", amountMinor: 1900, currency: "USD" }]);
+    const plan = {
+      slug: "actorconsole-monthly", origin: "https://codingfrontend.in",
+      secret: "a".repeat(64), amount: 1900, currency: "USD", mode: "live",
+    };
+    const checkout = () => buildApp().request("/billing/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gateway: "codingfrontend", plan: "PRO", interval: "month" }),
+    });
+    mockHostedPlan.mockResolvedValue({ ...plan, amount: 1999 });
+    expect((await checkout()).status).toBe(409);
+    expect(mockDb.billingCheckoutOperation.upsert).not.toHaveBeenCalled();
+    mockHostedPlan.mockResolvedValue(plan);
+    const response = await checkout();
+    expect(response.status).toBe(200);
+    const first = (await response.json()).data;
+    const url = new URL(first.checkoutUrl);
+    expect(url.origin).toBe(plan.origin);
+    expect(url.pathname).toBe("/checkout/actorconsole-monthly");
+    expect(url.searchParams.get("token")).toMatch(new RegExp(`^${first.checkoutId}\\.\\d{10}\\.1900\\.USD\\.live\\.[a-f0-9]{64}$`));
+    expect(first.checkoutId).toMatch(/^[a-f0-9]{32}$/);
+    expect((await (await checkout()).json()).data.checkoutId).toBe(first.checkoutId);
+    expect(mockDb.billingCheckoutOperation.upsert).toHaveBeenCalledTimes(1);
+    expect(mockCreateCheckout).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetIntegration.mockReset();
