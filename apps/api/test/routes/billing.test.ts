@@ -1,3 +1,4 @@
+import { createDecipheriv, createHmac } from "node:crypto";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -27,6 +28,7 @@ const {
       update: vi.fn(),
     },
     user: { findUnique: vi.fn() },
+    billingAddress: { findUnique: vi.fn() },
     billingCheckoutOperation: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $queryRaw: vi.fn(),
     webhookDelivery: {
@@ -127,6 +129,7 @@ describe("Provider-neutral billing routes", () => {
     expect((await checkout()).status).toBe(409);
     expect(mockDb.billingCheckoutOperation.upsert).not.toHaveBeenCalled();
     mockHostedPlan.mockResolvedValue(plan);
+    mockDb.billingAddress.findUnique.mockResolvedValue({ address: "12 Main Street", city: "Chennai", country: "in" });
     const response = await checkout();
     expect(response.status).toBe(200);
     const first = (await response.json()).data;
@@ -135,12 +138,26 @@ describe("Provider-neutral billing routes", () => {
     expect(url.pathname).toBe("/checkout/actorconsole-monthly");
     expect(url.searchParams.get("token")).toMatch(new RegExp(`^${first.checkoutId}\\.\\d{10}\\.1900\\.USD\\.live\\.[a-f0-9]{64}$`));
     expect(first.checkoutId).toMatch(/^[a-f0-9]{32}$/);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(url.hash).toBe("");
+    expect(url.searchParams.size).toBe(1);
+    expect(first.checkoutPrefill).not.toContain("Main Street");
+    const payload = Buffer.from(first.checkoutPrefill, "base64url");
+    const key = createHmac("sha256", plan.secret).update("checkout-prefill:v1").digest();
+    const decipher = createDecipheriv("aes-256-gcm", key, payload.subarray(0, 12));
+    decipher.setAAD(Buffer.from(url.searchParams.get("token")!));
+    decipher.setAuthTag(payload.subarray(12, 28));
+    const plain = JSON.parse(Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString("utf8"));
+    expect(plain).toMatchObject({ address: { line1: "12 Main Street", city: "Chennai", country: "IN" } });
+    expect(plain).not.toHaveProperty("phone");
+    expect(mockDb.billingAddress.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "user_1" } }));
     expect((await (await checkout()).json()).data.checkoutId).toBe(first.checkoutId);
     expect(mockDb.billingCheckoutOperation.upsert).toHaveBeenCalledTimes(1);
     expect(mockCreateCheckout).not.toHaveBeenCalled();
   });
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDb.billingAddress.findUnique.mockResolvedValue(null);
     mockGetIntegration.mockReset();
     mockStripeClient.mockReset();
     mockDb.paymentGateway.findUnique.mockResolvedValue({

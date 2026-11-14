@@ -47,7 +47,7 @@ import {
   isDodoLivePaymentsUnavailable,
   isDefinitiveProviderRejection,
 } from "../lib/billing-provider-errors.js";
-import { codingFrontendCheckoutLink, fetchCodingFrontendPlan } from "../lib/codingfrontend-checkout.js";
+import { codingFrontendCheckoutLink, encryptCodingFrontendPrefill, fetchCodingFrontendPlan } from "../lib/codingfrontend-checkout.js";
 import { codingFrontendWebhook } from "./codingfrontend-webhook.js";
 import type { AppEnv } from "../app.js";
 
@@ -190,6 +190,10 @@ export const billingRoutes = new Hono<AppEnv>()
           error: { code: "billing_price_changed", message: "This plan's price needs to be verified again. Contact billing support." },
         }, 409);
       }
+      const billing = await db.billingAddress.findUnique({
+        where: { userId: session.userId },
+        select: { company: true, gstin: true, address: true, city: true, state: true, zip: true, country: true },
+      });
       const operationId = await reserveBillingCheckout({
         businessProfileId: session.businessProfileId,
         userId: session.userId,
@@ -199,12 +203,25 @@ export const billingRoutes = new Hono<AppEnv>()
         price: { amountMinor: hostedPlan.amount, currency: hostedPlan.currency },
         analytics: hasAnalyticsConsent(c.req.header("cookie")) ? analytics : undefined,
       });
+      const checkoutUrl = codingFrontendCheckoutLink({ ...hostedPlan, id: operationId });
+      const country = billing?.country.trim().toUpperCase();
+      const checkoutPrefill = encryptCodingFrontendPrefill(hostedPlan.secret, checkoutUrl, {
+        name: user.name,
+        email: user.email,
+        address: billing ? {
+          company: billing.company, gstin: billing.gstin, line1: billing.address,
+          city: billing.city, region: billing.state, postalCode: billing.zip,
+          country: country && /^[A-Z]{2}$/.test(country) ? country : undefined,
+        } : undefined,
+      });
+      c.header("Cache-Control", "private, no-store");
       return c.json({
         ok: true,
         data: {
           gateway,
           checkoutId: operationId,
-          checkoutUrl: codingFrontendCheckoutLink({ ...hostedPlan, id: operationId }),
+          checkoutUrl,
+          checkoutPrefill,
           status: "checkout_pending",
         },
       });

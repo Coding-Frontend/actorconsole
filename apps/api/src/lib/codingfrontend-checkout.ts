@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { BillingInterval } from "@actorconsole/shared";
 import { apiEnv } from "../config/env.js";
@@ -100,4 +100,15 @@ export function codingFrontendCheckoutLink(input: {
   const url = new URL(`/checkout/${input.slug}`, input.origin);
   url.searchParams.set("token", `${token}.${sign(input.secret, `checkout.v1:${input.slug}:${token}`)}`);
   return url.href;
+}
+
+export function encryptCodingFrontendPrefill(secret: string, checkoutUrl: string, details: object) {
+  const token = new URL(checkoutUrl).searchParams.get("token");
+  if (!token) throw new Error("Checkout token is required for prefill.");
+  const iv = randomBytes(12);
+  const key = createHmac("sha256", secret).update("checkout-prefill:v1").digest();
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(Buffer.from(token));
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(details), "utf8"), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url");
 }
