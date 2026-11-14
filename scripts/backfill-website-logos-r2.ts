@@ -6,9 +6,7 @@ if (extraArgs.length || (mode !== "--copy" && mode !== "--verify")) {
   throw new Error("Specify --copy to copy and verify, or --verify to check R2 only");
 }
 
-const db = new PrismaClient();
-
-try {
+async function backfill(db: PrismaClient, copyMissing: boolean) {
   let cursor: string | undefined;
   let verified = 0;
   while (true) {
@@ -24,7 +22,7 @@ try {
       const results = await Promise.allSettled(
         logos.slice(start, start + 8).map(async (logo) => {
           try {
-            await verifyWebsiteLogoInR2(logo, mode === "--copy");
+            await verifyWebsiteLogoInR2(logo, copyMissing);
           } catch (error) {
             throw new Error(`Failed to verify logo ${logo.id}`, { cause: error });
           }
@@ -43,6 +41,18 @@ try {
     console.log(`Verified ${verified} website logos`);
   }
   console.log(`Verified all ${verified} website logos in R2`);
-} finally {
-  await db.$disconnect();
 }
+
+async function main() {
+  const db = new PrismaClient();
+  try {
+    await backfill(db, mode === "--copy");
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error("R2 logo verification failed", error);
+  process.exitCode = 1;
+});

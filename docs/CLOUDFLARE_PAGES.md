@@ -36,6 +36,8 @@ node_modules/.bin/tsx scripts/backfill-website-logos-r2.ts --verify
 
 For the storage rollout, set `WEBSITE_LOGO_STORAGE_BACKEND=r2-mirror` on the API and worker to retain a filesystem copy of new logos. Run the verification again after both services restart. Use `filesystem` to return to the local volume during the transition. A deployment with a verified copy and no persistent volume can use `r2`.
 
+Production uses `r2` for website logos. The API and background worker use the private `actorconsole-website-logos` bucket. On November 14, 2026, the migration verified the byte count and SHA-256 checksum of all 3,679 database-referenced logos. The VPS volume still contains the files copied during the migration. Backfill any subsequent R2 writes to the volume before using it as the primary store.
+
 ## D1 rehearsal
 
 Create a dedicated D1 database named `actorconsole-d1-staging`. Set `CLOUDFLARE_ACCOUNT_ID` and run `node scripts/rehearse-d1-staging.mjs --remote` with Wrangler authenticated for that account. The script derives SQLite DDL from the current Prisma schema, imports it into an empty staging database, and exercises it with synthetic records.
@@ -43,3 +45,13 @@ Create a dedicated D1 database named `actorconsole-d1-staging`. Set `CLOUDFLARE_
 The rehearsal checks table names, payment uniqueness, foreign keys, JSON, and a retry of a background job claim. It also checks that the existing MySQL row lock and implicit support ticket numbering require application changes. Keep production application data and credentials out of this rehearsal.
 
 Before a production cutover, port the application's transaction, money, and job behavior, then import and reconcile a representative dataset within the selected D1 plan's limits. Verify account access, payment retries, job processing, and recovery with the application connected to staging. Verify the Cloudflare runtime and rollback procedure before routing production traffic.
+
+## Workers backend rehearsal
+
+On November 14, 2026, the staging Worker used a 90-table D1 schema generated from the application and a separate private R2 bucket. The rehearsal used synthetic records. The Next.js sign-in form, session creation and deletion, public FAQ, R2 logo delivery, and queue claim and retry checks passed with staging runtime adapters.
+
+D1 rejected Prisma interactive transactions. The first write in a Prisma batch survived a failure of the second write. A native D1 SQL batch rolled back both writes in the equivalent test. The app could read support tickets, but creating one returned HTTP 500. Checkout reservation also failed. Each flow needs a D1 implementation that preserves the existing transaction behavior.
+
+Production uses MariaDB. The production tables and indexes occupied about 4.48 GB on the VPS, and one snapshot table held 672 MB of JSON payloads. D1 Free allows 500 MB per database. Measure the imported SQLite size and test retention and growth before selecting a production layout.
+
+A separate Worker connected to a synthetic MariaDB instance over private Hyperdrive. It passed the job claim and retry checks, sign-in, support ticket creation, checkout reservation, and an explicit row-lock and rollback test. Cloudflare measured 58 ms of CPU for the ticket request, above the Workers Free 10 ms budget. The current native `sharp` build also failed to start in the Workers runtime. The full production API and background processor still run on the VPS. Provider integrations and continuous background processing were outside these staging checks.
