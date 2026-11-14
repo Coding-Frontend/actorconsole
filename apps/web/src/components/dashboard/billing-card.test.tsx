@@ -41,6 +41,39 @@ function checkoutFetch() {
 }
 
 describe("BillingCard purchase choices", () => {
+  it.each([["codingfrontend", false], ["dodo", true]] as const)(
+    "shows the address editor according to the existing %s subscription",
+    (provider, showAddress) => {
+      render(<BillingCard
+        plan="PRO"
+        canCancelSubscription={false}
+        gateways={[{ ...gateways[0], key: "codingfrontend" }]}
+        subscription={{ provider, status: "active", currentPeriodEnd: null, cancelAtPeriodEnd: false }}
+      />);
+      expect(Boolean(screen.queryByText("Manage billing address"))).toBe(showAddress);
+    },
+  );
+
+  it.each(["month", "year"] as const)("opens the %s hosted checkout without saving a billing address", async (interval) => {
+    const navigate = vi.spyOn(window.location, "href", "set").mockImplementation(() => {});
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: { checkoutUrl: "https://codingfrontend.in/checkout/actorconsole?token=signed", checkoutPrefill: "encrypted" },
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <BillingCard plan="FREE" initialInterval={interval} canCancelSubscription={false}
+        gateways={[{ ...gateways[0], key: "codingfrontend" }]} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+    expect(screen.queryByLabelText("Address")).toBeNull();
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("https://codingfrontend.in/checkout/actorconsole?token=signed#prefill=encrypted"),
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toMatch(/billing\/checkout$/);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ plan: "PRO", interval, gateway: "codingfrontend" });
+  });
+
   it("honors yearly intent passed from pricing and displays the full charge", () => {
     render(
       <BillingCard
