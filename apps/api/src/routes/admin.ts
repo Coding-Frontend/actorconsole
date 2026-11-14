@@ -883,6 +883,9 @@ export const adminRoutes = new Hono<AppEnv>()
       }
 
       let providerResult: { status: string; cancelAtPeriodEnd: boolean } | null = null;
+      if (sub.provider === "codingfrontend") {
+        return c.json({ ok: false, error: { code: "prepaid_access", message: "Prepaid access ends automatically." } }, 409);
+      }
       if (sub.provider !== "manual" && (sub.providerSubscriptionId || sub.razorpaySubscriptionId)) {
         try {
           providerResult = await cancelProviderSubscription(sub);
@@ -1073,6 +1076,9 @@ export const adminRoutes = new Hono<AppEnv>()
       const id = c.req.param("id");
       const { amount, reason } = c.req.valid("json");
       const payment = await db.payment.findUnique({ where: { id } });
+      if (payment?.provider === "codingfrontend") {
+        return c.json({ ok: false, error: { code: "provider_refund", message: "Refund this order in CodingFrontend's Razorpay account." } }, 409);
+      }
       if (!payment || !payment.razorpayPaymentId) {
         return c.json({ ok: false, error: { code: "no_payment_id" } }, 400);
       }
@@ -1902,13 +1908,25 @@ export const adminRoutes = new Hono<AppEnv>()
           },
           409,
         );
+      const cutover = key === "codingfrontend" && mode === "live" && before.enabled;
+      if (cutover) {
+        const check = await checkCodingFrontendCutover();
+        if (check) return c.json({ ok: false, error: { code: "gateway_not_ready", message: check } }, 409);
+      }
       await saveGatewaySettings(key, mode, {});
       const migrated = await db.paymentGateway.findUnique({ where: { key } });
-      await db.paymentGateway.update({
+      const setMode = db.paymentGateway.update({
         where: { key },
         data: { config: { ...((migrated?.config ?? {}) as Record<string, any>), mode } },
       });
-      await recordAudit(c, "payment_gateway.mode", `payment_gateway:${key}`, null, { mode });
+      if (cutover) {
+        await db.$transaction([setMode, db.paymentGateway.updateMany({
+          where: { key: "dodo", enabled: true }, data: { enabled: false },
+        })]);
+      } else await setMode;
+      await recordAudit(c, "payment_gateway.mode", `payment_gateway:${key}`, null, {
+        mode, ...(cutover ? { disabledGateway: "dodo" } : {}),
+      });
       return c.json({ ok: true, data: { mode } });
     },
   )
@@ -1943,6 +1961,7 @@ export const adminRoutes = new Hono<AppEnv>()
           404,
         );
       }
+      let cutover = false;
       if (body.enabled) {
         const readiness = await gatewayReadiness(key);
         if (!readiness.ready) {
@@ -1958,8 +1977,13 @@ export const adminRoutes = new Hono<AppEnv>()
             409,
           );
         }
+        cutover = key === "codingfrontend" && readiness.mode === "live" && !before.enabled;
+        if (cutover) {
+          const check = await checkCodingFrontendCutover();
+          if (check) return c.json({ ok: false, error: { code: "gateway_not_ready", message: check } }, 409);
+        }
       }
-      const updated = await db.paymentGateway.update({
+      const update = db.paymentGateway.update({
         where: { key },
         data: {
           ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
@@ -1968,7 +1992,14 @@ export const adminRoutes = new Hono<AppEnv>()
         },
       });
 
-      await recordAudit(c, "payment_gateway.update", `payment_gateway:${key}`, before, updated);
+      const updated = cutover
+        ? (await db.$transaction([update, db.paymentGateway.updateMany({
+            where: { key: "dodo", enabled: true }, data: { enabled: false },
+          })]))[0]
+        : await update;
+      await recordAudit(c, "payment_gateway.update", `payment_gateway:${key}`, before, {
+        ...updated, ...(cutover ? { disabledGateway: "dodo" } : {}),
+      });
       return c.json({ ok: true, data: updated });
     },
   )
@@ -1986,7 +2017,9 @@ export const adminRoutes = new Hono<AppEnv>()
           ? "stripe_secret_key"
           : key === "dodo"
             ? "dodo_api_key"
-            : "razorpay_key_id";
+            : key === "codingfrontend"
+              ? "codingfrontend_origin"
+              : "razorpay_key_id";
       const scopedKey = primaryKey.replace(`${key}_`, `${key}_${context.mode}_`);
       try {
         const message = await testGatewayConnection(key, context.mode);
@@ -2074,6 +2107,9 @@ export const adminRoutes = new Hono<AppEnv>()
       }
       const body = c.req.valid("json");
       try {
+        if (key === "codingfrontend") {
+          return c.json({ ok: false, error: { code: "unsupported", message: "Create the signed plan in CodingFrontend, then verify it here." } }, 400);
+        }
         const product = await createProviderProduct(key, body, body.mode);
         await recordAudit(
           c,
@@ -2203,6 +2239,18 @@ export const adminRoutes = new Hono<AppEnv>()
       return c.json({ ok: true, data: { sessionToken, expiresAt: impersonation.expiresAt } });
     },
   );
+
+async function checkCodingFrontendCutover(): Promise<string | null> {
+  const options = await gatewayBillingOptions("codingfrontend", "live");
+  if (options.length !== 2) return "Verify both monthly and yearly CodingFrontend plans before switching live checkout.";
+  try {
+    await testGatewayConnection("codingfrontend", "live");
+    return null;
+  } catch (error) {
+    return error instanceof Error && !(error instanceof z.ZodError)
+      ? error.message : "CodingFrontend live checkout could not be verified.";
+  }
+}
 
 // ===== Helper =====
 /**

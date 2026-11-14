@@ -4,6 +4,7 @@ import {
   currencyMinorUnitFactor,
   type ProBillingOption,
   type PaymentMode,
+  type PaymentGatewayKey,
 } from "@actorconsole/shared/payment-gateways";
 import {
   PLAN_ACTOR_LIMITS,
@@ -46,15 +47,17 @@ import { ArrowRight } from "lucide-react";
 interface Props {
   plan: "FREE" | "PRO";
   initialInterval?: "month" | "year";
+  paymentReturn?: boolean;
   canCancelSubscription: boolean;
   gateways: Array<{
-    key: "stripe" | "razorpay" | "dodo";
+    key: PaymentGatewayKey;
     name: string;
     billingOptions?: ProBillingOption[];
     mode?: PaymentMode;
   }>;
   billingAddress?: BillingAddress | null;
   subscription?: {
+    provider?: string;
     billingMode?: string | null;
     status: string;
     currentPeriodEnd: string | null;
@@ -77,6 +80,7 @@ export function BillingCard({
   billingAddress = null,
   subscription,
   initialInterval = "month",
+  paymentReturn,
 }: Props) {
   const router = useRouter();
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -93,6 +97,16 @@ export function BillingCard({
   useEffect(() => {
     if (checkoutOffer) checkoutHeading.current?.focus();
   }, [checkoutOffer]);
+
+  useEffect(() => {
+    if (!paymentReturn || plan === "PRO" || subscription?.status === "test_completed") return;
+    const timer = window.setInterval(() => router.refresh(), 2500);
+    const stop = window.setTimeout(() => window.clearInterval(timer), 30_000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+    };
+  }, [paymentReturn, plan, router, subscription?.status]);
 
   function startCheckout() {
     if (!selectedOffer) return;
@@ -253,7 +267,13 @@ export function BillingCard({
                 either Free limit is exceeded.
               </p>
             ) : null}
-            {subscription?.billingMode === "test" ? (
+            {paymentReturn && plan === "FREE" && subscription?.status !== "test_completed" ? (
+              <p className="text-warning text-sm" role="status">Waiting for payment confirmation. This page will refresh automatically.</p>
+            ) : null}
+            {paymentReturn && subscription?.status === "test_completed" ? (
+              <p className="text-warning text-sm" role="status">Test payment confirmed.</p>
+            ) : null}
+            {subscription?.billingMode === "test" && subscription.status !== "test_completed" ? (
               <Badge variant="warning">Test subscription</Badge>
             ) : null}
             {subscription ? (
@@ -270,7 +290,7 @@ export function BillingCard({
                 </div>
                 <div>
                   <p className="text-muted-foreground text-xs">
-                    {subscription.cancelAtPeriodEnd
+                    {subscription.cancelAtPeriodEnd || subscription.provider === "codingfrontend"
                       ? "Access until"
                       : "Next billing date"}
                   </p>
@@ -383,9 +403,9 @@ export function BillingCard({
                     <ArrowRight aria-hidden="true" />
                   </Button>
                   <p className="text-muted-foreground text-xs leading-5">
-                    Subscriptions renew automatically. Final price and
-                    applicable taxes are shown at checkout. You can cancel
-                    future renewals from this page.
+                    {selectedOffer?.gateway.key === "codingfrontend"
+                      ? "Pay once on CodingFrontend for the selected period. Access ends automatically."
+                      : "Subscriptions renew automatically. Final price and applicable taxes are shown at checkout. You can cancel future renewals from this page."}
                   </p>
                 </>
               )}

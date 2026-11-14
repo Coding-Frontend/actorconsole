@@ -66,7 +66,9 @@ export function ProPrice({ offer }: { offer?: ProOffer }) {
       )}
       <p className="text-muted-foreground min-h-5 text-sm">
         {offer
-          ? offer.option.interval === "year"
+          ? offer.gateway.key === "codingfrontend"
+            ? `${offerPrice(offer.option) ?? "Price confirmed at checkout"} for one ${offer.option.interval}. Pay once.`
+            : offer.option.interval === "year"
             ? `${offerPrice(offer.option) ?? "Annual total confirmed at checkout"} billed yearly · Charged for the full year`
             : "Billed monthly. Cancel future renewals anytime."
           : "Current prices and available billing frequencies are shown in workspace billing."}

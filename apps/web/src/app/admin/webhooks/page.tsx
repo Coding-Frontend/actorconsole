@@ -58,7 +58,7 @@ export default async function AdminWebhooksPage({
             {
               name: "source",
               label: "Sources",
-              options: ["stripe", "razorpay", "dodo", "apify"].map((value) => ({
+              options: ["stripe", "razorpay", "dodo", "codingfrontend:live", "codingfrontend:test", "apify"].map((value) => ({
                 value,
                 label: value,
               })),

@@ -31,7 +31,7 @@ const {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
-    paymentGateway: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    paymentGateway: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     payment: {
       updateMany: vi.fn(),
       aggregate: vi.fn(),
@@ -82,6 +82,10 @@ vi.mock("../../src/lib/integrations.js", () => ({
   deleteIntegration: (...args: unknown[]) => mockDeleteIntegration(...args),
   recordIntegrationTest: vi.fn(),
 }));
+vi.mock("../../src/config/env.js", async (original) => {
+  const config = await original<typeof import("../../src/config/env.js")>();
+  return { ...config, apiEnv: { ...config.apiEnv, AUTH_URL: "https://actorconsole.com" } };
+});
 vi.mock("../../src/lib/analytics.js", () => ({ trackEvent: vi.fn() }));
 vi.mock("../../src/lib/billing-providers.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/lib/billing-providers.js")>()),
@@ -710,6 +714,49 @@ describe("Admin routes", () => {
     });
     expect(response.status).toBe(409);
     expect(mockDb.paymentGateway.update).not.toHaveBeenCalled();
+  });
+
+  it("disables Dodo only as part of a verified CodingFrontend live activation", async () => {
+    const gateway = { key: "codingfrontend", enabled: false, config: { mode: "live" } };
+    mockDb.paymentGateway.findUnique.mockResolvedValue(gateway);
+    mockDb.paymentGateway.update.mockResolvedValue({ ...gateway, enabled: true });
+    mockDb.paymentGateway.updateMany.mockResolvedValue({ count: 1 });
+    const settings: Record<string, string> = {
+      codingfrontend_live_origin: "https://codingfrontend.in",
+      codingfrontend_live_plan_slug_pro_month: "actorconsole-monthly",
+      codingfrontend_live_plan_slug_pro_year: "actorconsole-annual",
+      codingfrontend_live_webhook_secret_month: "a".repeat(64),
+      codingfrontend_live_webhook_secret_year: "b".repeat(64),
+      codingfrontend_live_pro_offer_month: JSON.stringify({ productId: "actorconsole-monthly", amountMinor: 1900, currency: "USD" }),
+      codingfrontend_live_pro_offer_year: JSON.stringify({ productId: "actorconsole-annual", amountMinor: 19900, currency: "USD" }),
+    };
+    mockGetIntegration.mockImplementation(async (key: string) => settings[key] ?? null);
+    const enable = () => adminRequest("/admin/payment-gateways/codingfrontend", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled: true }),
+    });
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      expect((await enable()).status).toBe(409);
+      expect(mockDb.paymentGateway.updateMany).not.toHaveBeenCalled();
+      fetch.mockImplementation(async (url: URL) => {
+        const slug = url.searchParams.get("plan");
+        return Response.json({
+          slug, amount: slug === "actorconsole-monthly" ? 1900 : 19900, currency: "USD", mode: "live",
+          returnUrl: "https://actorconsole.com/dashboard/settings/billing",
+          webhookUrl: "https://actorconsole.com/api/billing/webhooks/codingfrontend?mode=live",
+        });
+      });
+      expect((await enable()).status).toBe(200);
+      expect(mockDb.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockDb.paymentGateway.updateMany).toHaveBeenCalledWith({
+        where: { key: "dodo", enabled: true }, data: { enabled: false },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("stores only ApifyRT from an admin resume cURL", async () => {
