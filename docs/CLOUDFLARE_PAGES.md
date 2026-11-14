@@ -1,12 +1,18 @@
 # ActorConsole on Cloudflare Pages
 
-The existing `actorconsole` Pages project serves the frontend preview at `cf-preview.actorconsole.com` and `actorconsole.pages.dev`. Pages Functions runs the bundled Next.js frontend and reads from the existing public API. The preview blocks sign-in, workspace and admin pages, private API paths, and write methods. Search engines receive `noindex`.
+The Git-connected `actorconsole-git` Pages project serves the frontend preview at `actorconsole-git.pages.dev`. Pages Functions runs the bundled Next.js frontend and reads from the existing public API. The preview blocks sign-in, workspace and admin pages, private API paths, and write methods. Search engines receive `noindex`.
 
 ## Frontend deployment
 
-The **Deploy Cloudflare Pages** GitHub Actions workflow uploads the current `main` revision to `actorconsole` after CI succeeds. The workflow verifies both Pages hosts, including their revision, public pages, static assets, and API access. The existing Pages project uses Direct Upload.
+Cloudflare Pages builds and publishes pushes to `main` from `Coding-Frontend/actorconsole`. Preview branch builds are disabled. The build runs from the repository root with Node 22 and pnpm 9.15.0. It installs the frozen lockfile, builds `@actorconsole/shared`, and runs `@actorconsole/web`'s `build:pages` script. Pages serves `apps/web/dist-pages` with the `nodejs_compat` and `global_fetch_strictly_public` compatibility flags.
 
-Configure the GitHub environment named `cloudflare-pages` for `main`. Set its `CLOUDFLARE_ACCOUNT_ID` variable and the `CLOUDFLARE_PAGES_API_TOKEN` secret. Use an API token with Cloudflare Pages Edit permission in the selected account.
+Verify the new deployment against the commit SHA shown in the Pages deployment log.
+
+```bash
+node scripts/check-cloudflare-pages.mjs https://actorconsole-git.pages.dev "$REVISION"
+```
+
+The original `actorconsole` Direct Upload project serves `cf-preview.actorconsole.com` and `actorconsole.pages.dev`. The **Deploy legacy Cloudflare Pages** workflow is available for a manual upload to this project when a Pages Edit token is configured in the `cloudflare-pages` GitHub environment.
 
 For a local preview, use the repository's Node and pnpm versions and run these commands from its root.
 
