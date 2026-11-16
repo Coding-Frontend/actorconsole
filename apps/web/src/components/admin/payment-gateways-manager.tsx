@@ -51,7 +51,9 @@ export function PaymentGatewaysManager({ gateways, siteUrl }: PaymentGatewaysMan
         >
           <PaymentGatewayRow
             gateway={gateway}
-            webhookUrl={`${webhookBase}${gateway.key === "razorpay" ? "/razorpay/webhook" : `/billing/webhooks/${gateway.key}`}`}
+            webhookUrl={gateway.key === "codingfrontend"
+              ? `${siteUrl.replace(/\/+$/, "")}/api/billing/webhooks/codingfrontend`
+              : `${webhookBase}${gateway.key === "razorpay" ? "/razorpay/webhook" : `/billing/webhooks/${gateway.key}`}`}
           />
         </TabsContent>
       ))}

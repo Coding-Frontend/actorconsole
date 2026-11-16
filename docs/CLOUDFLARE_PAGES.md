@@ -1,12 +1,18 @@
 # ActorConsole on Cloudflare Pages
 
-The existing `actorconsole` Pages project serves the frontend preview at `cf-preview.actorconsole.com` and `actorconsole.pages.dev`. Pages Functions runs the bundled Next.js frontend and reads from the existing public API. The preview blocks sign-in, workspace and admin pages, private API paths, and write methods. Search engines receive `noindex`.
+The Git-connected `actorconsole-git` Pages project serves the Next.js frontend. The Pages build serves the full app on `actorconsole.com` using the existing API at `api.actorconsole.com`. Requests for `www.actorconsole.com` redirect to the apex and preserve the path and query. On `actorconsole-git.pages.dev` and `cf-preview.actorconsole.com`, the app serves public reads, blocks account access and writes, and sets `noindex`.
 
 ## Frontend deployment
 
-The **Deploy Cloudflare Pages** GitHub Actions workflow uploads the current `main` revision to `actorconsole` after CI succeeds. The workflow verifies both Pages hosts, including their revision, public pages, static assets, and API access. The existing Pages project uses Direct Upload.
+Cloudflare Pages builds and publishes pushes to `main` from `Coding-Frontend/actorconsole`. Preview branch builds are disabled. The Pages build root is `apps/web` so it loads `wrangler.json`. The build command moves to the repository root, installs the frozen lockfile with Node 22 and pnpm 9.15.0, builds `@actorconsole/shared`, and runs `@actorconsole/web`'s `build:pages` script. The output directory is `dist-pages` relative to the Pages build root.
 
-Configure the GitHub environment named `cloudflare-pages` for `main`. Set its `CLOUDFLARE_ACCOUNT_ID` variable and the `CLOUDFLARE_PAGES_API_TOKEN` secret. Use an API token with Cloudflare Pages Edit permission in the selected account.
+Verify the new deployment against the commit SHA shown in the Pages deployment log.
+
+```bash
+node scripts/check-cloudflare-pages.mjs https://actorconsole-git.pages.dev "$REVISION"
+```
+
+Check `/_pages/revision` on `actorconsole.com` after cutover. Verify the sign-in page, the signed-out dashboard redirect, API health, and the redirect from `www`.
 
 For a local preview, use the repository's Node and pnpm versions and run these commands from its root.
 

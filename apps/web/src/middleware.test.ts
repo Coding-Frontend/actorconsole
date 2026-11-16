@@ -80,6 +80,11 @@ describe("dashboard workspace middleware", () => {
       (await middleware(request("/dashboard/settings/security"))).headers.get("location"),
     ).toBe("https://actorconsole.com/dashboard/security");
   });
+  it("preserves the hosted checkout reference when returning to canonical billing", async () => {
+    const checkout = "1234567890abcdef1234567890abcdef";
+    const response = await middleware(request("/dashboard/settings/billing?checkout_id=" + checkout));
+    expect(response.headers.get("location")).toBe("https://actorconsole.com/dashboard/billing?checkout_id=" + checkout);
+  });
   it("redirects an expired session to login", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
     expect((await middleware(request("/dashboard/actors"))).headers.get("location")).toContain(

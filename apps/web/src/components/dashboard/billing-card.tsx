@@ -4,6 +4,7 @@ import {
   currencyMinorUnitFactor,
   type ProBillingOption,
   type PaymentMode,
+  type PaymentGatewayKey,
 } from "@actorconsole/shared/payment-gateways";
 import {
   PLAN_ACTOR_LIMITS,
@@ -47,15 +48,17 @@ import { ArrowRight } from "lucide-react";
 interface Props {
   plan: "FREE" | "PRO";
   initialInterval?: "month" | "year";
+  paymentReturn?: boolean;
   canCancelSubscription: boolean;
   gateways: Array<{
-    key: "stripe" | "razorpay" | "dodo";
+    key: PaymentGatewayKey;
     name: string;
     billingOptions?: ProBillingOption[];
     mode?: PaymentMode;
   }>;
   billingAddress?: BillingAddress | null;
   subscription?: {
+    provider?: string;
     billingMode?: string | null;
     status: string;
     currentPeriodEnd: string | null;
@@ -78,10 +81,13 @@ export function BillingCard({
   billingAddress = null,
   subscription,
   initialInterval = "month",
+  paymentReturn,
 }: Props) {
   const router = useRouter();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [checkoutOffer, setCheckoutOffer] = useState<ProOffer | null>(null);
+  const [openingCheckout, setOpeningCheckout] = useState(false);
+  const checkoutInProgress = useRef(false);
   const checkoutHeading = useRef<HTMLHeadingElement>(null);
   const upgradeButton = useRef<HTMLButtonElement>(null);
   const offers = selectProOffers(gateways);
@@ -94,6 +100,16 @@ export function BillingCard({
   useEffect(() => {
     if (checkoutOffer) checkoutHeading.current?.focus();
   }, [checkoutOffer]);
+
+  useEffect(() => {
+    if (!paymentReturn || plan === "PRO" || subscription?.status === "test_completed") return;
+    const timer = window.setInterval(() => router.refresh(), 2500);
+    const stop = window.setTimeout(() => window.clearInterval(timer), 30_000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+    };
+  }, [paymentReturn, plan, router, subscription?.status]);
 
   function startCheckout() {
     if (!selectedOffer) return;
@@ -122,12 +138,20 @@ export function BillingCard({
         },
       ],
     });
-    setCheckoutOffer(selectedOffer);
+    if (selectedOffer.gateway.key === "codingfrontend") {
+      void checkout(selectedOffer).catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : "Checkout could not be opened.");
+      });
+    } else {
+      setCheckoutOffer(selectedOffer);
+    }
   }
 
-  async function checkout() {
-    if (!checkoutOffer) return;
-    const context = checkoutContext(checkoutOffer);
+  async function checkout(offer: ProOffer) {
+    if (checkoutInProgress.current) return;
+    checkoutInProgress.current = true;
+    setOpeningCheckout(true);
+    const context = checkoutContext(offer);
     let reason: "network" | "provider" | "invalid_response" = "network";
     try {
       const analytics = await paymentAnalyticsForCheckout();
@@ -137,8 +161,8 @@ export function BillingCard({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           plan: "PRO",
-          gateway: checkoutOffer.gateway.key,
-          interval: checkoutOffer.option.interval,
+          gateway: offer.gateway.key,
+          interval: offer.option.interval,
           ...(analytics ? { analytics } : {}),
         }),
       });
@@ -155,10 +179,23 @@ export function BillingCard({
           "Checkout is temporarily unavailable. Please try again or contact support.",
         );
       await trackEventBeforeNavigation("checkout_redirected", context);
-      window.location.href = checkoutUrl;
+      const url = new URL(checkoutUrl);
+      if (offer.gateway.key === "codingfrontend") {
+        const expectedHost = offer.gateway.mode === "test"
+          ? url.hostname.endsWith(".codingfrontend.in") || url.hostname.endsWith(".workers.dev")
+          : url.hostname === "codingfrontend.in";
+        if (url.protocol !== "https:" || url.username || url.password || url.port || !expectedHost)
+          throw new Error("The hosted checkout address is invalid.");
+        if (typeof body.data.checkoutPrefill === "string")
+          url.hash = new URLSearchParams({ prefill: body.data.checkoutPrefill }).toString();
+      }
+      window.location.href = url.href;
     } catch (error) {
       void trackEvent("checkout_failed", { ...context, reason });
       throw error;
+    } finally {
+      checkoutInProgress.current = false;
+      setOpeningCheckout(false);
     }
   }
 
@@ -254,7 +291,13 @@ export function BillingCard({
                 either Free limit is exceeded.
               </p>
             ) : null}
-            {subscription?.billingMode === "test" ? (
+            {paymentReturn && plan === "FREE" && subscription?.status !== "test_completed" ? (
+              <p className="text-warning text-sm" role="status">Waiting for payment confirmation. This page will refresh automatically.</p>
+            ) : null}
+            {paymentReturn && subscription?.status === "test_completed" ? (
+              <p className="text-warning text-sm" role="status">Test payment confirmed.</p>
+            ) : null}
+            {subscription?.billingMode === "test" && subscription.status !== "test_completed" ? (
               <Badge variant="warning">Test subscription</Badge>
             ) : null}
             {subscription ? (
@@ -271,7 +314,7 @@ export function BillingCard({
                 </div>
                 <div>
                   <p className="text-muted-foreground text-xs">
-                    {subscription.cancelAtPeriodEnd
+                    {subscription.cancelAtPeriodEnd || subscription.provider === "codingfrontend"
                       ? "Access until"
                       : "Next billing date"}
                   </p>
@@ -294,7 +337,7 @@ export function BillingCard({
                 Cancel subscription
               </Button>
             ) : null}
-            {plan === "PRO" ? (
+            {plan === "PRO" && subscription?.provider !== "codingfrontend" ? (
               <details className="border-border border-t pt-4">
                 <summary className="focus-visible:ring-ring cursor-pointer text-sm font-medium focus-visible:ring-2">
                   Manage billing address
@@ -337,7 +380,7 @@ export function BillingCard({
                   <BillingAddressForm
                     initial={billingAddress}
                     checkout
-                    onSaved={checkout}
+                    onSaved={() => checkout(checkoutOffer)}
                     onBack={() => {
                       setCheckoutOffer(null);
                       requestAnimationFrame(() =>
@@ -378,15 +421,15 @@ export function BillingCard({
                     size="lg"
                     className="w-full"
                     onClick={startCheckout}
-                    disabled={!selectedOffer}
+                    disabled={!selectedOffer || openingCheckout}
                   >
-                    Upgrade to Pro
+                    {openingCheckout ? "Opening checkout…" : "Upgrade to Pro"}
                     <ArrowRight aria-hidden="true" />
                   </Button>
                   <p className="text-muted-foreground text-xs leading-5">
-                    Subscriptions renew automatically. Final price and
-                    applicable taxes are shown at checkout. You can cancel
-                    future renewals from this page.
+                    {selectedOffer?.gateway.key === "codingfrontend"
+                      ? "Continue to CodingFrontend to review your billing details and pay for the selected period."
+                      : "Subscriptions renew automatically. Final price and applicable taxes are shown at checkout. You can cancel future renewals from this page."}
                   </p>
                 </>
               )}

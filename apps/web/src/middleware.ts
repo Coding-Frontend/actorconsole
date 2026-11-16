@@ -24,7 +24,9 @@ export default async function middleware(req: NextRequest) {
   };
   const replacement = legacySettingsRoutes[pathname];
   if (replacement) {
-    return NextResponse.redirect(new URL(replacement, req.url));
+    const destination = req.nextUrl.clone();
+    destination.pathname = replacement;
+    return NextResponse.redirect(destination);
   }
 
   const sessionToken =

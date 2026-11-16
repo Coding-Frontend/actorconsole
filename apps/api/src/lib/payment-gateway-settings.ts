@@ -18,6 +18,7 @@ export function isPaymentMode(value: unknown): value is PaymentMode {
 }
 
 export async function legacyGatewayMode(gateway: PaymentGatewayKey): Promise<PaymentMode> {
+  if (gateway === "codingfrontend") return "test";
   const key = await getIntegration(
     gateway === "stripe"
       ? "stripe_secret_key"

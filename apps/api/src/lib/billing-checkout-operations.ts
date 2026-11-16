@@ -7,6 +7,7 @@ import {
 } from "@actorconsole/db";
 import {
   subscriptionBlocksCheckout,
+  isValidPaymentGateway,
   type BillingInterval,
   type PaymentGatewayKey,
 } from "@actorconsole/shared";
@@ -36,6 +37,7 @@ export async function reserveBillingCheckout(input: {
   productId: string;
   interval: BillingInterval;
   analytics?: PaymentAnalyticsInput;
+  price?: { amountMinor: number; currency: string };
 }) {
   return db.$transaction(async (tx) => {
     await lockBillingWorkspace(tx, input.businessProfileId, input.userId);
@@ -45,6 +47,19 @@ export async function reserveBillingCheckout(input: {
     const operation = await tx.billingCheckoutOperation.findUnique({
       where: { businessProfileId: input.businessProfileId },
     });
+    if (
+      input.context.gateway === "codingfrontend" &&
+      existing?.status === "checkout_pending" &&
+      operation?.id === existing.checkoutOperationId &&
+      operation.status === "RESERVED" &&
+      operation?.provider === input.context.gateway &&
+      operation.billingMode === input.context.mode &&
+      operation.productId === input.productId &&
+      operation.interval === input.interval &&
+      operation.amountMinor === input.price?.amountMinor &&
+      operation.currency === input.price?.currency &&
+      operation.userId === input.userId
+    ) return operation.id;
     if (operation && ["RESERVED", "UNKNOWN"].includes(operation.status)) {
       throw new AppError(
         "checkout_in_progress",
@@ -61,7 +76,9 @@ export async function reserveBillingCheckout(input: {
         409,
       );
     }
-    const id = randomUUID();
+    const id = input.context.gateway === "codingfrontend"
+      ? randomUUID().replaceAll("-", "")
+      : randomUUID();
     const analyticsAttributionId = input.analytics
       ? await bindPaymentAnalyticsAttribution(
           tx,
@@ -78,6 +95,8 @@ export async function reserveBillingCheckout(input: {
       billingMode: input.context.mode,
       productId: input.productId,
       interval: input.interval,
+      amountMinor: input.price?.amountMinor ?? null,
+      currency: input.price?.currency ?? null,
       status: "RESERVED",
       providerCheckoutId: null,
       providerSubscriptionId: null,
@@ -106,6 +125,7 @@ export async function reserveBillingCheckout(input: {
         input.context.gateway === "razorpay" ? input.productId : null,
       cancelAtPeriodEnd: false,
       currentPeriodEnd: null,
+      paymentBacked: false,
       shortUrl: null,
     };
     await tx.subscription.upsert({
@@ -200,5 +220,5 @@ export async function failBillingCheckout(operationId: string, error: unknown) {
 }
 
 export function isCheckoutGateway(value: string): value is PaymentGatewayKey {
-  return ["stripe", "dodo", "razorpay"].includes(value);
+  return isValidPaymentGateway(value);
 }

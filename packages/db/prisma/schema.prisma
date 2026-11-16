@@ -335,6 +335,8 @@ model BillingCheckoutOperation {
   billingMode            String
   productId              String
   interval               String
+  amountMinor            Int?
+  currency               String? @db.VarChar(3)
   status                 String
   providerCheckoutId     String?
   providerSubscriptionId String?
@@ -439,8 +441,8 @@ model PaymentAnalyticsEvent {
 
 model PaymentGateway {
   id        String   @id @default(cuid())
-  key       String   @unique // "stripe", "razorpay", "dodo"
-  name      String // Display name: "Stripe", "Razorpay", "Dodo Payments"
+  key       String   @unique
+  name      String
   enabled   Boolean  @default(true)
   sortOrder Int      @default(0)
   config    Json? // Gateway-specific JSON settings

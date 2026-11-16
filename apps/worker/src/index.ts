@@ -1842,6 +1842,15 @@ async function start() {
   const initialPaymentAnalytics = runPaymentAnalytics();
   const paymentAnalyticsTick = once ? undefined : setInterval(() => { void runPaymentAnalytics(); }, 30_000);
 
+  // Check prepaid periods promptly. The guarded database update coordinates replicas.
+  let prepaidExpiry: Promise<void> | null = null;
+  const prepaidExpiryTick = once ? undefined : setInterval(() => {
+    prepaidExpiry ??= reconcileExpiredSubscriptions(new Date(), true)
+      .then((count) => { if (count) log.info({ count }, "Expired prepaid periods reconciled"); })
+      .catch((err) => log.error({ err }, "Prepaid expiry check failed"))
+      .finally(() => { prepaidExpiry = null; });
+  }, 60_000);
+
   // Retention tick — runs once a day. First run is immediate on boot so
   // long-running deployments prune any backlog on the next deploy.
   const runRetentionAsLeader = async () => {
@@ -1893,6 +1902,7 @@ async function start() {
     clearInterval(usageCostTick);
     clearInterval(retentionTick);
     clearInterval(paymentAnalyticsTick);
+    clearInterval(prepaidExpiryTick);
     await Promise.all([
       worker.close(),
       snapshotWorker.close(),
@@ -1902,7 +1912,7 @@ async function start() {
       optimizationWorker.close(),
     ]);
     await Promise.all(queueRegistry.map((q) => q.close()));
-    await Promise.allSettled([initialUsageSync, initialRetention, paymentAnalyticsRun ?? initialPaymentAnalytics]);
+    await Promise.allSettled([initialUsageSync, initialRetention, paymentAnalyticsRun ?? initialPaymentAnalytics, prepaidExpiry]);
     await redis?.quit();
     await db.$disconnect();
     process.exit(0);

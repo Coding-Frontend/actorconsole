@@ -32,7 +32,7 @@ export default async function AdminPaymentGatewaysPage() {
   if (!res.ok) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Payment gateways" description="Configure subscription providers." />
+        <PageHeader title="Payment gateways" description="Configure checkout providers." />
         <AdminApiError message={res.error.message ?? "Failed to load payment gateways"} />
       </div>
     );
@@ -49,7 +49,7 @@ export default async function AdminPaymentGatewaysPage() {
     <div className="space-y-6">
       <PageHeader
         title="Payment gateways"
-        description="Manage checkout providers, environment credentials, and Pro subscription plans."
+        description="Manage checkout providers, environment credentials, and Pro plans."
       />
 
       <dl className="border-border flex flex-wrap gap-x-8 gap-y-3 border-b pb-5 text-sm">

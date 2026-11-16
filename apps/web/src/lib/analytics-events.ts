@@ -5,7 +5,7 @@ import { analyticsPageContext } from "@/lib/analytics-path";
 
 type AuthMethod = "email" | "google" | "github";
 type CheckoutContext = {
-  gateway: "stripe" | "razorpay" | "dodo";
+  gateway: "stripe" | "razorpay" | "dodo" | "codingfrontend";
   payment_mode: "live" | "test" | "unknown";
   billing_interval: "month" | "year";
 };

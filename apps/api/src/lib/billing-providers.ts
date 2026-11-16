@@ -19,6 +19,7 @@ import {
   validatePaymentSetting,
   type GatewayContext,
 } from "./payment-gateway-settings.js";
+import { codingFrontendSecretKey, fetchCodingFrontendPlan } from "./codingfrontend-checkout.js";
 import { apiEnv } from "../config/env.js";
 import { isDodoLivePaymentsUnavailable } from "./billing-provider-errors.js";
 
@@ -61,10 +62,8 @@ async function contextFor(gateway: PaymentGatewayKey, mode?: PaymentMode | Gatew
 }
 
 async function callbackUrl(context: GatewayContext): Promise<string> {
-  const configured = await getPaymentSetting(
-    PAYMENT_GATEWAY_BY_KEY[context.gateway].callbackKey,
-    context,
-  );
+  const key = PAYMENT_GATEWAY_BY_KEY[context.gateway].callbackKey;
+  const configured = key ? await getPaymentSetting(key, context) : null;
   if (configured) return configured;
   return new URL(
     "/dashboard/settings/billing",
@@ -122,7 +121,8 @@ export async function gatewayReadiness(
   const keys = [
     ...definition.credentialKeys,
     ...gatewayProductKeys(gateway),
-    definition.callbackKey,
+    ...(definition.callbackKey ? [definition.callbackKey] : []),
+    ...(gateway === "codingfrontend" ? (["month", "year"] as const).map(codingFrontendSecretKey) : []),
     ...(gateway === "dodo" ? ["dodo_brand_id"] : []),
   ];
   const values = await Promise.all(keys.map((key) => getPaymentSetting(key, context)));
@@ -136,7 +136,10 @@ export async function gatewayReadiness(
   const checkoutKeys = (["month", "year"] as const).map((interval) =>
     proCheckoutProductKey(gateway, interval),
   );
-  const missingProducts = checkoutKeys.some((key) => configured.has(key)) ? [] : checkoutKeys;
+  const hasProduct = gateway === "codingfrontend"
+    ? (await gatewayBillingOptions(gateway, context)).length > 0
+    : checkoutKeys.some((key) => configured.has(key));
+  const missingProducts = hasProduct ? [] : checkoutKeys;
   return {
     mode: context.mode,
     configuredKeys: [...configured],
@@ -182,6 +185,12 @@ export async function gatewayBillingOptions(
         /* Manually configured IDs can omit a price preview. */
       }
     }
+    if (gateway === "codingfrontend") {
+      const secret = await getPaymentSetting(codingFrontendSecretKey(interval), context);
+      if (!option.amountMinor || !["USD", "INR"].includes(option.currency ?? "") ||
+          !secret || validatePaymentSetting(codingFrontendSecretKey(interval), secret, context.mode))
+        continue;
+    }
     options.push(option);
   }
   return options;
@@ -216,6 +225,7 @@ export async function createProviderCheckout(
   interval: BillingInterval,
   mode?: PaymentMode | GatewayContext,
 ): Promise<CheckoutResult> {
+  if (gateway === "codingfrontend") throw new Error("CodingFrontend requires a signed prepaid checkout.");
   const context = await contextFor(gateway, mode);
   const callback = await callbackUrl(context);
 
@@ -481,6 +491,21 @@ export async function importProviderProduct(
   const key = proCheckoutProductKey(gateway, interval);
   const formatError = validatePaymentSetting(key, productId, context.mode);
   if (formatError) throw new Error(formatError);
+  if (gateway === "codingfrontend") {
+    const otherInterval = interval === "month" ? "year" : "month";
+    if (await configuredCheckoutProduct(gateway, otherInterval, context) === productId)
+      throw new Error("Register separate monthly and yearly checkout plans.");
+    const plan = await fetchCodingFrontendPlan(context, interval, productId);
+    await setPaymentSetting(key, productId, context, {
+      label: `CodingFrontend Pro ${interval} plan slug`,
+      category: "payment",
+      isSecret: false,
+    });
+    await saveProOffer(gateway, {
+      plan: "PRO", name: "ActorConsole Pro", amountMinor: plan.amount, currency: plan.currency, interval,
+    }, productId, context);
+    return { productId, amountMinor: plan.amount, currency: plan.currency, interval };
+  }
   let amountMinor: number | null;
   let currency: string;
   if (gateway === "stripe") {
@@ -632,6 +657,18 @@ export async function testGatewayConnection(
       return `Dodo Payments authenticated; ${context.mode} checkout preview passed for ${options.map((option) => (option.interval === "year" ? "yearly" : "monthly")).join(" and ")} Pro.`;
     return `Dodo Payments authenticated (${page.items.length} product returned).`;
   }
+  if (gateway === "codingfrontend") {
+    const options = await gatewayBillingOptions(gateway, context);
+    if (!options.length) throw new Error("Verify and save a signed CodingFrontend plan first.");
+    await Promise.all(options.map(async ({ interval, amountMinor, currency }) => {
+      const slug = await configuredCheckoutProduct(gateway, interval, context);
+      if (!slug) throw new Error("The CodingFrontend plan is missing.");
+      const plan = await fetchCodingFrontendPlan(context, interval, slug);
+      if (plan.amount !== amountMinor || plan.currency !== currency)
+        throw new Error("The CodingFrontend price changed. Verify and save the plan again.");
+    }));
+    return "CodingFrontend verified all configured checkout plans.";
+  }
   const razorpay = await getRazorpayClient(context);
   if (!razorpay) throw new Error("Razorpay API keys are not configured.");
   const payments = await razorpay.payments.all({ count: 1 });
@@ -687,7 +724,7 @@ export async function retrieveProviderSubscription(
       productId: subscription.product_id,
       metadata: subscription.metadata,
     };
-  } else {
+  } else if (context.gateway === "razorpay") {
     const razorpay = await getRazorpayClient(context);
     if (!razorpay) throw new Error("Razorpay is not configured");
     const subscription = await razorpay.subscriptions.fetch(id);
@@ -719,6 +756,8 @@ export async function retrieveProviderSubscription(
       productId: subscription.plan_id,
       metadata: subscription.notes ?? {},
     };
+  } else {
+    throw new Error("Prepaid checkouts do not have a provider subscription.");
   }
   if (
     state.id !== id ||

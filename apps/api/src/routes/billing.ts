@@ -15,7 +15,7 @@ import {
 } from "../lib/billing-analytics.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import { resolveClientIp } from "../lib/client-ip.js";
-import { subscriptionBlocksCheckout } from "@actorconsole/shared";
+import { PAYMENT_GATEWAY_KEYS, subscriptionBlocksCheckout } from "@actorconsole/shared";
 import {
   reserveBillingCheckout,
   completeBillingCheckout,
@@ -33,6 +33,7 @@ import {
   getDodoClient,
   getStripeClient,
   gatewayReadiness,
+  gatewayBillingOptions,
 } from "../lib/billing-providers.js";
 import {
   getGatewayContext,
@@ -46,11 +47,13 @@ import {
   isDodoLivePaymentsUnavailable,
   isDefinitiveProviderRejection,
 } from "../lib/billing-provider-errors.js";
+import { codingFrontendCheckoutLink, encryptCodingFrontendPrefill, fetchCodingFrontendPlan } from "../lib/codingfrontend-checkout.js";
+import { codingFrontendWebhook } from "./codingfrontend-webhook.js";
 import type { AppEnv } from "../app.js";
 
 const checkoutBody = z
   .object({
-    gateway: z.enum(["stripe", "razorpay", "dodo"]),
+    gateway: z.enum(PAYMENT_GATEWAY_KEYS),
     plan: z.literal("PRO"),
     interval: z.enum(["month", "year"]),
     analytics: paymentAnalyticsInput.optional(),
@@ -78,6 +81,7 @@ export const billingRoutes = new Hono<AppEnv>()
       return c.json({ ok: true });
     },
   )
+  .post("/webhooks/codingfrontend", codingFrontendWebhook)
   .post("/checkout", zValidator("json", checkoutBody), async (c) => {
     const session = c.get("session");
     const { gateway, plan, interval, analytics } = c.req.valid("json");
@@ -168,6 +172,59 @@ export const billingRoutes = new Hono<AppEnv>()
         },
         409,
       );
+    }
+    if (gateway === "codingfrontend") {
+      const option = (await gatewayBillingOptions(gateway, context)).find((item) => item.interval === interval);
+      let hostedPlan;
+      try {
+        hostedPlan = await fetchCodingFrontendPlan(context, interval, selectedProductId);
+      } catch {
+        return c.json({
+          ok: false,
+          error: { code: "provider_error", message: "CodingFrontend checkout is temporarily unavailable." },
+        }, 502);
+      }
+      if (!option || option.amountMinor !== hostedPlan.amount || option.currency !== hostedPlan.currency) {
+        return c.json({
+          ok: false,
+          error: { code: "billing_price_changed", message: "This plan's price needs to be verified again. Contact billing support." },
+        }, 409);
+      }
+      const billing = await db.billingAddress.findUnique({
+        where: { userId: session.userId },
+        select: { company: true, gstin: true, address: true, city: true, state: true, zip: true, country: true },
+      });
+      const operationId = await reserveBillingCheckout({
+        businessProfileId: session.businessProfileId,
+        userId: session.userId,
+        context,
+        productId: selectedProductId,
+        interval,
+        price: { amountMinor: hostedPlan.amount, currency: hostedPlan.currency },
+        analytics: hasAnalyticsConsent(c.req.header("cookie")) ? analytics : undefined,
+      });
+      const checkoutUrl = codingFrontendCheckoutLink({ ...hostedPlan, id: operationId });
+      const country = billing?.country.trim().toUpperCase();
+      const checkoutPrefill = encryptCodingFrontendPrefill(hostedPlan.secret, checkoutUrl, {
+        name: user.name,
+        email: user.email,
+        address: billing ? {
+          company: billing.company, gstin: billing.gstin, line1: billing.address,
+          city: billing.city, region: billing.state, postalCode: billing.zip,
+          country: country && /^[A-Z]{2}$/.test(country) ? country : undefined,
+        } : undefined,
+      });
+      c.header("Cache-Control", "private, no-store");
+      return c.json({
+        ok: true,
+        data: {
+          gateway,
+          checkoutId: operationId,
+          checkoutUrl,
+          checkoutPrefill,
+          status: "checkout_pending",
+        },
+      });
     }
     if (existing && subscriptionBlocksCheckout(existing)) {
       if (
@@ -282,6 +339,12 @@ export const billingRoutes = new Hono<AppEnv>()
         { ok: false, error: { code: "no_gateway_subscription" } },
         404,
       );
+    }
+    if (subscription.provider === "codingfrontend") {
+      return c.json({
+        ok: false,
+        error: { code: "prepaid_access", message: "Prepaid access ends automatically." },
+      }, 409);
     }
     if (
       !subscription.providerSubscriptionId &&

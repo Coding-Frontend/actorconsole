@@ -181,6 +181,30 @@ export const INTEGRATION_CATALOG: IntegrationDef[] = [
     pattern: "^https?://.+$",
   },
   {
+    key: "codingfrontend_origin",
+    label: "CodingFrontend HTTPS origin",
+    description: "Use https://codingfrontend.in for live checkout or a separate CodingFrontend host for test checkout.",
+    category: "payment",
+    isSecret: false,
+    pattern: "^https://[a-zA-Z0-9.-]+/?$",
+  },
+  ...(["month", "year"] as const).map((interval) => ({
+    key: `codingfrontend_webhook_secret_${interval}`,
+    label: `CodingFrontend ${interval === "month" ? "monthly" : "yearly"} signing secret`,
+    description: "Copy the matching plan signing secret from CodingFrontend Checkout → Integrations.",
+    category: "payment" as const,
+    isSecret: true,
+    pattern: "^[a-f0-9]{64}$",
+  })),
+  {
+    key: "codingfrontend_plan_slug_pro",
+    label: "CodingFrontend checkout plan slug",
+    description: "The slug of the signed monthly or yearly integration.",
+    category: "payment",
+    isSecret: false,
+    pattern: "^[a-z0-9][a-z0-9-]{1,62}$",
+  },
+  {
     key: "openai_api_key",
     label: "OpenAI API Key",
     description: "Used by the configured OpenAI text provider.",
@@ -319,6 +343,7 @@ for (const key of [
   "stripe_price_id_pro",
   "razorpay_plan_id_pro",
   "dodo_product_id_pro",
+  "codingfrontend_plan_slug_pro",
 ]) {
   const base = INTEGRATION_CATALOG.find((item) => item.key === key)!;
   for (const interval of ["month", "year"] as const) {

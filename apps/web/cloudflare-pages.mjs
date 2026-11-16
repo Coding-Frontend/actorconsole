@@ -3,6 +3,7 @@ import next from "./.open-next/worker.js";
 import "./.open-next/server-functions/default/handler.mjs";
 
 const ASSET_PATHS = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_ASSETS ?? "[]"));
+const PRODUCTION_HOST = "actorconsole.com";
 
 const PRIVATE_PAGES = [
   "/admin",
@@ -38,19 +39,27 @@ function previewResponse(body, status, headers = {}) {
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.hostname === `www.${PRODUCTION_HOST}`) {
+      return Response.redirect(`https://${PRODUCTION_HOST}${url.pathname}${url.search}`, 308);
+    }
+
+    if (url.hostname === PRODUCTION_HOST) {
+      if (url.pathname === "/_pages/revision") return serveRevision(env);
+      if (ASSET_PATHS.has(decodePath(url.pathname))) return env.ASSETS.fetch(request);
+      return next.fetch(request, env, ctx);
+    }
+
     if (!["GET", "HEAD"].includes(request.method)) {
       return previewResponse("This preview accepts public reads only.", 405, {
         allow: "GET, HEAD",
       });
     }
 
-    let pathname;
-    try {
-      pathname = decodeURIComponent(new URL(request.url).pathname);
-    } catch {
-      return previewResponse("Invalid path.", 400);
-    }
+    const pathname = decodePath(url.pathname);
     if (
+      pathname === null ||
       /[%\\]/.test(pathname) ||
       pathname.includes("//") ||
       pathname.split("/").some((segment) => segment === "." || segment === "..")
@@ -69,14 +78,7 @@ export default {
       });
     }
     if (pathname === "/_pages/revision") {
-      return previewResponse(
-        process.env.ACTORCONSOLE_PAGES_REVISION ?? env.CF_PAGES_COMMIT_SHA ?? "local",
-        200,
-        {
-          "cache-control": "no-store",
-          "content-type": "text/plain; charset=utf-8",
-        },
-      );
+      return serveRevision(env);
     }
 
     const headers = new Headers(request.headers);
@@ -102,3 +104,22 @@ export default {
     return result;
   },
 };
+
+function decodePath(pathname) {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+}
+
+function serveRevision(env) {
+  return previewResponse(
+    process.env.ACTORCONSOLE_PAGES_REVISION ?? env.CF_PAGES_COMMIT_SHA ?? "local",
+    200,
+    {
+      "cache-control": "no-store",
+      "content-type": "text/plain; charset=utf-8",
+    },
+  );
+}
