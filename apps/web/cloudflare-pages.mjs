@@ -190,7 +190,11 @@ function isPublicHtml(response) {
 }
 
 async function serveCatalogDocument(request, env, ctx) {
-  const response = await next.fetch(request, env, ctx);
+  const requestHeaders = new Headers(request.headers);
+  // Select Next's blocking HTML render so every cached document includes its
+  // metadata in the head, including when a regular browser fills the cache.
+  requestHeaders.set("user-agent", "ActorConsole-Pages (compatible; Google-PageRenderer)");
+  const response = await next.fetch(new Request(request, { headers: requestHeaders }), env, ctx);
   if (!isPublicHtml(response) || !response.body) return response;
 
   // Next can stream a 200 for a missing detail page. Only opt in after its
