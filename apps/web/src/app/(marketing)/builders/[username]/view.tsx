@@ -27,15 +27,56 @@ import {
 } from "@actorconsole/shared/builders";
 import type { CollectionViewMode } from "@/components/ui/view-mode-toggle";
 
-const getDefaultProfile = cache((username: string) => getBuilderProfile(username));
+type ProfileRoute = {
+  params: Promise<{ username: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function catalogFilters(query: Awaited<ProfileRoute["searchParams"]>) {
+  const value = (key: string) => {
+    const input = query[key];
+    return Array.isArray(input) ? input[0] : input;
+  };
+  const parsedWindow = Number.parseInt(value("window") ?? "30", 10);
+  const window: BuilderWindow = BUILDER_WINDOWS.includes(parsedWindow as BuilderWindow)
+    ? (parsedWindow as BuilderWindow)
+    : 30;
+  const page = Number.parseInt(value("actorPage") ?? "1", 10);
+  const actorPage = Number.isFinite(page) ? Math.max(1, page) : 1;
+  const actorQuery = value("actorQ")?.trim().slice(0, 100) || undefined;
+  const actorCategory = value("actorCategory")?.trim().slice(0, 80) || undefined;
+  const sort = value("actorSort");
+  const actorSort: BuilderActorSort =
+    BUILDER_ACTOR_SORTS.find((item) => item.value === sort)?.value ?? "active-users";
+  const view: CollectionViewMode = value("view") === "list" ? "list" : "grid";
+  return { window, actorPage, actorQuery, actorCategory, actorSort, view };
+}
+
+const loadProfile = cache(
+  (
+    username: string,
+    window: BuilderWindow,
+    actorPage: number,
+    actorQuery: string | undefined,
+    actorCategory: string | undefined,
+    actorSort: BuilderActorSort,
+  ) =>
+    window === 30 && actorPage === 1 && !actorQuery && !actorCategory && actorSort === "active-users"
+      ? getBuilderProfile(username)
+      : getBuilderProfile(username, { window, actorPage, actorQuery, actorCategory, actorSort }),
+);
+
+function getProfile(username: string, filters: ReturnType<typeof catalogFilters>) {
+  const { window, actorPage, actorQuery, actorCategory, actorSort } = filters;
+  return loadProfile(username, window, actorPage, actorQuery, actorCategory, actorSort);
+}
 
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ username: string }>;
-}): Promise<Metadata> {
-  const { username } = await params;
-  const profile = await getDefaultProfile(username);
+  searchParams,
+}: ProfileRoute): Promise<Metadata> {
+  const [{ username }, query] = await Promise.all([params, searchParams]);
+  const profile = await getProfile(username, catalogFilters(query));
   return profile
     ? createPageMetadata({
         title: `${profile.name ?? username} — Apify builder`,
@@ -104,47 +145,13 @@ export default async function BuilderProfilePage({
   params,
   searchParams,
   initialData,
-}: {
-  params: Promise<{ username: string }>;
-  searchParams: Promise<{
-    window?: string;
-    actorPage?: string;
-    actorQ?: string;
-    actorCategory?: string;
-    actorSort?: string;
-    view?: string;
-  }>;
+}: ProfileRoute & {
   initialData?: BuilderProfile | null;
 }) {
   const [{ username }, query] = await Promise.all([params, searchParams]);
-  const parsedWindow = Number.parseInt(query.window ?? "30", 10);
-  const window: BuilderWindow = BUILDER_WINDOWS.includes(parsedWindow as BuilderWindow)
-    ? (parsedWindow as BuilderWindow)
-    : 30;
-  const parsedActorPage = Number.parseInt(query.actorPage ?? "1", 10);
-  const actorPage = Number.isFinite(parsedActorPage) ? parsedActorPage : 1;
-  const actorSort = BUILDER_ACTOR_SORTS.some((item) => item.value === query.actorSort)
-    ? (query.actorSort as BuilderActorSort)
-    : "active-users";
-  const actorView: CollectionViewMode = query.view === "list" ? "list" : "grid";
-  const defaultProfile =
-    window === 30 &&
-    actorPage === 1 &&
-    !query.actorQ?.trim() &&
-    !query.actorCategory?.trim() &&
-    actorSort === "active-users";
-  const profile =
-    initialData !== undefined
-      ? initialData
-      : defaultProfile
-        ? await getDefaultProfile(username)
-        : await getBuilderProfile(username, {
-            window,
-            actorPage,
-            actorQuery: query.actorQ,
-            actorCategory: query.actorCategory,
-            actorSort,
-          });
+  const filters = catalogFilters(query);
+  const { window, view: actorView } = filters;
+  const profile = initialData !== undefined ? initialData : await getProfile(username, filters);
   if (!profile) notFound();
 
   const displayName = profile.name ?? profile.username;
