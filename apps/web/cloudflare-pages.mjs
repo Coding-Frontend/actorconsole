@@ -6,7 +6,7 @@ const ASSET_PATHS = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_ASSETS ?? 
 const PRERENDERED = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_PRERENDERED ?? "[]"));
 const PRODUCTION_HOST = "actorconsole.com";
 const PRERENDERED_PREFIX = "/_actorconsole-pages/";
-const ANONYMOUS_CACHE_PATHS = new Set(["/", "/faq", "/pricing"]);
+const ANONYMOUS_CACHE_PATHS = new Set(["/", "/builders", "/faq", "/pricing", "/research"]);
 const DOCUMENT_VARY =
   "Accept, RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch, Next-Url";
 const SECURITY_HEADERS = {
