@@ -56,6 +56,7 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
       >
         <Container className="marketing-header-inner flex items-center justify-between gap-6">
           <Link
+            prefetch={false}
             href="/"
             aria-label="ActorConsole home"
             className="marketing-header-brand text-foreground group relative flex shrink-0 items-center"
@@ -94,11 +95,11 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
             >
               {authenticated ? (
                 <Button size="sm" className="rounded-full" asChild>
-                  <Link href="/dashboard">Go to console</Link>
+                  <Link prefetch={false} href="/dashboard">Go to console</Link>
                 </Button>
               ) : (
                 <Button size="sm" className="rounded-full" asChild>
-                  <Link href="/signup">Get started</Link>
+                  <Link prefetch={false} href="/signup">Get started</Link>
                 </Button>
               )}
             </div>
@@ -108,7 +109,7 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
               inert={!isScrolled}
             >
               <Button size="sm" className="rounded-full" asChild>
-                <Link href={authenticated ? "/dashboard" : "/signup"}>
+                <Link prefetch={false} href={authenticated ? "/dashboard" : "/signup"}>
                   {authenticated ? "Go to console" : "Get started"}
                 </Link>
               </Button>
@@ -162,6 +163,7 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
             <nav className="mt-5 space-y-1" aria-label="Mobile navigation">
               {navLinks.map(({ href, label }) => (
                 <Link
+                  prefetch={false}
                   key={href}
                   href={href}
                   onClick={() => setMobileOpen(false)}
@@ -183,13 +185,13 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
               <div className="mt-3 grid gap-4">
                 {authenticated ? (
                   <Button size="lg" className="w-full" asChild>
-                    <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+                    <Link prefetch={false} href="/dashboard" onClick={() => setMobileOpen(false)}>
                       Go to console
                     </Link>
                   </Button>
                 ) : (
                   <Button size="lg" className="w-full" asChild>
-                    <Link href="/signup" onClick={() => setMobileOpen(false)}>
+                    <Link prefetch={false} href="/signup" onClick={() => setMobileOpen(false)}>
                       Get started
                     </Link>
                   </Button>

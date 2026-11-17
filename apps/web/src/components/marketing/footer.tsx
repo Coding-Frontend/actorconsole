@@ -54,7 +54,7 @@ export function MarketingFooter({ homeGrid = false }: { homeGrid?: boolean }) {
         <div className="home-grid-frame home-grid-footer">
           <HomeGridRow>
             <HomeGridCell className="col-span-12 px-4 py-8 sm:px-8 sm:py-14 lg:p-12">
-              <Link href="/" aria-label="ActorConsole home" className="text-foreground inline-flex">
+              <Link prefetch={false} href="/" aria-label="ActorConsole home" className="text-foreground inline-flex">
                 <BrandLogo size="lg" />
               </Link>
               <p className="text-muted-foreground mt-4 max-w-sm text-base leading-7 sm:mt-6">
@@ -80,6 +80,7 @@ export function MarketingFooter({ homeGrid = false }: { homeGrid?: boolean }) {
                     {group.links.map((link) => (
                       <li key={link.href}>
                         <Link
+                          prefetch={false}
                           href={link.href}
                           target={link.href.startsWith("https://") ? "_blank" : undefined}
                           rel={link.href.startsWith("https://") ? "noopener noreferrer" : undefined}
@@ -105,10 +106,10 @@ export function MarketingFooter({ homeGrid = false }: { homeGrid?: boolean }) {
             <HomeGridCell className="text-muted-foreground col-span-9 flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-4 text-xs sm:px-8 sm:py-6">
               <span>© {new Date().getFullYear()} ActorConsole</span>
               <span>Not affiliated with Apify Technologies</span>
-              <Link href="/legal/privacy" className="hover:text-foreground">
+              <Link prefetch={false} href="/legal/privacy" className="hover:text-foreground">
                 Privacy
               </Link>
-              <Link href="/legal/terms" className="hover:text-foreground">
+              <Link prefetch={false} href="/legal/terms" className="hover:text-foreground">
                 Terms
               </Link>
             </HomeGridCell>
@@ -127,7 +128,7 @@ export function MarketingFooter({ homeGrid = false }: { homeGrid?: boolean }) {
       <Container className="py-16 sm:py-20 lg:py-24">
         <div className="grid gap-x-10 gap-y-14 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.25fr)_repeat(4,minmax(0,1fr))] lg:gap-x-8">
           <div className="max-w-sm sm:col-span-2 lg:col-span-1">
-            <Link href="/" aria-label="ActorConsole home" className="inline-flex text-white">
+            <Link prefetch={false} href="/" aria-label="ActorConsole home" className="inline-flex text-white">
               <BrandLogo size="lg" className="text-white" />
             </Link>
             <p className="mt-6 max-w-xs text-base leading-7 text-white/55">
@@ -146,6 +147,7 @@ export function MarketingFooter({ homeGrid = false }: { homeGrid?: boolean }) {
                 {group.links.map((link) => (
                   <li key={link.href}>
                     <Link
+                      prefetch={false}
                       href={link.href}
                       target={link.href.startsWith("https://") ? "_blank" : undefined}
                       rel={link.href.startsWith("https://") ? "noopener noreferrer" : undefined}
