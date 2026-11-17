@@ -22,6 +22,17 @@ import {
 
 const getActor = cache(getBuilderActorDetail);
 
+type ActorRoute = {
+  params: Promise<{ username: string; actorName: string }>;
+  searchParams: Promise<{ window?: string | string[] }>;
+};
+
+function catalogWindow(input?: string | string[]): BuilderWindow {
+  const value = Array.isArray(input) ? input[0] : input;
+  const parsed = Number.parseInt(value ?? "30", 10);
+  return BUILDER_WINDOWS.includes(parsed as BuilderWindow) ? (parsed as BuilderWindow) : 30;
+}
+
 function compact(value: number) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
     value,
@@ -50,11 +61,10 @@ function pricingLabel(model: string) {
 
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ username: string; actorName: string }>;
-}): Promise<Metadata> {
-  const { username, actorName } = await params;
-  const actor = await getActor(username, actorName, 30);
+  searchParams,
+}: ActorRoute): Promise<Metadata> {
+  const [{ username, actorName }, query] = await Promise.all([params, searchParams]);
+  const actor = await getActor(username, actorName, catalogWindow(query.window));
   return actor
     ? createPageMetadata({
         title: `${actor.title} — Actor details`,
@@ -70,16 +80,11 @@ export default async function BuilderActorPage({
   params,
   searchParams,
   initialData,
-}: {
-  params: Promise<{ username: string; actorName: string }>;
-  searchParams: Promise<{ window?: string }>;
+}: ActorRoute & {
   initialData?: BuilderActorDetail | null;
 }) {
   const [{ username, actorName }, query] = await Promise.all([params, searchParams]);
-  const parsedWindow = Number.parseInt(query.window ?? "30", 10);
-  const window: BuilderWindow = BUILDER_WINDOWS.includes(parsedWindow as BuilderWindow)
-    ? (parsedWindow as BuilderWindow)
-    : 30;
+  const window = catalogWindow(query.window);
   const actor =
     initialData !== undefined
       ? initialData

@@ -1,8 +1,11 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BuilderActorDetail, BuilderProfile } from "@actorconsole/shared/builders";
-import BuilderPage from "@/app/(marketing)/builders/[username]/view";
+import BuilderPage, {
+  generateMetadata as generateBuilderMetadata,
+} from "@/app/(marketing)/builders/[username]/view";
 import ActorPage from "@/app/(marketing)/builders/[username]/actors/[actorName]/view";
+import { getBuilderProfile } from "@/lib/builders";
 
 vi.mock("@/lib/builders", () => ({
   getBuilderProfile: vi.fn(),
@@ -50,6 +53,20 @@ const profile = {
 } as BuilderProfile;
 
 describe("public catalog page availability", () => {
+  it("uses the same normalized catalog query for metadata and a filtered profile", async () => {
+    const read = vi.mocked(getBuilderProfile).mockResolvedValue(profile);
+    const props = {
+      params: Promise.resolve({ username: "retired" }),
+      searchParams: Promise.resolve({ window: "7", actorPage: "2", actorQ: [" Search ", "other"] }),
+    };
+    const expected = { window: 7, actorPage: 2, actorQuery: "Search", actorSort: "active-users" };
+
+    await generateBuilderMetadata(props);
+    expect(read).toHaveBeenLastCalledWith("retired", expected);
+    await BuilderPage(props);
+    expect(read).toHaveBeenLastCalledWith("retired", expected);
+  });
+
   it("shows unknown publication counts as unavailable and never as a rank", async () => {
     render(
       await BuilderPage({
