@@ -72,6 +72,7 @@ export function DocGuideContent({ guide: activeDocItem }: { guide: DocGuide }) {
           >
             {previousDoc ? (
               <Link
+                prefetch={false}
                 href={previousDoc.id === "getting-started" ? "/docs" : `/docs/${previousDoc.id}`}
                 className="group text-left text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-orange"
               >
@@ -86,6 +87,7 @@ export function DocGuideContent({ guide: activeDocItem }: { guide: DocGuide }) {
             ) : null}
             {nextDoc ? (
               <Link
+                prefetch={false}
                 href={`/docs/${nextDoc.id}`}
                 className="group text-right text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-orange"
               >
@@ -103,11 +105,11 @@ export function DocGuideContent({ guide: activeDocItem }: { guide: DocGuide }) {
           <div className="docs-help flex flex-col gap-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>
               Need more help?{" "}
-              <Link href="/contact" className="font-medium text-signal-orange hover:underline">
+              <Link prefetch={false} href="/contact" className="font-medium text-signal-orange hover:underline">
                 Contact support
               </Link>
             </span>
-            <Link href="/signup" className="font-medium text-foreground hover:underline">
+            <Link prefetch={false} href="/signup" className="font-medium text-foreground hover:underline">
               Get started free
             </Link>
           </div>

@@ -99,6 +99,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
                         return (
                           <li key={item.id}>
                             <Link
+                              prefetch={false}
                               href={item.id === "getting-started" ? "/docs" : `/docs/${item.id}`}
                               onClick={() => {
                                 setSearchOpen(false);
@@ -141,6 +142,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
                 <ol className="flex min-w-0 items-center gap-2 text-xs">
                   <li>
                     <Link
+                      prefetch={false}
                       href="/docs"
                       className="text-muted-foreground transition-colors hover:text-foreground"
                     >
@@ -203,6 +205,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
                     {searchResults.length > 0 ? (
                       searchResults.map((item) => (
                         <Link
+                          prefetch={false}
                           key={item.id}
                           href={item.id === "getting-started" ? "/docs" : `/docs/${item.id}`}
                           onClick={() => {

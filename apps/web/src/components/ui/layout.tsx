@@ -143,6 +143,7 @@ interface NavLinkProps {
 export function NavLink({ href, children, className, active }: NavLinkProps) {
   return (
     <Link
+      prefetch={false}
       href={href}
       className={cn(
         "focus-visible:ring-ring focus-visible:ring-offset-background rounded-sm border-b-2 border-transparent px-2 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",

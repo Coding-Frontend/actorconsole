@@ -303,6 +303,7 @@ export function DocArticle({ guide }: { guide: DocGuide }) {
       >
         {guide.links.map((link) => (
           <Link
+            prefetch={false}
             key={link.href}
             href={link.href}
             className="text-signal-orange font-medium hover:underline"

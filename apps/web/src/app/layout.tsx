@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Toaster } from "sonner";
-import { SessionProvider } from "@/lib/session-client";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CookieConsent } from "@/components/cookie-consent";
 import { FirebaseAnalytics } from "@/components/firebase-analytics";
@@ -96,9 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script id="actorconsole-theme" dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="blueprint-page bg-background text-foreground min-h-screen font-sans antialiased">
-        <SessionProvider>
-          <ThemeProvider>{children}</ThemeProvider>
-        </SessionProvider>
+        <ThemeProvider>{children}</ThemeProvider>
         <Toaster position="top-center" richColors />
         <FirebaseAnalytics />
         <CookieConsent />

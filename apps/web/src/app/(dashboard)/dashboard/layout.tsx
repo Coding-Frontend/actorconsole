@@ -6,6 +6,7 @@ import { OnboardingGate } from "@/components/dashboard/onboarding-gate";
 import { getMimicStatus } from "@/lib/impersonation";
 import { canRecoverMimicSession } from "@/lib/session-recovery";
 import { getServerWorkspaceAccess } from "@/lib/server-workspace-access";
+import { SessionProvider } from "@/lib/session-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,16 +29,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (user.suspendedAt && !user.deletionScheduledFor) redirect("/login?error=account_suspended");
 
   return (
-    <DashboardShell
-      skipWorkspaceAccess={Boolean(user.deletionScheduledFor)}
-      mimicStatus={mimicStatus}
-      initialAccess={user.deletionScheduledFor ? null : await getServerWorkspaceAccess()}
-    >
-      {user.deletionScheduledFor ? (
-        <DeletionPendingScreen scheduledFor={user.deletionScheduledFor} />
-      ) : (
-        <OnboardingGate>{children}</OnboardingGate>
-      )}
-    </DashboardShell>
+    <SessionProvider initialSession={session}>
+      <DashboardShell
+        skipWorkspaceAccess={Boolean(user.deletionScheduledFor)}
+        mimicStatus={mimicStatus}
+        initialAccess={user.deletionScheduledFor ? null : await getServerWorkspaceAccess()}
+      >
+        {user.deletionScheduledFor ? (
+          <DeletionPendingScreen scheduledFor={user.deletionScheduledFor} />
+        ) : (
+          <OnboardingGate>{children}</OnboardingGate>
+        )}
+      </DashboardShell>
+    </SessionProvider>
   );
 }
