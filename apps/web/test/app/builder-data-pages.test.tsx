@@ -4,7 +4,10 @@ import type { BuilderActorDetail, BuilderProfile } from "@actorconsole/shared/bu
 import BuilderPage from "@/app/(marketing)/builders/[username]/view";
 import ActorPage from "@/app/(marketing)/builders/[username]/actors/[actorName]/view";
 
-vi.mock("@/lib/builders", () => ({ BUILDER_WINDOWS: [7, 30, 90], BUILDER_ACTOR_SORTS: [] }));
+vi.mock("@/lib/builders", () => ({
+  getBuilderProfile: vi.fn(),
+  getBuilderActorDetail: vi.fn(),
+}));
 vi.mock("@/components/marketing/builder-profile-chart", () => ({
   BuilderProfileChart: () => <div data-testid="history">Recorded history</div>,
 }));
