@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Container, Section } from "@/components/ui/layout";
 import { UnsubscribeClient } from "./unsubscribe-client";
 import { PageHero } from "@/components/marketing/page-hero";
+import { SessionProvider } from "@/lib/session-client";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Newsletter Preferences",
@@ -23,7 +24,9 @@ export default function UnsubscribePage() {
       />
       <Section variant="muted" className="pt-12">
         <Container className="flex justify-center">
-          <UnsubscribeClient />
+          <SessionProvider>
+            <UnsubscribeClient />
+          </SessionProvider>
         </Container>
       </Section>
     </main>

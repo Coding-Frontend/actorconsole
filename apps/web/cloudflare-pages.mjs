@@ -3,7 +3,18 @@ import next from "./.open-next/worker.js";
 import "./.open-next/server-functions/default/handler.mjs";
 
 const ASSET_PATHS = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_ASSETS ?? "[]"));
+const PRERENDERED = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_PRERENDERED ?? "[]"));
 const PRODUCTION_HOST = "actorconsole.com";
+const PRERENDERED_PREFIX = "/_actorconsole-pages/";
+const ANONYMOUS_CACHE_PATHS = new Set(["/", "/faq", "/pricing"]);
+const DOCUMENT_VARY =
+  "Accept, RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch, Next-Url";
+const SECURITY_HEADERS = {
+  "permissions-policy": "camera=(), microphone=(), geolocation=()",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+};
 
 const PRIVATE_PAGES = [
   "/admin",
@@ -45,9 +56,33 @@ export default {
       return Response.redirect(`https://${PRODUCTION_HOST}${url.pathname}${url.search}`, 308);
     }
 
+    if (url.pathname.startsWith(PRERENDERED_PREFIX)) {
+      return previewResponse("Page not found.", 404);
+    }
+
     if (url.hostname === PRODUCTION_HOST) {
       if (url.pathname === "/_pages/revision") return serveRevision(env);
       if (ASSET_PATHS.has(decodePath(url.pathname))) return env.ASSETS.fetch(request);
+      if (
+        url.pathname === "/api/auth/session" &&
+        !url.search &&
+        request.method === "GET" &&
+        !request.headers.has("origin") &&
+        !/(?:^|;\s*)(?:__Secure-)?authjs\.session-token(?:\.\d+)?\s*=/i.test(
+          request.headers.get("cookie") ?? "",
+        )
+      ) {
+        return previewResponse("null", 200, {
+          ...SECURITY_HEADERS,
+          "cache-control": "private, no-store",
+          "content-type": "application/json",
+        });
+      }
+      const prerendered = await servePrerendered(request, env, url);
+      if (prerendered) return prerendered;
+      if (ANONYMOUS_CACHE_PATHS.has(url.pathname) && isAnonymousDocument(request, url)) {
+        return serveCachedDocument(request, env, ctx, url);
+      }
       return next.fetch(request, env, ctx);
     }
 
@@ -96,7 +131,8 @@ export default {
     const isAsset = ASSET_PATHS.has(pathname);
     const response = isAsset
       ? await env.ASSETS.fetch(publicRequest)
-      : await next.fetch(publicRequest, env, ctx);
+      : ((await servePrerendered(publicRequest, env, url)) ??
+        (await next.fetch(publicRequest, env, ctx)));
     const result = new Response(response.body, response);
     result.headers.delete("set-cookie");
     result.headers.set("x-robots-tag", "noindex, nofollow");
@@ -104,6 +140,92 @@ export default {
     return result;
   },
 };
+
+function requiresNext(request) {
+  return [
+    "next-action",
+    "next-router-segment-prefetch",
+    "x-nextjs-data",
+    "if-match",
+    "if-none-match",
+    "if-modified-since",
+    "if-unmodified-since",
+    "range",
+  ].some((name) => request.headers.has(name));
+}
+
+function isAnonymousDocument(request, url) {
+  return (
+    request.method === "GET" &&
+    !url.search &&
+    /\btext\/html\b/i.test(request.headers.get("accept") ?? "") &&
+    !requiresNext(request) &&
+    ![
+      "rsc",
+      "next-router-state-tree",
+      "next-router-prefetch",
+      "next-url",
+      "cookie",
+      "authorization",
+      "proxy-authorization",
+      "x-admin-api-key",
+      "x-api-key",
+      "x-session-token",
+    ].some((name) => request.headers.has(name))
+  );
+}
+
+async function servePrerendered(request, env, url) {
+  if (
+    !PRERENDERED.has(url.pathname) ||
+    !["GET", "HEAD"].includes(request.method) ||
+    requiresNext(request)
+  )
+    return null;
+
+  const rsc = request.headers.get("rsc") === "1";
+  const suffix = rsc ? ".flight" : ".body";
+  const asset = new URL(`${PRERENDERED_PREFIX}${url.pathname.slice(1)}${suffix}`, url);
+  const response = await env.ASSETS.fetch(new Request(asset, { method: request.method }));
+  if (!response.ok) {
+    await response.body?.cancel();
+    return null;
+  }
+  return new Response(response.body, {
+    headers: {
+      ...SECURITY_HEADERS,
+      "cache-control": "private, no-store",
+      "content-type": rsc ? "text/x-component" : "text/html; charset=utf-8",
+      vary: DOCUMENT_VARY,
+      "x-actorconsole-render": "prerendered",
+    },
+  });
+}
+
+async function serveCachedDocument(request, env, ctx, url) {
+  const key = new URL(url);
+  key.searchParams.set("pages-build", process.env.ACTORCONSOLE_PAGES_REVISION ?? "local");
+  const cache = caches.default;
+  const cached = await cache.match(key.href).catch(() => undefined);
+  if (cached) {
+    const response = new Response(cached.body, cached);
+    response.headers.set("cache-control", "private, no-store");
+    response.headers.set("x-actorconsole-render", "cached");
+    return response;
+  }
+  const response = await next.fetch(request, env, ctx);
+  if (
+    response.status === 200 &&
+    /^text\/html\b/i.test(response.headers.get("content-type") ?? "") &&
+    !response.headers.has("set-cookie")
+  ) {
+    const copy = response.clone();
+    const cacheable = new Response(copy.body, copy);
+    cacheable.headers.set("cache-control", "public, max-age=60");
+    ctx.waitUntil(cache.put(key.href, cacheable).catch(() => undefined));
+  }
+  return response;
+}
 
 function decodePath(pathname) {
   try {

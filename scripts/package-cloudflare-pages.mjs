@@ -10,7 +10,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const app = realpathSync(fileURLToPath(new URL("../apps/web/", import.meta.url)));
@@ -32,6 +32,20 @@ const revision = git.stdout?.trim() ?? "";
 if (git.status !== 0 || !/^[a-f0-9]{40}$/.test(revision)) {
   throw new Error("Build the Pages package from a Git checkout with a known revision");
 }
+const staticRoutes = ["/_next/static/*", "/images/*", "/ai-tools-logos/*"];
+const publicFiles = readdirSync(join(app, "public"), { withFileTypes: true })
+  .filter((entry) => entry.isFile() && !entry.name.startsWith("_") && !entry.name.startsWith("."))
+  .map((entry) => `/${entry.name}`);
+const prerenderedPath = "_actorconsole-pages";
+const manifest = JSON.parse(readFileSync(join(app, ".next/prerender-manifest.json"), "utf8"));
+const prerendered = Object.entries(manifest.routes)
+  .filter(([path, route]) => {
+    const publicPage =
+      ["/about", "/features", "/customers", "/docs"].includes(path) ||
+      (/^\/docs\/[a-z0-9-]+$/.test(path) && path !== "/docs/getting-started");
+    return publicPage && route.initialRevalidateSeconds === false;
+  })
+  .map(([path]) => path);
 const assetPaths = readdirSync(assets, { recursive: true, withFileTypes: true })
   .filter((entry) => entry.isFile())
   .map((entry) => `/${relative(assets, join(entry.parentPath, entry.name)).split(sep).join("/")}`)
@@ -51,6 +65,7 @@ writeFileSync(
     define: {
       "process.env.ACTORCONSOLE_PAGES_REVISION": JSON.stringify(revision),
       "process.env.ACTORCONSOLE_PAGES_ASSETS": JSON.stringify(JSON.stringify(assetPaths)),
+      "process.env.ACTORCONSOLE_PAGES_PRERENDERED": JSON.stringify(JSON.stringify(prerendered)),
     },
   }),
 );
@@ -82,10 +97,34 @@ if (outputStat && (!outputStat.isDirectory() || realpathSync(output) !== output)
 }
 rmSync(output, { recursive: true, force: true });
 cpSync(assets, output, { recursive: true });
+for (const path of prerendered) {
+  const source = join(app, ".next/server/app", path.slice(1));
+  const destination = join(output, prerenderedPath, path.slice(1));
+  mkdirSync(dirname(destination), { recursive: true });
+  copyFileSync(`${source}.html`, `${destination}.body`);
+  copyFileSync(`${source}.rsc`, `${destination}.flight`);
+}
 copyFileSync(join(bundled, "cloudflare-pages.js"), join(output, "_worker.js"));
 writeFileSync(
   join(output, "_routes.json"),
-  JSON.stringify({ version: 1, include: ["/*"], exclude: [] }),
+  JSON.stringify({ version: 1, include: ["/*"], exclude: [...staticRoutes, ...publicFiles] }),
+);
+writeFileSync(
+  join(output, "_headers"),
+  [
+    "/*",
+    "  X-Content-Type-Options: nosniff",
+    "  X-Frame-Options: DENY",
+    "  Referrer-Policy: strict-origin-when-cross-origin",
+    "  Permissions-Policy: camera=(), microphone=(), geolocation=()",
+    "/_next/static/*",
+    "  Cache-Control: public, max-age=31536000, immutable",
+    "https://actorconsole-git.pages.dev/*",
+    "  X-Robots-Tag: noindex, nofollow",
+    "https://cf-preview.actorconsole.com/*",
+    "  X-Robots-Tag: noindex, nofollow",
+    "",
+  ].join("\n"),
 );
 // A root 404 prevents the Pages asset binding from treating missing app routes as an SPA.
 writeFileSync(join(output, "404.html"), "<!doctype html><title>Page not found</title>");
