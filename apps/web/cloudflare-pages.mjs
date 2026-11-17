@@ -7,6 +7,8 @@ const PRERENDERED = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_PRERENDERE
 const PRODUCTION_HOST = "actorconsole.com";
 const PRERENDERED_PREFIX = "/_actorconsole-pages/";
 const ANONYMOUS_CACHE_PATHS = new Set(["/", "/builders", "/faq", "/pricing", "/research"]);
+const CATALOG_DOCUMENT_PATH =
+  /^\/builders\/(?!compare(?:\/|$))[\w.-]+(?:\/actors\/[\w.-]+)?$/;
 const DOCUMENT_VARY =
   "Accept, RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch, Next-Url";
 const SECURITY_HEADERS = {
@@ -80,6 +82,9 @@ export default {
       }
       const prerendered = await servePrerendered(request, env, url);
       if (prerendered) return prerendered;
+      if (CATALOG_DOCUMENT_PATH.test(url.pathname) && isAnonymousDocument(request, url)) {
+        return serveCatalogDocument(request, env, ctx);
+      }
       if (ANONYMOUS_CACHE_PATHS.has(url.pathname) && isAnonymousDocument(request, url)) {
         return serveCachedDocument(request, env, ctx, url);
       }
@@ -171,8 +176,28 @@ function isAnonymousDocument(request, url) {
       "x-admin-api-key",
       "x-api-key",
       "x-session-token",
+      "origin",
     ].some((name) => request.headers.has(name))
   );
+}
+
+function isPublicHtml(response) {
+  return (
+    response.status === 200 &&
+    /^text\/html\b/i.test(response.headers.get("content-type") ?? "") &&
+    !response.headers.has("set-cookie")
+  );
+}
+
+async function serveCatalogDocument(request, env, ctx) {
+  const response = await next.fetch(request, env, ctx);
+  if (!isPublicHtml(response)) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "private, no-store");
+  // The zone Cache Rule makes these documents eligible before Pages runs.
+  headers.set("cloudflare-cdn-cache-control", "public, max-age=300");
+  return new Response(response.body, { status: response.status, headers });
 }
 
 async function servePrerendered(request, env, url) {
@@ -214,11 +239,7 @@ async function serveCachedDocument(request, env, ctx, url) {
     return response;
   }
   const response = await next.fetch(request, env, ctx);
-  if (
-    response.status === 200 &&
-    /^text\/html\b/i.test(response.headers.get("content-type") ?? "") &&
-    !response.headers.has("set-cookie")
-  ) {
+  if (isPublicHtml(response)) {
     const copy = response.clone();
     const cacheable = new Response(copy.body, copy);
     cacheable.headers.set("cache-control", "public, max-age=60");
