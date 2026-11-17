@@ -1,5 +1,6 @@
 import { EarningsBand } from "@/components/intelligence/earnings-summary";
 import type { Metadata } from "next";
+import { cache } from "react";
 import { createPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -26,13 +27,15 @@ import {
 } from "@actorconsole/shared/builders";
 import type { CollectionViewMode } from "@/components/ui/view-mode-toggle";
 
+const getDefaultProfile = cache((username: string) => getBuilderProfile(username));
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ username: string }>;
 }): Promise<Metadata> {
   const { username } = await params;
-  const profile = await getBuilderProfile(username);
+  const profile = await getDefaultProfile(username);
   return profile
     ? createPageMetadata({
         title: `${profile.name ?? username} — Apify builder`,
@@ -119,20 +122,29 @@ export default async function BuilderProfilePage({
     ? (parsedWindow as BuilderWindow)
     : 30;
   const parsedActorPage = Number.parseInt(query.actorPage ?? "1", 10);
+  const actorPage = Number.isFinite(parsedActorPage) ? parsedActorPage : 1;
   const actorSort = BUILDER_ACTOR_SORTS.some((item) => item.value === query.actorSort)
     ? (query.actorSort as BuilderActorSort)
     : "active-users";
   const actorView: CollectionViewMode = query.view === "list" ? "list" : "grid";
+  const defaultProfile =
+    window === 30 &&
+    actorPage === 1 &&
+    !query.actorQ?.trim() &&
+    !query.actorCategory?.trim() &&
+    actorSort === "active-users";
   const profile =
     initialData !== undefined
       ? initialData
-      : await getBuilderProfile(username, {
-          window,
-          actorPage: Number.isFinite(parsedActorPage) ? parsedActorPage : 1,
-          actorQuery: query.actorQ,
-          actorCategory: query.actorCategory,
-          actorSort,
-        });
+      : defaultProfile
+        ? await getDefaultProfile(username)
+        : await getBuilderProfile(username, {
+            window,
+            actorPage,
+            actorQuery: query.actorQ,
+            actorCategory: query.actorCategory,
+            actorSort,
+          });
   if (!profile) notFound();
 
   const displayName = profile.name ?? profile.username;

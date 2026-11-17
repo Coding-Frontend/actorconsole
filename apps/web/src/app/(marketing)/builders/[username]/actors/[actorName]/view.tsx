@@ -1,5 +1,6 @@
 import { EarningsBand } from "@/components/intelligence/earnings-summary";
 import type { Metadata } from "next";
+import { cache } from "react";
 import { createPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -18,6 +19,8 @@ import {
   type BuilderWindow,
   type BuilderActorDetail,
 } from "@actorconsole/shared/builders";
+
+const getActor = cache(getBuilderActorDetail);
 
 function compact(value: number) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
@@ -51,7 +54,7 @@ export async function generateMetadata({
   params: Promise<{ username: string; actorName: string }>;
 }): Promise<Metadata> {
   const { username, actorName } = await params;
-  const actor = await getBuilderActorDetail(username, actorName);
+  const actor = await getActor(username, actorName, 30);
   return actor
     ? createPageMetadata({
         title: `${actor.title} — Actor details`,
@@ -80,7 +83,7 @@ export default async function BuilderActorPage({
   const actor =
     initialData !== undefined
       ? initialData
-      : await getBuilderActorDetail(username, actorName, window);
+      : await getActor(username, actorName, window);
   if (!actor) notFound();
   const observedTrendDays = actor.trend.filter((point) => point.observed).length;
 
