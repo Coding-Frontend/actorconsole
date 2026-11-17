@@ -25,16 +25,13 @@ vi.mock("next/headers", () => ({ cookies: async () => new Map() }));
 vi.mock("@actorconsole/db", () => ({
   db: { user: { findUnique: async () => ({ suspendedAt: null, deletionScheduledFor: null }) } },
 }));
-vi.mock("@/lib/auth", () => ({ auth: async () => ({ user: { id: "u1" } }) }));
+vi.mock("@/lib/auth", () => ({ auth: async () => ({ user: { id: "u1", name: "Test Builder" } }) }));
 vi.mock("@/lib/impersonation", () => ({
   getMimicStatus: async () => null,
   ORIGINAL_SESSION_COOKIE: "original-session",
 }));
 vi.mock("@/lib/server-workspace-access", () => ({
   getServerWorkspaceAccess: async () => mocks.access,
-}));
-vi.mock("@/lib/session-client", () => ({
-  useSession: () => ({ data: { user: { name: "Test Builder" } } }),
 }));
 vi.mock("@/lib/firebase", () => ({ signOutFirebase: vi.fn() }));
 vi.mock("@/components/dashboard/business-profile-switcher", () => ({
@@ -118,6 +115,9 @@ describe("dashboard research tool routes", () => {
       ).toBe("/dashboard/research");
       expect(screen.queryByRole("contentinfo")).toBeNull();
       expect(mocks.replace).not.toHaveBeenCalled();
+      expect(vi.mocked(fetch).mock.calls.map(([request]) => request)).not.toContain(
+        "/api/auth/session",
+      );
       if (tool === "pricing") {
         expect(screen.getByRole("region", { name: "Pricing scenario" })).toBeTruthy();
       } else {
