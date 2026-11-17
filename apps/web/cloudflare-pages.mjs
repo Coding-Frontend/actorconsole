@@ -191,13 +191,49 @@ function isPublicHtml(response) {
 
 async function serveCatalogDocument(request, env, ctx) {
   const response = await next.fetch(request, env, ctx);
-  if (!isPublicHtml(response)) return response;
+  if (!isPublicHtml(response) || !response.body) return response;
+
+  // Next can stream a 200 for a missing detail page. Only opt in after its
+  // generated head declares the document indexable.
+  const reader = response.body.getReader();
+  const chunks = [];
+  const decoder = new TextDecoder();
+  const headLimit = 64 * 1024;
+  let head = "";
+  let remaining = headLimit;
+  let headEnd = -1;
+  while (remaining > 0 && headEnd === -1) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    head += decoder.decode(value.subarray(0, remaining), { stream: true });
+    remaining -= value.byteLength;
+    headEnd = head.indexOf("</head>");
+  }
 
   const headers = new Headers(response.headers);
   headers.set("cache-control", "private, no-store");
   // The zone Cache Rule makes these documents eligible before Pages runs.
-  headers.set("cloudflare-cdn-cache-control", "public, max-age=300");
-  return new Response(response.body, { status: response.status, headers });
+  if (
+    headEnd >= 0 &&
+    /<meta name="robots" content="index, follow"\s*\/?>/i.test(head.slice(0, headEnd))
+  ) {
+    headers.set("cloudflare-cdn-cache-control", "public, max-age=300");
+  }
+  const body = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+    },
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) controller.close();
+      else controller.enqueue(value);
+    },
+    cancel(reason) {
+      return reader.cancel(reason);
+    },
+  });
+  return new Response(body, { status: response.status, headers });
 }
 
 async function servePrerendered(request, env, url) {
