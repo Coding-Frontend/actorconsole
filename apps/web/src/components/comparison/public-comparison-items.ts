@@ -111,8 +111,11 @@ type BuilderCompareSource = Pick<
   | "runCounterCoverage"
 > & { rank?: number; ranks?: BuilderProfile["ranks"]; earnings?: EarningsRollup };
 
+const comparisonDateFormat = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" });
+const comparisonPriceFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 });
+
 function comparisonDate(value: Date | null | undefined) {
-  return value ? new Date(value).toLocaleDateString("en-IN", { dateStyle: "medium" }) : null;
+  return value ? comparisonDateFormat.format(new Date(value)) : null;
 }
 
 function pricingDetails(pricing: BuilderActorPricing[] | undefined) {
@@ -136,7 +139,7 @@ function pricingDetails(pricing: BuilderActorPricing[] | undefined) {
     summary:
       amount == null
         ? null
-        : `$${amount.toLocaleString("en-US", { maximumFractionDigits: 6 })}${unit ? ` / ${unit}` : ""}`,
+        : `$${comparisonPriceFormat.format(amount)}${unit ? ` / ${unit}` : ""}`,
   };
 }
 

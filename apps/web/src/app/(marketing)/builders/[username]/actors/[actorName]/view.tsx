@@ -33,10 +33,17 @@ function catalogWindow(input?: string | string[]): BuilderWindow {
   return BUILDER_WINDOWS.includes(parsed as BuilderWindow) ? (parsed as BuilderWindow) : 30;
 }
 
+const compactNumber = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+const priceNumber = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 6,
+});
+
 function compact(value: number) {
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
-    value,
-  );
+  return compactNumber.format(value);
 }
 
 function initials(name: string) {
@@ -279,10 +286,7 @@ export default async function BuilderActorPage({
                                 <p className="font-mono text-sm font-semibold tabular-nums">
                                   {event.priceUsd == null
                                     ? "Price unavailable"
-                                    : `$${event.priceUsd.toLocaleString("en-US", {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 6,
-                                      })}`}
+                                    : `$${priceNumber.format(event.priceUsd)}`}
                                 </p>
                               </div>
                             ))}

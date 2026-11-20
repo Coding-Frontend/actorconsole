@@ -1,16 +1,26 @@
 import { EARNINGS_POLICY, type ActorEarnings } from "@actorconsole/shared/actor-earnings";
 
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+const preciseMoney = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 6,
+});
+const compactMoney = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 export function earningsMoney(value: number | null | undefined, compact = false) {
-  return value == null
-    ? "Unavailable"
-    : new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: value > 0 && value < 0.01 ? 6 : 2,
-        ...(value >= (compact ? 1000 : 10000)
-          ? { notation: "compact" as const, maximumFractionDigits: 1 }
-          : {}),
-      }).format(value);
+  if (value == null) return "Unavailable";
+  if (value >= (compact ? 1000 : 10000)) return compactMoney.format(value);
+  return (value > 0 && value < 0.01 ? preciseMoney : money).format(value);
 }
 type Range = Pick<ActorEarnings, "lowUsd" | "centralUsd" | "highUsd">;
 export function EarningsBand({
@@ -40,11 +50,7 @@ export function EarningsBand({
             title={
               amount == null
                 ? "Unavailable"
-                : new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                    maximumFractionDigits: 6,
-                  }).format(amount)
+                : preciseMoney.format(amount)
             }
             className={`mt-1 break-words font-semibold tabular-nums ${emphasizeCentral && label === "Central" ? "text-signal-blue" : ""} ${compact ? "" : "text-lg sm:text-xl"}`}
           >
