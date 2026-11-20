@@ -1,5 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import Link from "next/link";
 import { navigateInApp } from "@/lib/client-navigation";
 import { CatalogDocumentNavigation } from "./catalog-document-navigation";
 
@@ -13,9 +14,9 @@ it("loads a complete document when leaving the catalog renderer", () => {
   const view = render(
     <>
       <CatalogDocumentNavigation />
-      <a href="/docs">
+      <Link href="/docs">
         <span>Docs</span>
-      </a>
+      </Link>
     </>,
   );
   view
@@ -28,7 +29,7 @@ it("preserves modified clicks, downloads, and external links", () => {
   const view = render(
     <>
       <CatalogDocumentNavigation />
-      <a href="/docs">Docs</a>
+      <Link href="/docs">Docs</Link>
       <a href="/export.csv" download>
         Download
       </a>
