@@ -7,8 +7,7 @@ const PRERENDERED = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_PRERENDERE
 const PRODUCTION_HOST = "actorconsole.com";
 const PRERENDERED_PREFIX = "/_actorconsole-pages/";
 const ANONYMOUS_CACHE_PATHS = new Set(["/", "/builders", "/faq", "/pricing", "/research"]);
-const CATALOG_DOCUMENT_PATH =
-  /^\/builders\/(?!compare(?:\/|$))[\w.-]+(?:\/actors\/[\w.-]+)?$/;
+const CATALOG_DOCUMENT_PATH = /^\/builders\/(?!compare(?:\/|$))[\w.-]+(?:\/actors\/[\w.-]+)?$/;
 const DOCUMENT_VARY =
   "Accept, RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch, Next-Url";
 const SECURITY_HEADERS = {
@@ -53,6 +52,10 @@ function previewResponse(body, status, headers = {}) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const useCatalogOrigin =
+      env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com" &&
+      CATALOG_DOCUMENT_PATH.test(url.pathname) &&
+      ["GET", "HEAD"].includes(request.method);
 
     if (url.hostname === `www.${PRODUCTION_HOST}`) {
       return Response.redirect(`https://${PRODUCTION_HOST}${url.pathname}${url.search}`, 308);
@@ -82,21 +85,7 @@ export default {
       }
       const prerendered = await servePrerendered(request, env, url);
       if (prerendered) return prerendered;
-      if (
-        env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com" &&
-        CATALOG_DOCUMENT_PATH.test(url.pathname) &&
-        ["GET", "HEAD"].includes(request.method)
-      ) {
-        if (request.headers.get("rsc") === "1") {
-          // Next falls back to a document navigation when a route uses a
-          // different renderer and its response is HTML instead of Flight.
-          return new Response(null, {
-            headers: { "content-type": "text/html", "cache-control": "private, no-store" },
-          });
-        }
-        if (isAnonymousDocument(request, url)) return serveCatalogDocument(request, env, ctx);
-        return fetchCatalogDocument(request, env);
-      }
+      if (useCatalogOrigin) return serveOriginCatalog(request, env, ctx, url);
       if (CATALOG_DOCUMENT_PATH.test(url.pathname) && isAnonymousDocument(request, url)) {
         return serveCatalogDocument(request, env, ctx);
       }
@@ -151,8 +140,10 @@ export default {
     const isAsset = ASSET_PATHS.has(pathname);
     const response = isAsset
       ? await env.ASSETS.fetch(publicRequest)
-      : ((await servePrerendered(publicRequest, env, url)) ??
-        (await next.fetch(publicRequest, env, ctx)));
+      : useCatalogOrigin
+        ? await serveOriginCatalog(publicRequest, env, ctx, url)
+        : ((await servePrerendered(publicRequest, env, url)) ??
+          (await next.fetch(publicRequest, env, ctx)));
     const result = new Response(response.body, response);
     result.headers.delete("set-cookie");
     result.headers.set("x-robots-tag", "noindex, nofollow");
@@ -209,9 +200,10 @@ async function serveCatalogDocument(request, env, ctx) {
   // Select Next's blocking HTML render so every cached document includes its
   // metadata in the head, including when a regular browser fills the cache.
   requestHeaders.set("user-agent", "ActorConsole-Pages (compatible; Google-PageRenderer)");
-  const response = env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com"
-    ? await fetchCatalogDocument(request, env)
-    : await next.fetch(new Request(request, { headers: requestHeaders }), env, ctx);
+  const response =
+    env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com"
+      ? await fetchCatalogDocument(request, env)
+      : await next.fetch(new Request(request, { headers: requestHeaders }), env, ctx);
   if (!isPublicHtml(response) || !response.body) return response;
 
   // Next can stream a 200 for a missing detail page. Only opt in after its
@@ -279,6 +271,18 @@ async function fetchCatalogDocument(request, env) {
   headers.set("cache-control", "private, no-store");
   headers.set("x-actorconsole-render", "origin");
   return new Response(upstream.body, { status: upstream.status, headers });
+}
+
+function serveOriginCatalog(request, env, ctx, url) {
+  if (request.headers.get("rsc") === "1") {
+    // Next falls back to a document navigation when a route uses a
+    // different renderer and its response is HTML instead of Flight.
+    return new Response(null, {
+      headers: { "content-type": "text/html", "cache-control": "private, no-store" },
+    });
+  }
+  if (isAnonymousDocument(request, url)) return serveCatalogDocument(request, env, ctx);
+  return fetchCatalogDocument(request, env);
 }
 
 async function servePrerendered(request, env, url) {
