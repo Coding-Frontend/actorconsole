@@ -8,19 +8,28 @@ export function CatalogDocumentNavigation() {
   useEffect(() => {
     const navigate = (event: MouseEvent) => {
       if (
-        event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey ||
-        event.shiftKey || event.altKey || !(event.target instanceof Element)
-      ) return;
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !(event.target instanceof Element)
+      )
+        return;
       const anchor = event.target.closest<HTMLAnchorElement>("a[href]");
       if (
-        !anchor || anchor.hasAttribute("download") ||
+        !anchor ||
+        anchor.hasAttribute("download") ||
         (anchor.target && anchor.target !== "_self")
-      ) return;
+      )
+        return;
       const url = new URL(anchor.href, window.location.href);
       if (
         url.origin !== window.location.origin ||
         (url.pathname === window.location.pathname && url.search === window.location.search)
-      ) return;
+      )
+        return;
       event.preventDefault();
       navigateInApp(url.pathname + url.search + url.hash);
     };
