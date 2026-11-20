@@ -82,6 +82,21 @@ export default {
       }
       const prerendered = await servePrerendered(request, env, url);
       if (prerendered) return prerendered;
+      if (
+        env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com" &&
+        CATALOG_DOCUMENT_PATH.test(url.pathname) &&
+        ["GET", "HEAD"].includes(request.method)
+      ) {
+        if (request.headers.get("rsc") === "1") {
+          // Next falls back to a document navigation when a route uses a
+          // different renderer and its response is HTML instead of Flight.
+          return new Response(null, {
+            headers: { "content-type": "text/html", "cache-control": "private, no-store" },
+          });
+        }
+        if (isAnonymousDocument(request, url)) return serveCatalogDocument(request, env, ctx);
+        return fetchCatalogDocument(request, env);
+      }
       if (CATALOG_DOCUMENT_PATH.test(url.pathname) && isAnonymousDocument(request, url)) {
         return serveCatalogDocument(request, env, ctx);
       }
@@ -194,7 +209,9 @@ async function serveCatalogDocument(request, env, ctx) {
   // Select Next's blocking HTML render so every cached document includes its
   // metadata in the head, including when a regular browser fills the cache.
   requestHeaders.set("user-agent", "ActorConsole-Pages (compatible; Google-PageRenderer)");
-  const response = await next.fetch(new Request(request, { headers: requestHeaders }), env, ctx);
+  const response = env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com"
+    ? await fetchCatalogDocument(request, env)
+    : await next.fetch(new Request(request, { headers: requestHeaders }), env, ctx);
   if (!isPublicHtml(response) || !response.body) return response;
 
   // Next can stream a 200 for a missing detail page. Only opt in after its
@@ -238,6 +255,30 @@ async function serveCatalogDocument(request, env, ctx) {
     },
   });
   return new Response(body, { status: response.status, headers });
+}
+
+async function fetchCatalogDocument(request, env) {
+  const incoming = new URL(request.url);
+  const target = new URL(
+    "/__catalog_render" + incoming.pathname + incoming.search,
+    env.PUBLIC_CATALOG_RENDER_ORIGIN,
+  );
+  const upstream = await fetch(target, {
+    method: request.method,
+    headers: {
+      accept: "text/html",
+      "user-agent": "ActorConsole-Pages (compatible; Google-PageRenderer)",
+    },
+    redirect: "manual",
+    signal: AbortSignal.timeout(30_000),
+  });
+  const headers = new Headers(upstream.headers);
+  headers.delete("set-cookie");
+  headers.delete("cloudflare-cdn-cache-control");
+  headers.delete("cdn-cache-control");
+  headers.set("cache-control", "private, no-store");
+  headers.set("x-actorconsole-render", "origin");
+  return new Response(upstream.body, { status: upstream.status, headers });
 }
 
 async function servePrerendered(request, env, url) {

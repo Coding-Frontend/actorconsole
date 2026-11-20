@@ -47,6 +47,7 @@ for (const service of ["api", "worker", "mcp", "web"]) {
     args.push("--build-arg", "API_BASE_URL=http://127.0.0.1:4000");
     for (const key of [
       "NEXT_PUBLIC_API_URL",
+      "NEXT_PUBLIC_CATALOG_ASSET_ORIGIN",
       "NEXT_PUBLIC_API_BASE_URL",
       "NEXT_PUBLIC_SITE_URL",
       "NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION",
