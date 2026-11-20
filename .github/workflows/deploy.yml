@@ -63,6 +63,7 @@ jobs:
       - name: Build API, worker, MCP and Next.js images
         env:
           NEXT_PUBLIC_API_URL: /api
+          NEXT_PUBLIC_CATALOG_ASSET_ORIGIN: https://api.actorconsole.com
           NEXT_PUBLIC_API_BASE_URL: /api
           NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
           NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
@@ -103,10 +104,10 @@ jobs:
           ssh -T -i ~/.ssh/actorconsole_deploy -o BatchMode=yes \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             "$VPS_USER@$VPS_HOST" "$REVISION" < .cache/vps-release/release.tar
-      - name: Verify the public Next.js deployment
+      - name: Verify the public catalog renderer deployment
         if: vars.VERIFY_PUBLIC_WEB == 'true'
         env:
-          WEB_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          RENDER_URL: https://api.actorconsole.com/__catalog_render/health
         run: |
-          curl --fail --silent --show-error --retry 3 "$WEB_URL/api/health" |
+          curl --fail --silent --show-error --retry 3 "$RENDER_URL" |
             jq -e --arg sha "$REVISION" '.status == "ok" and .service == "web" and .revision == $sha'

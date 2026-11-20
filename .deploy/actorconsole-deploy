@@ -94,6 +94,16 @@ compose_for "$release_dir" "$revision" run --rm --no-deps api \
   node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma
 compose_for "$release_dir" "$revision" run --rm --no-deps api \
   node_modules/.bin/tsx scripts/seed-policies.ts
+# Keep hashed assets from the previous web build available to cached documents.
+if [[ -d "$previous_release" && "$previous_revision" =~ ^[0-9a-f]{40}$ ]]; then
+  previous_web="$(compose_for "$previous_release" "$previous_revision" ps -q web)"
+  if [[ -n "$previous_web" ]]; then
+    install -d -m 755 /var/cache/actorconsole-catalog \
+      /var/cache/actorconsole-catalog/_next /var/cache/actorconsole-catalog/_next/static
+    docker cp "$previous_web:/app/apps/web/.next/static/." \
+      /var/cache/actorconsole-catalog/_next/static/
+  fi
+fi
 switch_started=1
 compose_for "$release_dir" "$revision" up -d --no-build --remove-orphans
 api_port="$(docker compose -p "$project_name" --env-file "$release_dir/.env.production" -f "$release_dir/docker-compose.vps.yml" port api 4000 | awk -F: '{print $NF}')"

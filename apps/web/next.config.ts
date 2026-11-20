@@ -8,6 +8,8 @@ const canonicalSite = new URL(
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  assetPrefix: process.env.NEXT_PUBLIC_CATALOG_ASSET_ORIGIN || undefined,
+  crossOrigin: "anonymous",
   // Keep metadata in the initial HTML head for every social preview crawler,
   // including platforms whose user agents Next.js does not recognize yet.
   htmlLimitedBots: /.*/,

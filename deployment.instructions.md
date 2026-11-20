@@ -28,6 +28,14 @@ Review draft policies before publishing in Admin. Preserve database, Redis and l
 
 ## VPS Next.js frontend
 
+Public catalog detail pages can use the VPS renderer through the Pages
+`PUBLIC_CATALOG_RENDER_ORIGIN=https://api.actorconsole.com` binding. Install
+`.deploy/nginx-catalog-render.conf` inside the API's TLS server. The endpoint
+accepts only public builder and actor document reads and removes credentials.
+VPS builds use `NEXT_PUBLIC_CATALOG_ASSET_ORIGIN` so those documents load the
+matching JavaScript and fonts. Verify the renderer and its assets before setting
+the Pages binding. Catalog navigation loads a complete document across builds.
+
 Redis is optional at the application level. Set `REDIS_ENABLED=false` for both
 API and worker to use the database queue, after running the database migration.
 The default Compose deployment still provisions Redis; this flag prevents all

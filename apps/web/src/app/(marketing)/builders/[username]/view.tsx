@@ -89,11 +89,13 @@ export async function generateMetadata({
     : { title: "Builder not found", robots: { index: false } };
 }
 
+const compactNumber = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 function compact(value: number | null) {
-  if (value == null) return "Unavailable";
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
-    value,
-  );
+  return value == null ? "Unavailable" : compactNumber.format(value);
 }
 
 function initials(name: string) {
