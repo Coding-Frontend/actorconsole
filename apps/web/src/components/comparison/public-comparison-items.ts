@@ -115,7 +115,9 @@ const comparisonDateFormat = new Intl.DateTimeFormat("en-IN", { dateStyle: "medi
 const comparisonPriceFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 });
 
 function comparisonDate(value: Date | null | undefined) {
-  return value ? comparisonDateFormat.format(new Date(value)) : null;
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Invalid Date" : comparisonDateFormat.format(date);
 }
 
 function pricingDetails(pricing: BuilderActorPricing[] | undefined) {

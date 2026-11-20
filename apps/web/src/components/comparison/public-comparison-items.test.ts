@@ -22,6 +22,10 @@ const earnings = rollupEarnings([
   }),
 ]);
 describe("public comparison earnings", () => {
+  it("retains date labels when a stored catalog timestamp is invalid", () => {
+    const item = builderCompareItem({ ...builder, lastUpdatedAt: new Date("invalid") });
+    expect(item.metrics.lastUpdated).toBe("Invalid Date");
+  });
   it("does not present a revenue leaderboard position as an active-user rank", () => {
     const item = builderCompareItem({ ...builder, earnings }, 30, "estimated-revenue");
     expect(item.metrics.rank).toBeNull();
