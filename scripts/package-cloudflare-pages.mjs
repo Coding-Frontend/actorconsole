@@ -29,6 +29,10 @@ if (name !== "actorconsole-git" || pages_build_output_dir !== "./dist-pages") {
 }
 const git = spawnSync("git", ["rev-parse", "HEAD"], { cwd: app, encoding: "utf8" });
 const revision = git.stdout?.trim() ?? "";
+const catalogOrigin = process.env.PUBLIC_CATALOG_RENDER_ORIGIN ?? "";
+if (catalogOrigin && catalogOrigin !== "https://api.actorconsole.com") {
+  throw new Error("The public catalog renderer must use the configured ActorConsole API origin");
+}
 if (git.status !== 0 || !/^[a-f0-9]{40}$/.test(revision)) {
   throw new Error("Build the Pages package from a Git checkout with a known revision");
 }
@@ -64,6 +68,7 @@ writeFileSync(
     compatibility_flags,
     define: {
       "process.env.ACTORCONSOLE_PAGES_REVISION": JSON.stringify(revision),
+      "process.env.ACTORCONSOLE_CATALOG_RENDER_ORIGIN": JSON.stringify(catalogOrigin),
       "process.env.ACTORCONSOLE_PAGES_ASSETS": JSON.stringify(JSON.stringify(assetPaths)),
       "process.env.ACTORCONSOLE_PAGES_PRERENDERED": JSON.stringify(JSON.stringify(prerendered)),
     },

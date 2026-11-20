@@ -5,6 +5,7 @@ import "./.open-next/server-functions/default/handler.mjs";
 const ASSET_PATHS = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_ASSETS ?? "[]"));
 const PRERENDERED = new Set(JSON.parse(process.env.ACTORCONSOLE_PAGES_PRERENDERED ?? "[]"));
 const PRODUCTION_HOST = "actorconsole.com";
+const CATALOG_RENDER_ORIGIN = process.env.ACTORCONSOLE_CATALOG_RENDER_ORIGIN ?? "";
 const PRERENDERED_PREFIX = "/_actorconsole-pages/";
 const ANONYMOUS_CACHE_PATHS = new Set(["/", "/builders", "/faq", "/pricing", "/research"]);
 const CATALOG_DOCUMENT_PATH = /^\/builders\/(?!compare(?:\/|$))[\w.-]+(?:\/actors\/[\w.-]+)?$/;
@@ -53,7 +54,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const useCatalogOrigin =
-      env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com" &&
+      (env.PUBLIC_CATALOG_RENDER_ORIGIN || CATALOG_RENDER_ORIGIN) === "https://api.actorconsole.com" &&
       CATALOG_DOCUMENT_PATH.test(url.pathname) &&
       ["GET", "HEAD"].includes(request.method);
 
@@ -201,7 +202,7 @@ async function serveCatalogDocument(request, env, ctx) {
   // metadata in the head, including when a regular browser fills the cache.
   requestHeaders.set("user-agent", "ActorConsole-Pages (compatible; Google-PageRenderer)");
   const response =
-    env.PUBLIC_CATALOG_RENDER_ORIGIN === "https://api.actorconsole.com"
+    (env.PUBLIC_CATALOG_RENDER_ORIGIN || CATALOG_RENDER_ORIGIN) === "https://api.actorconsole.com"
       ? await fetchCatalogDocument(request, env)
       : await next.fetch(new Request(request, { headers: requestHeaders }), env, ctx);
   if (!isPublicHtml(response) || !response.body) return response;
@@ -253,7 +254,7 @@ async function fetchCatalogDocument(request, env) {
   const incoming = new URL(request.url);
   const target = new URL(
     "/__catalog_render" + incoming.pathname + incoming.search,
-    env.PUBLIC_CATALOG_RENDER_ORIGIN,
+    env.PUBLIC_CATALOG_RENDER_ORIGIN || CATALOG_RENDER_ORIGIN,
   );
   const upstream = await fetch(target, {
     method: request.method,
