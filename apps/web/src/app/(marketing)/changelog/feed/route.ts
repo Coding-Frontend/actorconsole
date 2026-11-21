@@ -1,5 +1,5 @@
 import { getChangelogFeed } from "@/services/changelog";
-import { changelogFeed } from "@/lib/changelog-feed";
+import { changelogFeed } from "@actorconsole/shared/changelog-feed";
 
 export const revalidate = 60;
 export async function GET() {

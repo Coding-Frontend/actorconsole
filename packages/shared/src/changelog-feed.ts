@@ -1,4 +1,5 @@
-type ChangelogArticle = {
+// RSS feed for the public changelog, rendered by both the API and the web app.
+export type ChangelogFeedEntry = {
   slug: string;
   title: string;
   releaseDate: string;
@@ -16,7 +17,7 @@ const xml = (value: string) =>
       /[<>&"']/g,
       (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[char]!,
     );
-export function changelogFeed(items: ChangelogArticle[], siteUrl: string) {
+export function changelogFeed(items: ChangelogFeedEntry[], siteUrl: string) {
   const base = new URL(siteUrl).origin;
   return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>ActorConsole Changelog</title><link>${xml(base)}/changelog</link><description>New features, improvements, and product updates from ActorConsole.</description><language>en-us</language><atom:link href="${xml(base)}/changelog/feed" rel="self" type="application/rss+xml"/>${items
     .map((entry) => {

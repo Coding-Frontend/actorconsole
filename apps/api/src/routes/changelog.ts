@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { db, type Prisma } from "@actorconsole/db";
 import type { AppEnv } from "../app.js";
 import { enumQuery, integerQuery, limitQuery } from "../lib/query.js";
-import { changelogFeed } from "../lib/changelog-feed.js";
+import { changelogFeed } from "@actorconsole/shared/changelog-feed";
 import { apiEnv } from "../config/env.js";
 import {
   changelogCategories,
