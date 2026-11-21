@@ -117,7 +117,18 @@ async function checkPage(canonicalUrl) {
 
 const sitemap = await fetch(`${origin}/sitemap.xml`, { signal: timeout() });
 if (!sitemap.ok) throw new Error(`Sitemap returned ${sitemap.status}`);
-const xml = await sitemap.text();
+let xml = await sitemap.text();
+if (/<sitemapindex\b/.test(xml)) {
+  const contentUrl = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)]
+    .map(([, url]) => decode(url))
+    .find((url) => url === `${canonicalOrigin}/sitemap-content.xml`);
+  if (!contentUrl) throw new Error("Sitemap index is missing the content sitemap");
+  // Keep the page-by-page SEO audit scoped to content rather than crawling
+  // the complete public Store catalog.
+  const content = await fetch(`${origin}/sitemap-content.xml`, { signal: timeout() });
+  if (!content.ok) throw new Error(`Content sitemap returned ${content.status}`);
+  xml = await content.text();
+}
 const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map(([, url]) => decode(url));
 if (!/<urlset\b/.test(xml) || urls.length === 0 || urls.length > 50_000)
   throw new Error("Expected a non-empty sitemap URL set with at most 50,000 URLs");

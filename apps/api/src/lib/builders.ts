@@ -5,6 +5,7 @@ import { getPublicActor } from "@actorconsole/apify";
 import { getPublicActorStoreRating } from "./public-actor-content.js";
 import { db, Prisma } from "@actorconsole/db";
 import { publicCache } from "./public-cache.js";
+import { PUBLIC_CATALOG_ACTOR_WHERE } from "./public-catalog-filter.js";
 import { getBuilderEarnings } from "./builder-earnings.js";
 import { estimateActorEarnings } from "@actorconsole/shared/actor-earnings";
 import {
@@ -34,17 +35,6 @@ async function optionalWithin<T>(promise: Promise<T>, timeoutMs: number): Promis
     if (timer) clearTimeout(timer);
   }
 }
-
-// Sitemap reconciliation retains a small number of public URLs that the
-// Store API no longer returns. Those durable placeholders use `owner/name`
-// as their temporary ID (real Apify Actor IDs never contain a slash) and have
-// no rolling metric snapshot. Keep them out of ranking, coverage and profile
-// charts so missing Store records cannot masquerade as zero-usage Actors.
-const PUBLIC_CATALOG_ACTOR_WHERE = {
-  isPublic: true,
-  isDeprecated: false,
-  apifyActorId: { not: { contains: "/" } },
-} satisfies Prisma.StoreActorWhereInput;
 
 // Retired listings retain their recorded history; they never enter current rankings.
 const HISTORICAL_CATALOG_ACTOR_WHERE = {
