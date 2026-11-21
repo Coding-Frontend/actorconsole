@@ -292,10 +292,12 @@ export function BillingCard({
               </p>
             ) : null}
             {paymentReturn && plan === "FREE" && subscription?.status !== "test_completed" ? (
-              <p className="text-warning text-sm" role="status">Waiting for payment confirmation. This page will refresh automatically.</p>
+              <Alert tone="warning">
+                Waiting for payment confirmation. This page will refresh automatically.
+              </Alert>
             ) : null}
             {paymentReturn && subscription?.status === "test_completed" ? (
-              <p className="text-warning text-sm" role="status">Test payment confirmed.</p>
+              <Alert tone="warning">Test payment confirmed.</Alert>
             ) : null}
             {subscription?.billingMode === "test" && subscription.status !== "test_completed" ? (
               <Badge variant="warning">Test subscription</Badge>
