@@ -53,8 +53,11 @@ function previewResponse(body, status, headers = {}) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const catalogOriginEnabled =
+      (env.PUBLIC_CATALOG_RENDER_ORIGIN || CATALOG_RENDER_ORIGIN) ===
+      "https://api.actorconsole.com";
     const useCatalogOrigin =
-      (env.PUBLIC_CATALOG_RENDER_ORIGIN || CATALOG_RENDER_ORIGIN) === "https://api.actorconsole.com" &&
+      catalogOriginEnabled &&
       CATALOG_DOCUMENT_PATH.test(url.pathname) &&
       ["GET", "HEAD"].includes(request.method);
 
@@ -69,6 +72,9 @@ export default {
     if (url.hostname === PRODUCTION_HOST) {
       if (url.pathname === "/_pages/revision") return serveRevision(env);
       if (ASSET_PATHS.has(decodePath(url.pathname))) return env.ASSETS.fetch(request);
+      if (isCatalogClientNavigation(request, url, catalogOriginEnabled)) {
+        return catalogDocumentNavigation();
+      }
       if (
         url.pathname === "/api/auth/session" &&
         !url.search &&
@@ -141,10 +147,12 @@ export default {
     const isAsset = ASSET_PATHS.has(pathname);
     const response = isAsset
       ? await env.ASSETS.fetch(publicRequest)
-      : useCatalogOrigin
-        ? await serveOriginCatalog(publicRequest, env, ctx, url)
-        : ((await servePrerendered(publicRequest, env, url)) ??
-          (await next.fetch(publicRequest, env, ctx)));
+      : isCatalogClientNavigation(publicRequest, url, catalogOriginEnabled)
+        ? catalogDocumentNavigation()
+        : useCatalogOrigin
+          ? await serveOriginCatalog(publicRequest, env, ctx, url)
+          : ((await servePrerendered(publicRequest, env, url)) ??
+            (await next.fetch(publicRequest, env, ctx)));
     const result = new Response(response.body, response);
     result.headers.delete("set-cookie");
     result.headers.set("x-robots-tag", "noindex, nofollow");
@@ -152,6 +160,31 @@ export default {
     return result;
   },
 };
+
+function isCatalogClientNavigation(request, url, enabled) {
+  if (
+    !enabled ||
+    request.headers.get("rsc") !== "1" ||
+    !["GET", "HEAD"].includes(request.method) ||
+    isUnder(url.pathname, "/api") ||
+    isUnder(url.pathname, "/_next")
+  ) {
+    return false;
+  }
+  try {
+    const source = new URL(request.headers.get("referer"));
+    return source.origin === url.origin && CATALOG_DOCUMENT_PATH.test(source.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function catalogDocumentNavigation() {
+  // HTML makes Next retry as a full document, including programmatic router.push.
+  return new Response(null, {
+    headers: { "content-type": "text/html", "cache-control": "private, no-store" },
+  });
+}
 
 function requiresNext(request) {
   return [
@@ -278,9 +311,7 @@ function serveOriginCatalog(request, env, ctx, url) {
   if (request.headers.get("rsc") === "1") {
     // Next falls back to a document navigation when a route uses a
     // different renderer and its response is HTML instead of Flight.
-    return new Response(null, {
-      headers: { "content-type": "text/html", "cache-control": "private, no-store" },
-    });
+    return catalogDocumentNavigation();
   }
   if (isAnonymousDocument(request, url)) return serveCatalogDocument(request, env, ctx);
   return fetchCatalogDocument(request, env);

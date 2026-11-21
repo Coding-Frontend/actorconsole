@@ -1,15 +1,11 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "../lib/seo";
-import { DOC_GUIDES } from "../lib/documentation";
-import { publishedSitemapEntries } from "../lib/published-sitemap";
+import { SITE_URL } from "./seo";
+import { DOC_GUIDES } from "./documentation";
+import { publishedSitemapEntries } from "./published-sitemap";
 
 const BASE_URL = SITE_URL;
 
-// Content is published after the web image is built; never freeze a build-time
-// empty feed into the deployed sitemap. Public content reads have their own TTL.
-export const dynamic = "force-dynamic";
-
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+export async function contentSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const marketingPages: MetadataRoute.Sitemap = [
     { url: BASE_URL, changeFrequency: "weekly", priority: 1 },
     { url: `${BASE_URL}/features`, changeFrequency: "monthly", priority: 0.9 },

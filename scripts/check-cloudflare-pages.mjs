@@ -50,7 +50,7 @@ await check(asset, 200);
 const image = home.match(/src="(\/_next\/image\?[^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
 if (image) await check(image, 200);
 assert.match(await check("/faq", 200), /ActorConsole/i);
-assert.match(await check("/sitemap.xml", 200), /<urlset[\s>]/);
+assert.match(await check("/sitemap.xml", 200), /<(?:urlset|sitemapindex)[\s>]/);
 assert.match(await check("/robots.txt", 200), /Disallow: \//);
 const health = JSON.parse(await check("/api/health", 200));
 assert(health.ok === true || health.status === "ok", "The API health probe did not report ready");
