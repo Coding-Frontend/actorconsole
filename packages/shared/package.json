@@ -15,6 +15,10 @@
       "types": "./dist/builders.d.ts",
       "import": "./dist/builders.js"
     },
+    "./changelog-feed": {
+      "types": "./dist/changelog-feed.d.ts",
+      "import": "./dist/changelog-feed.js"
+    },
     "./default-dashboard": {
       "types": "./dist/default-dashboard.d.ts",
       "import": "./dist/default-dashboard.js"

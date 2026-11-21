@@ -2,7 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ChangelogList } from "./changelog-list";
 import { changelogQuery } from "@/lib/changelog";
-import { changelogFeed } from "@/lib/changelog-feed";
+import { changelogFeed } from "@actorconsole/shared/changelog-feed";
 import type { ChangelogListing } from "@/services/changelog";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
