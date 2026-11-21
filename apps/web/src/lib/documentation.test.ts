@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { DOC_GUIDES, findDocGuide, searchDocGuides } from "./documentation";
-import sitemap from "@/app/sitemap";
+import { contentSitemapEntries } from "./content-sitemap";
 vi.mock("./published-sitemap", () => ({ publishedSitemapEntries: async () => [] }));
 
 describe("documentation routes and discovery", () => {
@@ -29,7 +29,7 @@ describe("documentation routes and discovery", () => {
       "cron",
     ];
     for (const id of existing) expect(findDocGuide(id)?.summary.length).toBeGreaterThan(20);
-    for (const entry of await sitemap()) {
+    for (const entry of await contentSitemapEntries()) {
       const path = new URL(entry.url).pathname;
       if (path.startsWith("/docs/")) expect(findDocGuide(path.slice(6))).toBeDefined();
     }
