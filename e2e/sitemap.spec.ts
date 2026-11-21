@@ -8,7 +8,7 @@ test("sitemap discovers published blog and older changelog articles without draf
     throw new Error(
       "Sitemap launch check requires isolated seeded content. Run pnpm test:e2e:launch.",
     );
-  const response = await request.get("/sitemap.xml");
+  const response = await request.get("/sitemap-content.xml");
   expect(response.ok()).toBe(true);
   const xml = await response.text();
   for (const kind of ["blog", "changelog"]) {
@@ -23,4 +23,34 @@ test("sitemap discovers published blog and older changelog articles without draf
     expect(head).toContain('name="twitter:card" content="summary_large_image"');
   }
   expect(xml).not.toContain(`e2e-deleted-blog-${suffix}`);
+});
+
+test("sitemap index discovers canonical public builder and Actor URLs", async ({ request }) => {
+  const suffix = process.env.E2E_CONTENT_SUFFIX;
+  expect(suffix).toBeTruthy();
+  const username = `e2e-catalog-${suffix}`;
+  const response = await request.get("/sitemap.xml");
+  expect(response.ok()).toBe(true);
+  const index = await response.text();
+  expect(index).toContain("<sitemapindex");
+  expect(index).toContain("/sitemap-content.xml</loc>");
+  expect(index).toContain("/sitemap-builders-1.xml</loc>");
+  expect(index).toContain("/sitemap-actors-1.xml</loc>");
+
+  const [builders, actors] = await Promise.all([
+    request.get("/sitemap-builders-1.xml"),
+    request.get("/sitemap-actors-1.xml"),
+  ]);
+  expect(builders.ok()).toBe(true);
+  expect(actors.ok()).toBe(true);
+  expect(actors.headers()["content-type"]).toContain("application/xml");
+  const buildersXml = await builders.text();
+  const actorsXml = await actors.text();
+  expect(buildersXml).toContain(`/builders/${username}</loc>`);
+  expect(buildersXml).not.toContain(`placeholder-${suffix}`);
+  expect(actorsXml).toContain(`/builders/${username}/actors/public-actor</loc>`);
+  expect(actorsXml).not.toContain(`/builders/${username}/actors/private-actor`);
+  expect(actorsXml).not.toContain(`/builders/${username}/actors/retired-actor`);
+  expect(actorsXml).not.toContain(`placeholder-${suffix}`);
+  expect((await request.get("/sitemap-actors-999999.xml")).status()).toBe(404);
 });
