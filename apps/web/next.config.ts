@@ -18,6 +18,14 @@ const nextConfig: NextConfig = {
     externalDir: true,
   },
   transpilePackages: ["@actorconsole/shared"],
+  async rewrites() {
+    return [
+      {
+        source: "/sitemap-:kind(builders|actors)-:page(\\d+).xml",
+        destination: "/catalog-sitemap/:kind/:page",
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "apify.com" },

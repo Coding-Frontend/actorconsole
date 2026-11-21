@@ -53,6 +53,29 @@ export async function seedLaunchContent(suffix) {
         },
       });
     }
+    const username = `e2e-catalog-${suffix}`;
+    await db.storeActor.createMany({
+      data: [
+        { username, actorName: "public-actor", apifyActorId: `public-${suffix}` },
+        {
+          username,
+          actorName: "private-actor",
+          apifyActorId: `private-${suffix}`,
+          isPublic: false,
+        },
+        {
+          username,
+          actorName: "retired-actor",
+          apifyActorId: `retired-${suffix}`,
+          isDeprecated: true,
+        },
+        {
+          username: `placeholder-${suffix}`,
+          actorName: "missing-actor",
+          apifyActorId: `${username}/missing-actor`,
+        },
+      ],
+    });
   } finally {
     await db.$disconnect();
   }
