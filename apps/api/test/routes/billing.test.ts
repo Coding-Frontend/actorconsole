@@ -27,8 +27,8 @@ const {
       updateMany: vi.fn(),
       update: vi.fn(),
     },
-    user: { findUnique: vi.fn() },
-    billingAddress: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), updateMany: vi.fn() },
+    billingAddress: { findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
     billingCheckoutOperation: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $queryRaw: vi.fn(),
     webhookDelivery: {
@@ -110,31 +110,51 @@ let storedCheckout: any;
 const applyUpdate = (row: any, data: any) => Object.fromEntries(Object.entries({ ...row, ...data }).map(([key, value]) => [key, value && typeof value === "object" && "increment" in value ? (row?.[key] ?? 0) + value.increment : value]));
 
 describe("Provider-neutral billing routes", () => {
-  it("issues a signed hosted link and resumes the same workspace order", async () => {
+  const hostedPlan = {
+    slug: "actorconsole-monthly", origin: "https://codingfrontend.in",
+    secret: "a".repeat(64), amount: 1900, currency: "USD", mode: "live",
+  };
+
+  function mockHostedCheckout() {
     mockDb.paymentGateway.findUnique.mockResolvedValue({
       key: "codingfrontend", name: "CodingFrontend Checkout", enabled: true, config: { mode: "live" },
     });
     mockConfiguredProduct.mockResolvedValue("actorconsole-monthly");
     mockBillingOptions.mockResolvedValue([{ interval: "month", amountMinor: 1900, currency: "USD" }]);
-    const plan = {
-      slug: "actorconsole-monthly", origin: "https://codingfrontend.in",
-      secret: "a".repeat(64), amount: 1900, currency: "USD", mode: "live",
-    };
-    const checkout = () => buildApp().request("/billing/checkout", {
+    mockHostedPlan.mockResolvedValue(hostedPlan);
+  }
+
+  function hostedCheckout(flow?: "pay" | "review", checkoutDetails?: { name?: string; phone?: string }) {
+    return buildApp().request("/billing/checkout", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ gateway: "codingfrontend", plan: "PRO", interval: "month" }),
+      body: JSON.stringify({ gateway: "codingfrontend", plan: "PRO", interval: "month", hostedCheckoutFlow: flow, checkoutDetails }),
     });
-    mockHostedPlan.mockResolvedValue({ ...plan, amount: 1999 });
-    expect((await checkout()).status).toBe(409);
+  }
+
+  function decryptPrefill(checkout: { checkoutPrefill: string; checkoutUrl: string }, token?: string) {
+    const payload = Buffer.from(checkout.checkoutPrefill, "base64url");
+    const key = createHmac("sha256", hostedPlan.secret).update("checkout-prefill:v1").digest();
+    const decipher = createDecipheriv("aes-256-gcm", key, payload.subarray(0, 12));
+    decipher.setAAD(Buffer.from(token ?? new URL(checkout.checkoutUrl).searchParams.get("token")!));
+    decipher.setAuthTag(payload.subarray(12, 28));
+    return JSON.parse(Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString("utf8"));
+  }
+
+  it.each(["pay", "review"] as const)("signs a six-field %s link and resumes the same workspace order", async (flow) => {
+    mockHostedCheckout();
+    mockDb.billingAddress.findUnique.mockResolvedValue({
+      address: "12 Main Street", city: "Chennai", country: "in", phone: "+14155552671",
+    });
+    mockHostedPlan.mockResolvedValue({ ...hostedPlan, amount: 1999 });
+    expect((await hostedCheckout(flow)).status).toBe(409);
     expect(mockDb.billingCheckoutOperation.upsert).not.toHaveBeenCalled();
-    mockHostedPlan.mockResolvedValue(plan);
-    mockDb.billingAddress.findUnique.mockResolvedValue({ address: "12 Main Street", city: "Chennai", country: "in" });
-    const response = await checkout();
+    mockHostedPlan.mockResolvedValue(hostedPlan);
+    const response = await hostedCheckout(flow, { name: "Ignored", phone: "+919876543210" });
     expect(response.status).toBe(200);
     const first = (await response.json()).data;
     const url = new URL(first.checkoutUrl);
-    expect(url.origin).toBe(plan.origin);
+    expect(url.origin).toBe(hostedPlan.origin);
     expect(url.pathname).toBe("/checkout/actorconsole-monthly");
     expect(url.searchParams.get("token")).toMatch(new RegExp(`^${first.checkoutId}\\.\\d{10}\\.1900\\.USD\\.live\\.[a-f0-9]{64}$`));
     expect(first.checkoutId).toMatch(/^[a-f0-9]{32}$/);
@@ -142,18 +162,80 @@ describe("Provider-neutral billing routes", () => {
     expect(url.hash).toBe("");
     expect(url.searchParams.size).toBe(1);
     expect(first.checkoutPrefill).not.toContain("Main Street");
-    const payload = Buffer.from(first.checkoutPrefill, "base64url");
-    const key = createHmac("sha256", plan.secret).update("checkout-prefill:v1").digest();
-    const decipher = createDecipheriv("aes-256-gcm", key, payload.subarray(0, 12));
-    decipher.setAAD(Buffer.from(url.searchParams.get("token")!));
-    decipher.setAuthTag(payload.subarray(12, 28));
-    const plain = JSON.parse(Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString("utf8"));
-    expect(plain).toMatchObject({ address: { line1: "12 Main Street", city: "Chennai", country: "IN" } });
-    expect(plain).not.toHaveProperty("phone");
+    expect(decryptPrefill(first)).toMatchObject({
+      name: "Payer", email: "payer@example.com", phone: "+14155552671",
+      address: { line1: "12 Main Street", city: "Chennai", country: "IN" },
+    });
+    if (flow === "pay") expect(decryptPrefill(first).openPayment).toBe(true);
+    else expect(decryptPrefill(first)).not.toHaveProperty("openPayment");
+    expect(() => decryptPrefill(first, "different-token")).toThrow();
     expect(mockDb.billingAddress.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "user_1" } }));
-    expect((await (await checkout()).json()).data.checkoutId).toBe(first.checkoutId);
+    expect((await hostedCheckout(flow === "pay" ? "review" : "pay")).status).toBe(409);
+    expect((await (await hostedCheckout(flow)).json()).data.checkoutId).toBe(first.checkoutId);
     expect(mockDb.billingCheckoutOperation.upsert).toHaveBeenCalledTimes(1);
     expect(mockCreateCheckout).not.toHaveBeenCalled();
+  });
+
+  it("asks only for the missing phone and keeps an existing billing address intact", async () => {
+    mockHostedCheckout();
+    const billingAddress = { address: "12 Main Street", country: "US", phone: null as string | null };
+    mockDb.billingAddress.findUnique.mockResolvedValue(billingAddress);
+    mockDb.billingAddress.updateMany.mockImplementation(async ({ data }) => {
+      billingAddress.phone = data.phone;
+      return { count: 1 };
+    });
+    const response = await hostedCheckout("pay");
+    expect(response.status).toBe(422);
+    expect(Object.keys((await response.json()).error.fields)).toEqual(["phone"]);
+    expect((await hostedCheckout("pay", { phone: "+12005550100" })).status).toBe(422);
+    expect(mockDb.billingCheckoutOperation.upsert).not.toHaveBeenCalled();
+    expect(mockDb.billingAddress.updateMany).not.toHaveBeenCalled();
+
+    const checkout = await hostedCheckout("pay", { phone: "+1 (415) 555-2671" });
+    expect(checkout.status).toBe(200);
+    const first = (await checkout.json()).data;
+    expect(decryptPrefill(first)).toMatchObject({
+      openPayment: true, phone: "+14155552671", address: { line1: "12 Main Street", country: "US" },
+    });
+    expect(mockDb.billingAddress.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user_1", phone: null }, data: { phone: "+14155552671" },
+    });
+    expect(mockDb.user.updateMany).not.toHaveBeenCalled();
+    expect((await (await hostedCheckout("pay")).json()).data.checkoutId).toBe(first.checkoutId);
+    expect(mockDb.billingAddress.updateMany).toHaveBeenCalledOnce();
+  });
+
+  it("saves the missing name and phone without creating a billing country", async () => {
+    mockHostedCheckout();
+    mockDb.user.findUnique.mockResolvedValue({ name: null, email: "payer@example.com" });
+    mockDb.user.updateMany.mockResolvedValue({ count: 1 });
+    mockDb.billingAddress.upsert.mockImplementation(async ({ create }) => create);
+    const missing = await hostedCheckout("pay", { name: "   " });
+    expect(missing.status).toBe(422);
+    expect(Object.keys((await missing.json()).error.fields)).toEqual(["name", "phone"]);
+    const checkout = await hostedCheckout("pay", { name: "  Payer  ", phone: "+919876543210" });
+    expect(checkout.status).toBe(200);
+    expect(decryptPrefill((await checkout.json()).data)).toEqual({
+      name: "Payer", email: "payer@example.com", phone: "+919876543210", openPayment: true,
+    });
+    expect(mockDb.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "user_1", name: null }, data: { name: "Payer" },
+    });
+    expect(mockDb.billingAddress.upsert).toHaveBeenCalledWith({
+      where: { userId: "user_1" }, create: { userId: "user_1", phone: "+919876543210", country: "" }, update: {},
+    });
+  });
+
+  it("accepts incomplete legacy links for manual review and preserves a pending legacy reservation", async () => {
+    mockHostedCheckout();
+    const response = await hostedCheckout();
+    expect(response.status).toBe(200);
+    const first = (await response.json()).data;
+    expect(decryptPrefill(first)).toEqual({ name: "Payer", email: "payer@example.com" });
+    storedCheckout.hostedCheckoutFlow = null;
+    mockDb.billingAddress.findUnique.mockResolvedValue({ country: "US", phone: "+14155552671" });
+    expect((await hostedCheckout("pay")).status).toBe(409);
+    expect((await (await hostedCheckout("review")).json()).data.checkoutId).toBe(first.checkoutId);
   });
   beforeEach(() => {
     vi.clearAllMocks();

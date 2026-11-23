@@ -47,9 +47,17 @@ import {
   isDodoLivePaymentsUnavailable,
   isDefinitiveProviderRejection,
 } from "../lib/billing-provider-errors.js";
-import { codingFrontendCheckoutLink, encryptCodingFrontendPrefill, fetchCodingFrontendPlan } from "../lib/codingfrontend-checkout.js";
+import {
+  codingFrontendCheckoutLink,
+  encryptCodingFrontendPrefill,
+  fetchCodingFrontendPlan,
+  hasHostedCheckoutEmail,
+  hostedCheckoutName,
+  hostedCheckoutPhone,
+} from "../lib/codingfrontend-checkout.js";
 import { codingFrontendWebhook } from "./codingfrontend-webhook.js";
 import type { AppEnv } from "../app.js";
+import { AppError } from "../middleware/error.js";
 
 const checkoutBody = z
   .object({
@@ -57,6 +65,11 @@ const checkoutBody = z
     plan: z.literal("PRO"),
     interval: z.enum(["month", "year"]),
     analytics: paymentAnalyticsInput.optional(),
+    hostedCheckoutFlow: z.enum(["pay", "review"]).optional(),
+    checkoutDetails: z.object({
+      name: z.string().max(120).optional(),
+      phone: z.string().max(32).optional(),
+    }).strict().optional(),
   })
   .strict();
 
@@ -84,7 +97,7 @@ export const billingRoutes = new Hono<AppEnv>()
   .post("/webhooks/codingfrontend", codingFrontendWebhook)
   .post("/checkout", zValidator("json", checkoutBody), async (c) => {
     const session = c.get("session");
-    const { gateway, plan, interval, analytics } = c.req.valid("json");
+    const { gateway, plan, interval, analytics, hostedCheckoutFlow = "review", checkoutDetails } = c.req.valid("json");
     if (!session.businessProfileId) {
       return c.json(
         {
@@ -174,6 +187,37 @@ export const billingRoutes = new Hono<AppEnv>()
       );
     }
     if (gateway === "codingfrontend") {
+      c.header("Cache-Control", "private, no-store");
+      const billing = await db.billingAddress.findUnique({
+        where: { userId: session.userId },
+        select: { company: true, gstin: true, phone: true, address: true, city: true, state: true, zip: true, country: true },
+      });
+      const email = user.email.trim();
+      const savedName = hostedCheckoutName(user.name);
+      const savedPhone = hostedCheckoutPhone(billing?.phone);
+      const direct = hostedCheckoutFlow === "pay";
+      const name = savedName ?? (direct ? hostedCheckoutName(checkoutDetails?.name) : undefined);
+      const phone = savedPhone ?? (direct ? hostedCheckoutPhone(checkoutDetails?.phone) : undefined);
+
+      if (direct && !hasHostedCheckoutEmail(email)) {
+        return c.json({
+          ok: false,
+          error: { code: "checkout_email_unavailable", message: "Your account email cannot be used for direct payment. Choose Review checkout or apply coupon to enter your email at checkout." },
+        }, 422);
+      }
+      if (direct && (!name || !phone)) {
+        return c.json({
+          ok: false,
+          error: {
+            code: "checkout_details_required",
+            fields: {
+              ...(!name ? { name: "Enter the name to use for billing." } : {}),
+              ...(!phone ? { phone: "Enter a valid phone number with its country code, such as +91." } : {}),
+            },
+          },
+        }, 422);
+      }
+
       const option = (await gatewayBillingOptions(gateway, context)).find((item) => item.interval === interval);
       let hostedPlan;
       try {
@@ -190,10 +234,38 @@ export const billingRoutes = new Hono<AppEnv>()
           error: { code: "billing_price_changed", message: "This plan's price needs to be verified again. Contact billing support." },
         }, 409);
       }
-      const billing = await db.billingAddress.findUnique({
-        where: { userId: session.userId },
-        select: { company: true, gstin: true, address: true, city: true, state: true, zip: true, country: true },
-      });
+      if (direct && name && phone && (!savedName || !savedPhone)) {
+        await db.$transaction(async (tx) => {
+          const detailsChanged = () => new AppError(
+            "checkout_details_changed",
+            "Your saved checkout details changed. Please try again.",
+            409,
+          );
+          if (!savedName) {
+            const result = await tx.user.updateMany({
+              where: { id: session.userId, name: user.name },
+              data: { name },
+            });
+            if (!result.count) throw detailsChanged();
+          }
+          if (!savedPhone) {
+            if (billing) {
+              const result = await tx.billingAddress.updateMany({
+                where: { userId: session.userId, phone: billing.phone },
+                data: { phone },
+              });
+              if (!result.count) throw detailsChanged();
+            } else {
+              const address = await tx.billingAddress.upsert({
+                where: { userId: session.userId },
+                create: { userId: session.userId, phone, country: "" },
+                update: {},
+              });
+              if (address.phone !== phone) throw detailsChanged();
+            }
+          }
+        });
+      }
       const operationId = await reserveBillingCheckout({
         businessProfileId: session.businessProfileId,
         userId: session.userId,
@@ -201,20 +273,22 @@ export const billingRoutes = new Hono<AppEnv>()
         productId: selectedProductId,
         interval,
         price: { amountMinor: hostedPlan.amount, currency: hostedPlan.currency },
+        hostedCheckoutFlow,
         analytics: hasAnalyticsConsent(c.req.header("cookie")) ? analytics : undefined,
       });
       const checkoutUrl = codingFrontendCheckoutLink({ ...hostedPlan, id: operationId });
       const country = billing?.country.trim().toUpperCase();
       const checkoutPrefill = encryptCodingFrontendPrefill(hostedPlan.secret, checkoutUrl, {
-        name: user.name,
-        email: user.email,
-        address: billing ? {
+        ...(direct ? { openPayment: true } : {}),
+        name,
+        email: hasHostedCheckoutEmail(email) ? email : undefined,
+        phone,
+        address: billing && (country || billing.address || billing.city || billing.state || billing.zip || billing.company || billing.gstin) ? {
           company: billing.company, gstin: billing.gstin, line1: billing.address,
           city: billing.city, region: billing.state, postalCode: billing.zip,
           country: country && /^[A-Z]{2}$/.test(country) ? country : undefined,
         } : undefined,
       });
-      c.header("Cache-Control", "private, no-store");
       return c.json({
         ok: true,
         data: {

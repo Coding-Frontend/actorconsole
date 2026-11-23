@@ -36,7 +36,7 @@ export function BillingAddressForm({
     city: initial?.city ?? "",
     state: initial?.state ?? "",
     zip: initial?.zip ?? "",
-    country: initial?.country ?? "IN",
+    country: initial?.country || "IN",
   });
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

@@ -38,6 +38,7 @@ export async function reserveBillingCheckout(input: {
   interval: BillingInterval;
   analytics?: PaymentAnalyticsInput;
   price?: { amountMinor: number; currency: string };
+  hostedCheckoutFlow?: "pay" | "review";
 }) {
   return db.$transaction(async (tx) => {
     await lockBillingWorkspace(tx, input.businessProfileId, input.userId);
@@ -59,7 +60,20 @@ export async function reserveBillingCheckout(input: {
       operation.amountMinor === input.price?.amountMinor &&
       operation.currency === input.price?.currency &&
       operation.userId === input.userId
-    ) return operation.id;
+    ) {
+      // Older hosted links used the editable checkout and could already have a coupon order.
+      const savedFlow = operation.hostedCheckoutFlow ?? "review";
+      if (savedFlow !== input.hostedCheckoutFlow) {
+        throw new AppError(
+          "checkout_in_progress",
+          savedFlow === "pay"
+            ? "A direct payment is pending. Use Pay to resume it. If you already paid, check your payment status before contacting billing support to change the order."
+            : "A checkout is pending review. Use Review checkout or apply coupon to resume it.",
+          409,
+        );
+      }
+      return operation.id;
+    }
     if (operation && ["RESERVED", "UNKNOWN"].includes(operation.status)) {
       throw new AppError(
         "checkout_in_progress",
@@ -97,6 +111,7 @@ export async function reserveBillingCheckout(input: {
       interval: input.interval,
       amountMinor: input.price?.amountMinor ?? null,
       currency: input.price?.currency ?? null,
+      hostedCheckoutFlow: input.hostedCheckoutFlow ?? null,
       status: "RESERVED",
       providerCheckoutId: null,
       providerSubscriptionId: null,

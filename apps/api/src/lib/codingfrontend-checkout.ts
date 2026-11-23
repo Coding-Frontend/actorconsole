@@ -1,5 +1,6 @@
 import { createCipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import type { BillingInterval } from "@actorconsole/shared";
 import { apiEnv } from "../config/env.js";
 import { getPaymentSetting, type GatewayContext } from "./payment-gateway-settings.js";
@@ -111,4 +112,22 @@ export function encryptCodingFrontendPrefill(secret: string, checkoutUrl: string
   cipher.setAAD(Buffer.from(token));
   const encrypted = Buffer.concat([cipher.update(JSON.stringify(details), "utf8"), cipher.final()]);
   return Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url");
+}
+
+export function hostedCheckoutName(value: string | null | undefined) {
+  const name = value?.trim();
+  // Match the hosted checkout's buyer validation.
+  // eslint-disable-next-line no-control-regex
+  return name && name.length <= 120 && !/[\x00-\x1f\x7f]/.test(name) ? name : undefined;
+}
+
+export function hostedCheckoutPhone(value: string | null | undefined) {
+  const input = value?.trim();
+  if (!input || input.length > 32 || !/^\+[\d ().-]+$/.test(input)) return;
+  const phone = parsePhoneNumberFromString(input, { extract: false });
+  if (phone?.isValid() && !phone.ext) return phone.number;
+}
+
+export function hasHostedCheckoutEmail(value: string) {
+  return value.length <= 254 && /^[a-z0-9.!#$%&'*+/=?^_{}|~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(value);
 }
