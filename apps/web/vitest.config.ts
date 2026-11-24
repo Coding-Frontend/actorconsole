@@ -4,9 +4,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  // Vitest 2 uses its own Vite transformer; keep JSX consistent with Next.js
-  // when the React plugin detects the workspace's newer Vite version.
-  esbuild: { jsx: "automatic" },
   test: {
     include: ["test/**/*.test.ts", "test/**/*.test.tsx", "src/**/*.test.ts", "src/**/*.test.tsx"],
     environment: "happy-dom",
@@ -31,8 +28,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "server-only": path.resolve(__dirname, "./test/server-only.ts"),
+      "@": path.resolve(import.meta.dirname, "./src"),
+      "server-only": path.resolve(import.meta.dirname, "./test/server-only.ts"),
     },
   },
 });

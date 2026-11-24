@@ -216,6 +216,7 @@ describe("Actor routes", () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetUserApifyClient.mockReset();
     mockCheckRateLimit.mockResolvedValue({ allowed: true });
     mockAdmitWorkspaceActors.mockImplementation(async (_userId, _workspaceId, items) => ({
       items,

@@ -21,14 +21,16 @@ const mockQueuePaymentAnalytics = vi.fn();
 // Mock the Razorpay class constructor
 vi.mock("razorpay", () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      subscriptions: {
-        create: (...args: unknown[]) => mockSubscriptionsCreate(...args),
-        cancel: (...args: unknown[]) => mockSubscriptionsCancel(...args),
-      },
-      orders: { create: (...args: unknown[]) => mockCreateOrder(...args) },
-      payments: { fetch: (...args: unknown[]) => mockFetchPayment(...args), all: (...args: unknown[]) => mockPaymentsAll(...args), fetchMultipleRefund: (...args: unknown[]) => mockRefunds(...args) },
-    })),
+    default: vi.fn(function () {
+      return {
+        subscriptions: {
+          create: (...args: unknown[]) => mockSubscriptionsCreate(...args),
+          cancel: (...args: unknown[]) => mockSubscriptionsCancel(...args),
+        },
+        orders: { create: (...args: unknown[]) => mockCreateOrder(...args) },
+        payments: { fetch: (...args: unknown[]) => mockFetchPayment(...args), all: (...args: unknown[]) => mockPaymentsAll(...args), fetchMultipleRefund: (...args: unknown[]) => mockRefunds(...args) },
+      };
+    }),
   };
 });
 

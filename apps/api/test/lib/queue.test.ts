@@ -17,8 +17,8 @@ beforeEach(() => {
   global.__redis = undefined;
   global.__queues = undefined;
   const queue = { add: mocks.add, getJob: mocks.get };
-  mocks.bull.mockImplementation(() => queue);
-  mocks.database.mockImplementation(() => queue);
+  mocks.bull.mockImplementation(function () { return queue; });
+  mocks.database.mockImplementation(function () { return queue; });
   mocks.add.mockResolvedValue({ id: "persisted-job" });
   mocks.get.mockResolvedValue({ id: "persisted-job", data: { actorId: "a1" } });
 });
