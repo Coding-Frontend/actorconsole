@@ -1,0 +1,1 @@
+ALTER TABLE BillingAddress ADD COLUMN phone VARCHAR(16) NULL;

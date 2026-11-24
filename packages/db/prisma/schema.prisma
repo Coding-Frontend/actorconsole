@@ -337,6 +337,7 @@ model BillingCheckoutOperation {
   interval               String
   amountMinor            Int?
   currency               String? @db.VarChar(3)
+  hostedCheckoutFlow      String? @db.VarChar(6)
   status                 String
   providerCheckoutId     String?
   providerSubscriptionId String?
@@ -1823,6 +1824,7 @@ model BillingAddress {
   userId    String   @unique
   company   String?
   gstin     String?
+  phone     String?  @db.VarChar(16)
   address   String?
   city      String?
   state     String?

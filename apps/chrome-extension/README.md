@@ -11,9 +11,12 @@ Verification failures show the API or network error; retry keeps the saved pairi
 unless the API explicitly reports that it expired or was revoked.
 Session diagnostics align labels and status values and show **Not checked** for
 cookies until an explicit check is requested.
-Pending connections show **Allow cookie access and finish** beside the status above
-both views. A new request brings that approval into view and closes any open
-connection dialog. Older sidebar refreshes cannot overwrite a newer request.
+**Connect account** and **Reconnect Console session** request temporary cookie
+access in Chrome. Keep the sidebar open while ActorConsole authorizes the selected
+workspace. The extension finishes the matching request automatically and removes
+cookie access. Connections started on the website open the same workspace dialog
+so you can connect the account there. Older sidebar refreshes cannot overwrite a
+newer request.
 If the website does not receive an extension acknowledgement within 20 seconds,
 it offers a retry with instructions to reload the page after installing or updating
 the extension. Once approval is submitted, the server controls session expiry while

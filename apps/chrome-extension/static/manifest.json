@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ActorConsole Apify Connector",
   "short_name": "ActorConsole",
-  "version": "0.6.10",
+  "version": "0.6.11",
   "description": "Connect an Apify personal account or organization to an ActorConsole workspace.",
   "homepage_url": "http://localhost:8080",
   "incognito": "not_allowed",

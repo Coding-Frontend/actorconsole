@@ -1,6 +1,6 @@
 {
   "name": "@actorconsole/chrome-extension",
-  "version": "0.6.10",
+  "version": "0.6.11",
   "private": true,
   "description": "Connect an Apify Console browser session to an ActorConsole workspace.",
   "type": "module",

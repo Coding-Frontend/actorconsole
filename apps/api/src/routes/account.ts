@@ -1552,6 +1552,9 @@ export const accountRoutes = new Hono<AppEnv>()
       z.object({
         company: z.string().max(200).optional().nullable(),
         gstin: z.string().max(50).optional().nullable(),
+        phone: z.string().trim().max(32).transform((value) => value.replace(/[ ().-]/g, "") || null)
+          .pipe(z.string().regex(/^\+[1-9]\d{6,14}$/, "Include your phone country code, such as +91.").nullable())
+          .optional().nullable(),
         address: z.string().max(500).optional().nullable(),
         city: z.string().max(100).optional().nullable(),
         state: z.string().max(100).optional().nullable(),

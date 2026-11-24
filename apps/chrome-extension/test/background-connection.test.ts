@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GET_STATE, REGISTER_HANDOFF, UNPAIR } from "../src/messages";
+import { DELIVER_COOKIE, GET_STATE, REGISTER_HANDOFF, UNPAIR } from "../src/messages";
 
 const account = {
   userId: "member", name: "Member", username: null, email: "member@example.test",
@@ -36,7 +36,7 @@ beforeEach(async () => {
       onMessage: { addListener: vi.fn((callback) => { listener = callback; }) },
       sendMessage: vi.fn().mockResolvedValue(undefined),
     },
-    tabs: { onRemoved: { addListener: vi.fn() } },
+    tabs: { onRemoved: { addListener: vi.fn() }, sendMessage: vi.fn().mockResolvedValue({ ok: true }) },
   });
   await import("../src/background");
 });
@@ -124,6 +124,34 @@ describe("extension website connectivity", () => {
     expect(result.pairingStored).toBe(false);
     expect(result.actorConsoleError).toContain("expired or was revoked");
     expect(local.pairedDevice).toBeUndefined();
+  });
+
+  it("only delivers to the handoff approved in the sidebar", async () => {
+    session.detectedAccount = {
+      userId: "apifyUser123", observedAt: new Date().toISOString(),
+      selectedAccountId: "apifyUser123", organizations: [], organizationsStatus: "ready",
+    };
+    session.pendingHandoff = {
+      handoffId: "current", challenge: "a".repeat(64), tabId: 1,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      workspace: { id: "workspace", name: "Workspace" }, account: null,
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true, data: account })));
+    const message = {
+      type: DELIVER_COOKIE, apifyRt: "synthetic-test-value", expectedApifyUserId: "apifyUser123",
+      expectedHandoffId: "current",
+    };
+    expect(await send(message, { tab: { id: 1 } as chrome.tabs.Tab })).toMatchObject({ ok: false });
+    expect(await send({ ...message, expectedHandoffId: "stale" })).toEqual({
+      ok: false, error: "The connection request changed. Try connecting again.",
+    });
+    expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+    expect(await send(message)).toEqual({ ok: true });
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+      type: DELIVER_COOKIE,
+      payload: expect.objectContaining({ handoffId: "current", expectedApifyUserId: "apifyUser123" }),
+    });
   });
 
   it("revokes the device using the direct API on sign-out", async () => {

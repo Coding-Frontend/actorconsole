@@ -15,7 +15,7 @@ async function fixture(width = 400) {
       userId: "sample-user", name: "Sample ActorConsole User", username: "actor-builder",
       email: "sample@example.com", image: null, expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
     };
-    window.__sidebarFixture = { actor, verified: true, stored: true, apify: null, pending: null, result: null, cookieAllowed: true, removedCookiePermission: false, deferNextState: false, releaseState: null, logoutError: null, verificationError: null, messages: [], onMessage: null };
+    window.__sidebarFixture = { actor, verified: true, stored: true, apify: null, workspaces: [], pending: null, result: null, cookieAllowed: true, cookieRequests: 0, removedCookiePermission: false, deferNextState: false, releaseState: null, logoutError: null, verificationError: null, messages: [], onMessage: null };
     window.chrome = {
       runtime: {
         sendMessage: async (message) => {
@@ -32,7 +32,7 @@ async function fixture(width = 400) {
             actorConsoleAccount: state.verified ? state.actor : null,
             actorConsoleError: state.verificationError,
             storedActorConsoleAccount: state.stored ? state.actor : null,
-            pairingStored: state.stored, workspaces: [], workspaceError: null,
+            pairingStored: state.stored, workspaces: state.workspaces, workspaceError: null,
           };
           if (message.type === "GET_STATE" && state.deferNextState) {
             state.deferNextState = false;
@@ -48,7 +48,12 @@ async function fixture(width = 400) {
       },
       tabs: { query: async () => [], create: async () => {}, update: async () => {} },
       permissions: {
-        request: async () => window.__sidebarFixture.cookieAllowed,
+        request: async () => {
+          const state = window.__sidebarFixture;
+          state.cookieRequests++;
+          state.removedCookiePermission = false;
+          return state.cookieAllowed;
+        },
         remove: async () => { window.__sidebarFixture.removedCookiePermission = true; return true; },
       },
       cookies: { getAll: async () => [{ name: "ApifyRT", value: "fixture-refresh-cookie", domain: ".apify.com", path: "/", secure: true, httpOnly: true, session: true }] },
@@ -109,14 +114,6 @@ try {
 
   for (const mode of ["box", "graph"]) {
     const page = await fixture(320);
-    if (mode === "graph") await page.locator("#view-graph").click();
-    // Hold an old snapshot until after the registration refresh. It must not
-    // erase the pending connection when it eventually returns.
-    await page.evaluate(() => {
-      window.__sidebarFixture.deferNextState = true;
-      window.__sidebarFixture.onMessage({ type: "PAIR_CHANGED" });
-    });
-    await page.waitForFunction(() => Boolean(window.__sidebarFixture.releaseState));
     await page.evaluate(() => {
       const state = window.__sidebarFixture;
       state.apify = {
@@ -124,32 +121,72 @@ try {
         displayName: "Apify User", organizations: [], organizationsStatus: "ready",
         observedAt: new Date().toISOString(), sourceOrigin: "console", viewedUserId: null, selectionManual: false,
       };
-      state.pending = {
-        handoffId: "handoff-1", expiresAt: new Date(Date.now() + 300_000).toISOString(),
-        workspace: { id: "workspace-1", name: "Primary workspace" },
-        account: { id: "apifyUser123", type: "PERSONAL" },
-      };
-      state.onMessage({ type: "REGISTER_HANDOFF" });
+      state.workspaces = [{
+        id: "workspace-1", name: "Primary workspace", isDefault: true, connection: "AVAILABLE",
+        apifyUsername: null, connectedAccountId: null, apiKeyConfigured: false, apiTokenStatus: "MISSING",
+        uiTokenConfigured: false, uiTokenStatus: "MISSING", browserSessionConfigured: false,
+        browserSessionStatus: "MISSING", lastValidatedAt: null,
+      }];
+      state.onMessage({ type: "PAIR_CHANGED" });
     });
-    await page.locator("#connect").waitFor({ state: "visible" });
-    await page.evaluate(() => window.__sidebarFixture.releaseState());
-    await page.waitForFunction(() => !document.getElementById("connect").hidden && document.getElementById("workspace").textContent === "Primary workspace");
-    const approval = await page.locator("#connect").boundingBox();
-    if (!approval || approval.y < 0 || approval.y + approval.height > 600) throw new Error(`${mode}: cookie approval is below the initial viewport`);
-    if (process.env.EXTENSION_VISUAL_DIR) await page.screenshot({ path: join(process.env.EXTENSION_VISUAL_DIR, `sidebar-cookie-approval-${mode}.png`) });
+    await page.locator("#workspaces-list .workspace-manage").first().waitFor({ state: "visible" });
+    const connect = page.locator("#box-connect-action");
+    const register = (workspaceId = "workspace-1", handoffId = "handoff-1") =>
+      page.evaluate(({ workspaceId, handoffId }) => {
+        const state = window.__sidebarFixture;
+        state.pending = {
+          handoffId, expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          workspace: { id: workspaceId, name: "Primary workspace" },
+          account: { id: "apifyUser123", type: "PERSONAL" },
+        };
+        state.onMessage({ type: "REGISTER_HANDOFF" });
+      }, { workspaceId, handoffId });
+    if (mode === "graph") {
+      // A website request can show the existing connection dialog, but cannot
+      // request permission or read cookies before the sidebar click.
+      await page.locator("#view-graph").click();
+      await register();
+    } else {
+      await page.locator("#workspaces-list .workspace-manage").first().click();
+      await page.locator("#target-list button").first().click();
+    }
+    await connect.waitFor({ state: "visible" });
+    if (await page.locator("#connect").count()) throw new Error("The separate approval button is still present");
+    if (await page.evaluate(() => window.__sidebarFixture.cookieRequests)) throw new Error("Cookie access was requested without a click");
     await page.evaluate(() => { window.__sidebarFixture.cookieAllowed = false; });
-    await page.locator("#connect").click();
-    await page.getByText("Cookie access was not approved.", { exact: true }).waitFor({ state: "visible" });
-    if (!(await page.locator("#connect").isEnabled())) throw new Error("Denied cookie permission prevented retry");
+    await connect.click();
+    await page.locator("#dialog-feedback").getByText("Cookie access was not approved.").waitFor({ state: "visible" });
+    if (!(await connect.isEnabled())) throw new Error("Denied cookie permission prevented retry");
     await page.evaluate(() => { window.__sidebarFixture.cookieAllowed = true; });
-    await page.locator("#connect").click();
+    await connect.click();
+    if (mode === "box") {
+      await page.waitForFunction(() => window.__sidebarFixture.messages.some((m) => m.type === "OPEN_ACTORCONSOLE"));
+      await register("workspace-other", "different-handoff");
+      await page.locator("#workspace").waitFor({ state: "visible" });
+      if (await page.evaluate(() => window.__sidebarFixture.messages.some((m) => m.type === "DELIVER_COOKIE"))) {
+        throw new Error("Preapproved cookie access was reused for another workspace");
+      }
+      // Hold an older snapshot while the matching handoff registers.
+      await page.evaluate(() => {
+        const state = window.__sidebarFixture;
+        state.deferNextState = true;
+        state.onMessage({ type: "PAIR_CHANGED" });
+      });
+      await page.waitForFunction(() => Boolean(window.__sidebarFixture.releaseState));
+      await register();
+    }
     await page.getByText("Validating session", { exact: true }).waitFor({ state: "visible" });
-    const delivered = await page.evaluate(() => {
+    if (mode === "box") {
+      await page.evaluate(() => window.__sidebarFixture.releaseState());
+    }
+    await page.waitForFunction(() => {
       const state = window.__sidebarFixture;
-      return state.removedCookiePermission && state.messages.some((message) =>
-        message.type === "DELIVER_COOKIE" && message.expectedApifyUserId === "apifyUser123" && message.apifyRt === "fixture-refresh-cookie");
+      const deliveries = state.messages.filter((message) => message.type === "DELIVER_COOKIE");
+      return state.removedCookiePermission && deliveries.length === 1 &&
+        deliveries[0].expectedHandoffId === "handoff-1" &&
+        deliveries[0].expectedApifyUserId === "apifyUser123" &&
+        deliveries[0].apifyRt === "fixture-refresh-cookie";
     });
-    if (!delivered) throw new Error("Cookie was not delivered or temporary permission was not removed");
     await page.evaluate(() => {
       const state = window.__sidebarFixture;
       state.pending = null;
@@ -157,7 +194,7 @@ try {
       state.onMessage({ type: "ACTORCONSOLE_APIFY_HANDOFF_RESULT", payload: state.result });
     });
     await page.getByText("Console credential replaced", { exact: true }).waitFor({ state: "visible" });
-    if (await page.locator("#connect").isVisible()) throw new Error("Cookie approval remained visible after completion");
+    if (await connect.isVisible()) throw new Error("Connect remained visible after completion");
     await page.close();
   }
 
@@ -197,7 +234,7 @@ try {
   await page.locator("#welcome-unpair").click();
   await page.waitForFunction(() => document.getElementById("welcome-saved-account").hidden);
   if (errors.length) throw new Error(errors.join("\n"));
-  process.stdout.write("Visible account and sign-out in list/map, cookie approval above the fold, permission denial and retry, stale snapshot recovery, cookie delivery, completion, aligned diagnostics, verification errors, and saved-session recovery passed.\n");
+  process.stdout.write("Sidebar account, automatic handoff after Connect, permission denial and retry, stale snapshot recovery, completion, diagnostics, and sign-out passed.\n");
 } finally {
   await browser.close();
 }

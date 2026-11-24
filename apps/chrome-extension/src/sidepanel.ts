@@ -136,8 +136,6 @@ const statusElement = requiredElement("status");
 const statusCard = statusElement.closest(".status-card") as HTMLElement;
 const detailElement = requiredElement("detail");
 const workspaceElement = requiredElement("workspace");
-const connectButton = requiredButton("connect");
-const consentElement = requiredElement("consent");
 const consoleStatus = requiredElement("console-status");
 const backendStatus = requiredElement("backend-status");
 const cookieStatus = requiredElement("cookie-status");
@@ -164,6 +162,15 @@ let boxStep: "workspaces" | "accounts" | "connection" = "workspaces";
 let boxSelectedAccountId: string | null = null;
 let workspaceCreationAccountId: string | null = null;
 let stateLoadRevision = 0;
+let cookieActionRunning = false;
+let connectionApproval: {
+  workspaceId: string;
+  accountId: string;
+  apifyUserId: string;
+  actorConsoleUserId: string;
+  timer: ReturnType<typeof setTimeout>;
+} | null = null;
+let submittingHandoffId: string | null = null;
 const connectionChecks = new Map<string, WorkspaceConnectionCheck>();
 const connectionCheckAttempts = new Map<string, number>();
 const connectionCheckErrors = new Map<string, string>();
@@ -192,7 +199,9 @@ actorConsolePhoto.addEventListener("error", () => {
 
 void initializePanel();
 
-connectButton.addEventListener("click", () => void connectCookie());
+window.addEventListener("pagehide", () => {
+  if (connectionApproval) void releaseCookieAccess();
+});
 checkCookieButton.addEventListener("click", () => void checkApifyRtCookie());
 createWorkspaceForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -274,6 +283,7 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
   ) {
     void loadState();
   } else if (input.type === HANDOFF_RESULT && input.payload) {
+    if (submittingHandoffId === input.payload.handoffId) submittingHandoffId = null;
     connectionCheckEpoch += 1;
     connectionChecks.clear();
     connectionCheckAttempts.clear();
@@ -373,6 +383,9 @@ async function loadState() {
       connectionCheckRevisions.clear();
     }
     const newHandoff = response.pending && response.pending.handoffId !== panelState.pending?.handoffId;
+    if (submittingHandoffId && response.pending?.handoffId !== submittingHandoffId) {
+      submittingHandoffId = null;
+    }
     panelState = {
       pending: response.pending,
       result: response.result,
@@ -394,9 +407,8 @@ async function loadState() {
     }
     renderState();
     if (newHandoff) {
-      if (connectionDialog.open) connectionDialog.close();
       if (workspaceDialog.open) workspaceDialog.close();
-      statusCard.scrollIntoView({ block: "nearest" });
+      if (!finishApprovedConnection()) openPendingConnection();
     }
     queueAutomaticConnectionChecks();
   } catch (error) {
@@ -437,12 +449,6 @@ function renderState() {
     selectedTarget.id === pendingTarget.id &&
     selectedTarget.type === pendingTarget.type,
   );
-  connectButton.hidden =
-    !panelState.pending ||
-    !panelState.account ||
-    !panelState.actorConsoleAccount ||
-    !pendingMatchesSelection;
-  consentElement.hidden = connectButton.hidden;
   workspaceElement.hidden = !panelState.pending;
   statusCard.hidden = !panelState.pending && !panelState.result && Boolean(panelState.account);
   statusCard.dataset.tone = "neutral";
@@ -451,7 +457,9 @@ function renderState() {
       ? "Workspace ready"
       : "Account selection changed";
     detailElement.textContent = pendingMatchesSelection
-      ? `Approve the connection before ${formatExpiry(panelState.pending.expiresAt)}.`
+      ? submittingHandoffId === panelState.pending.handoffId
+        ? "ActorConsole is validating the Apify session for your selected workspace."
+        : "Use Connect account for this workspace if Chrome still needs your approval."
       : "Choose the account used when this handoff started, or start a new connection.";
     workspaceElement.textContent = panelState.pending.workspace.name;
     return;
@@ -968,7 +976,14 @@ function renderBoxConnection() {
     result.textContent = `Connection check unavailable: ${checkError}`;
   }
   let primaryAction: HTMLButtonElement | null = null;
-  if (savedMatches && check?.confirmed && check.api === "VALID") {
+  if (knownTarget && matchingHandoff(workspace.id, knownTarget.id)) {
+    status.textContent = "Ready to connect";
+    status.dataset.tone = "neutral";
+    detail.textContent = "Chrome may ask for temporary cookie access to connect this account.";
+    boxConnectAction.hidden = false;
+    boxConnectAction.textContent = "Connect account";
+    primaryAction = boxConnectAction;
+  } else if (savedMatches && check?.confirmed && check.api === "VALID") {
     status.textContent = "Connection verified";
     status.dataset.tone = "linked";
     detail.textContent = check.message;
@@ -1048,7 +1063,7 @@ function renderBoxConnection() {
     status.textContent = "Ready to connect";
     status.dataset.tone = "neutral";
     detail.textContent =
-      "ActorConsole will open in the current tab to complete the connection. You can check it here afterward.";
+      "Chrome may ask for temporary cookie access. The connection finishes in ActorConsole.";
     boxConnectAction.hidden = false;
     boxConnectAction.textContent = "Connect account";
     primaryAction = boxConnectAction;
@@ -1098,8 +1113,68 @@ async function runBoxConnection(refresh: boolean) {
   if (!target) return;
   const accountId = refresh ? workspace.connectedAccountId : target.id;
   if (!accountId || !knownApifyTarget(panelState.account, accountId)) return;
-  if (!(await selectTarget(accountId))) return;
-  await openActorConsole(workspace.id, accountId);
+  if (cookieActionRunning || submittingHandoffId || !panelState.account || !panelState.actorConsoleAccount) return;
+  const apifyUserId = panelState.account.userId;
+  const actorConsoleUserId = panelState.actorConsoleAccount.userId;
+  cookieActionRunning = true;
+  try {
+    // Chrome only accepts optional permission requests within this click.
+    if (!(await chrome.permissions.request({ permissions: ["cookies"] }))) {
+      await saveCookieCheck(apifyUserId, "DENIED");
+      throw new Error("Cookie access was not approved.");
+    }
+    if (!(await selectTarget(accountId))) {
+      await releaseCookieAccess();
+      return;
+    }
+    if (
+      panelState.account?.userId !== apifyUserId ||
+      panelState.actorConsoleAccount?.userId !== actorConsoleUserId
+    ) throw new Error("The signed-in account changed. Connect again.");
+    connectionApproval = {
+      workspaceId: workspace.id, accountId, apifyUserId, actorConsoleUserId,
+      timer: setTimeout(() => {
+        void releaseCookieAccess().then(() => showError("The connection timed out. Connect again."));
+      }, 2 * 60_000),
+    };
+    if (!finishApprovedConnection()) await openActorConsole(workspace.id, accountId);
+  } catch (error) {
+    await releaseCookieAccess();
+    showError(error instanceof Error ? error.message : "Could not start the connection.");
+  }
+}
+
+function matchingHandoff(workspaceId: string, accountId: string) {
+  const { pending, account } = panelState;
+  if (!pending || !account || pending.workspace.id !== workspaceId ||
+      !(Date.parse(pending.expiresAt) > Date.now())) return null;
+  const requested = pending.account ?? { id: account.userId, type: "PERSONAL" };
+  const selected = selectedApifyTarget(account);
+  return selected?.id === accountId && requested.id === accountId && requested.type === selected.type
+    ? pending : null;
+}
+
+function openPendingConnection() {
+  const { pending, account, actorConsoleAccount } = panelState;
+  if (!pending || !account || !actorConsoleAccount || connectionApproval) return;
+  const target = selectedApifyTarget(account);
+  if (!target || !matchingHandoff(pending.workspace.id, target.id)) return;
+  if (!panelState.workspaces.some((workspace) => workspace.id === pending.workspace.id)) return;
+  openConnectionDialog("connection", pending.workspace.id, target.id);
+}
+
+function finishApprovedConnection(): boolean {
+  const approval = connectionApproval;
+  if (!approval || submittingHandoffId) return false;
+  if (panelState.account?.userId !== approval.apifyUserId ||
+      panelState.actorConsoleAccount?.userId !== approval.actorConsoleUserId) return false;
+  const handoff = matchingHandoff(approval.workspaceId, approval.accountId);
+  if (!handoff) return false;
+  clearTimeout(approval.timer);
+  submittingHandoffId = handoff.handoffId;
+  if (connectionDialog.open) connectionDialog.close();
+  void connectCookie(handoff.handoffId, approval.apifyUserId);
+  return true;
 }
 
 function graphConnectionKind(workspace: ActorConsoleWorkspace): "linked" | "attention" | "unknown" {
@@ -1547,11 +1622,13 @@ async function openActorConsole(workspaceId: string, apifyAccountId: string) {
       error?: string;
     };
     if (!response.ok) throw new Error(response.error ?? "Could not open ActorConsole.");
+    if (submittingHandoffId || !connectionApproval) return;
     if (connectionDialog.open) connectionDialog.close();
     statusCard.hidden = false;
     statusElement.textContent = "Connecting selected workspace";
     detailElement.textContent = "The connection page is opening for the workspace you selected.";
   } catch (error) {
+    await releaseCookieAccess();
     showError(error instanceof Error ? error.message : "Could not open ActorConsole.");
   }
 }
@@ -1674,19 +1751,16 @@ async function disconnectWorkspace(workspace: ActorConsoleWorkspace) {
   }
 }
 
-async function connectCookie() {
-  if (!panelState.pending || !panelState.account || !panelState.actorConsoleAccount) return;
-  const userId = panelState.account.userId;
-  setBusy(true, "Requesting cookie access…");
+async function releaseCookieAccess() {
+  if (connectionApproval) clearTimeout(connectionApproval.timer);
+  connectionApproval = null;
+  await chrome.permissions.remove({ permissions: ["cookies"] }).catch(() => false);
+  cookieActionRunning = false;
+}
 
+async function connectCookie(handoffId: string, userId: string) {
   try {
-    const granted = await chrome.permissions.request({ permissions: ["cookies"] });
-    if (!granted) {
-      await saveCookieCheck(userId, "DENIED");
-      throw new Error("Cookie access was not approved.");
-    }
-
-    setBusy(true, "Checking both Apify domains…");
+    setConnectionProgress("Checking both Apify domains…");
     const {
       consoleCookies,
       backendCookies,
@@ -1702,35 +1776,37 @@ async function connectCookie() {
 
     let apifyRt = selected.value;
     try {
-      setBusy(true, "Sending to ActorConsole…");
+      setConnectionProgress("Sending to ActorConsole…");
       const response = (await chrome.runtime.sendMessage({
         type: DELIVER_COOKIE,
         apifyRt,
         expectedApifyUserId: userId,
+        expectedHandoffId: handoffId,
       })) as {
         ok: boolean;
         error?: string;
       };
       if (!response.ok)
         throw new Error(response.error ?? "ActorConsole did not accept the connection.");
-      statusElement.textContent = "Validating session";
-      detailElement.textContent =
-        "ActorConsole is validating the Apify session for your selected workspace.";
-      connectButton.hidden = true;
-      consentElement.hidden = true;
+      if (panelState.pending?.handoffId === handoffId) {
+        statusElement.textContent = "Validating session";
+        detailElement.textContent =
+          "ActorConsole is validating the Apify session for your selected workspace.";
+      }
     } finally {
       apifyRt = "";
     }
   } catch (error) {
+    submittingHandoffId = null;
     showError(error instanceof Error ? error.message : "Could not connect the Apify session.");
   } finally {
-    await chrome.permissions.remove({ permissions: ["cookies"] }).catch(() => false);
-    connectButton.disabled = false;
+    await releaseCookieAccess();
   }
 }
 
 async function checkApifyRtCookie() {
-  if (!panelState.account || !panelState.actorConsoleAccount) return;
+  if (cookieActionRunning || !panelState.account || !panelState.actorConsoleAccount) return;
+  cookieActionRunning = true;
   const userId = panelState.account.userId;
   checkCookieButton.disabled = true;
   try {
@@ -1744,7 +1820,7 @@ async function checkApifyRtCookie() {
   } catch {
     await saveCookieCheck(userId, "ERROR");
   } finally {
-    await chrome.permissions.remove({ permissions: ["cookies"] }).catch(() => false);
+    await releaseCookieAccess();
     checkCookieButton.disabled = false;
   }
 }
@@ -1832,9 +1908,8 @@ function safePictureUrl(value: string | null): string | null {
   }
 }
 
-function setBusy(busy: boolean, label: string) {
+function setConnectionProgress(label: string) {
   statusCard.hidden = false;
-  connectButton.disabled = busy;
   statusElement.textContent = label;
   statusCard.dataset.tone = "neutral";
 }
@@ -1855,17 +1930,6 @@ function showError(message: string) {
     dialogFeedback.dataset.tone = "error";
     dialogFeedback.textContent = message;
   }
-  const selected = panelState.account ? selectedApifyTarget(panelState.account) : null;
-  const requested =
-    panelState.pending?.account ??
-    (panelState.account ? { id: panelState.account.userId, type: "PERSONAL" as const } : null);
-  connectButton.hidden =
-    !panelState.pending ||
-    !panelState.actorConsoleAccount ||
-    !selected ||
-    !requested ||
-    selected.id !== requested.id ||
-    selected.type !== requested.type;
 }
 
 function formatExpiry(value: string): string {

@@ -13,4 +13,8 @@ CodingFrontend collects a one-time Razorpay payment for one calendar month or ye
 
 Keep a plan’s signing secret available for late payment and refund notifications. For an interrupted checkout, select the same plan again to reopen the same order. If its price or plan was changed while payment was pending, reconcile the original order before replacing the reservation.
 
+For saved-details checkout, release CodingFrontend's signed `openPayment` support and apply ActorConsole migrations `20261124090000_billing_contact_phone` and `20261124100000_hosted_checkout_flow` before deploying the updated ActorConsole API and web app. Test both **Pay** and **Review checkout or apply coupon** in Razorpay Test Mode.
+
+**Pay** opens Razorpay with the saved contact details. Use **Review checkout or apply coupon** before starting payment to enter a coupon. If a payment window is dismissed or fails to open, retry the same checkout. A pending checkout stays on its original path. Check the order in CodingFrontend and reconcile any capture before issuing a replacement for a different total.
+
 For a no-charge checkout, apply CodingFrontend D1 migration `0007_single_use_partner_coupons.sql` and deploy ActorConsole's complimentary webhook handler before issuing any codes. In **CodingFrontend Admin → Checkout → Coupons**, create a 100% percentage code for one specific ActorConsole plan. Each code can complete one signed checkout and grants the selected period through a signed `checkout.complimentary` event. Regular prices and capture checks still apply when a customer does not use a coupon.

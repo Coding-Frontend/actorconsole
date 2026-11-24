@@ -29,6 +29,7 @@
     "dodopayments": "2.63.0",
     "hono": "^4.13.19",
     "ioredis": "^5.11.1",
+    "libphonenumber-js": "1.13.16",
     "nodemailer": "10.6.0",
     "razorpay": "^2.9.8",
     "resend": "^6.38.1",

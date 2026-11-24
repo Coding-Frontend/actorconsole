@@ -13,7 +13,7 @@ import {
 import { API_BASE_URL } from "@/lib/api-base";
 import { trackEvent, trackEventBeforeNavigation } from "@/lib/analytics-events";
 import { paymentAnalyticsForCheckout } from "@/lib/payment-analytics";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/action-dialog";
@@ -74,6 +75,9 @@ function checkoutContext({ gateway, option }: ProOffer) {
   };
 }
 
+type HostedCheckoutDetails = Partial<Record<"name" | "phone", string>>;
+type HostedCheckoutFlow = "pay" | "review";
+
 export function BillingCard({
   plan,
   canCancelSubscription,
@@ -84,9 +88,14 @@ export function BillingCard({
   paymentReturn,
 }: Props) {
   const router = useRouter();
+  const detailsId = useId();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [checkoutOffer, setCheckoutOffer] = useState<ProOffer | null>(null);
   const [openingCheckout, setOpeningCheckout] = useState(false);
+  const [missingDetails, setMissingDetails] = useState<HostedCheckoutDetails>({});
+  const [checkoutDetails, setCheckoutDetails] = useState<HostedCheckoutDetails>({});
+  const [checkoutError, setCheckoutError] = useState<string>();
+  const [detailsSubmitted, setDetailsSubmitted] = useState(false);
   const checkoutInProgress = useRef(false);
   const checkoutHeading = useRef<HTMLHeadingElement>(null);
   const upgradeButton = useRef<HTMLButtonElement>(null);
@@ -111,7 +120,7 @@ export function BillingCard({
     };
   }, [paymentReturn, plan, router, subscription?.status]);
 
-  function startCheckout() {
+  function startCheckout(hostedCheckoutFlow: HostedCheckoutFlow = "pay") {
     if (!selectedOffer) return;
     const { option } = selectedOffer;
     const price =
@@ -139,15 +148,29 @@ export function BillingCard({
       ],
     });
     if (selectedOffer.gateway.key === "codingfrontend") {
-      void checkout(selectedOffer).catch((error: unknown) => {
-        toast.error(error instanceof Error ? error.message : "Checkout could not be opened.");
-      });
+      openHostedCheckout(selectedOffer, hostedCheckoutFlow);
     } else {
       setCheckoutOffer(selectedOffer);
     }
   }
 
-  async function checkout(offer: ProOffer) {
+  function backToPlans() {
+    setCheckoutOffer(null);
+    setMissingDetails({});
+    setCheckoutDetails({});
+    setCheckoutError(undefined);
+    setDetailsSubmitted(false);
+    requestAnimationFrame(() => upgradeButton.current?.focus());
+  }
+
+  function openHostedCheckout(offer: ProOffer, flow: HostedCheckoutFlow, details?: HostedCheckoutDetails) {
+    setCheckoutError(undefined);
+    void checkout(offer, flow, details).catch((error: unknown) => {
+      setCheckoutError(error instanceof Error ? error.message : "Checkout could not be opened.");
+    });
+  }
+
+  async function checkout(offer: ProOffer, flow?: HostedCheckoutFlow, details?: HostedCheckoutDetails) {
     if (checkoutInProgress.current) return;
     checkoutInProgress.current = true;
     setOpeningCheckout(true);
@@ -164,10 +187,22 @@ export function BillingCard({
           gateway: offer.gateway.key,
           interval: offer.option.interval,
           ...(analytics ? { analytics } : {}),
+          ...(flow ? { hostedCheckoutFlow: flow } : {}),
+          ...(details ? { checkoutDetails: details } : {}),
         }),
       });
       reason = res.ok ? "invalid_response" : "provider";
       const body = await res.json();
+      if (res.status === 422 && flow === "pay" && body?.error?.code === "checkout_details_required") {
+        const fields = body.error.fields;
+        setDetailsSubmitted(Boolean(details));
+        setMissingDetails({
+          ...(typeof fields?.name === "string" ? { name: fields.name } : {}),
+          ...(typeof fields?.phone === "string" ? { phone: fields.phone } : {}),
+        });
+        setCheckoutOffer(offer);
+        return;
+      }
       if (!res.ok)
         throw new Error(
           body?.error?.message ??
@@ -359,7 +394,9 @@ export function BillingCard({
                 ref={checkoutHeading}
                 tabIndex={checkoutOffer ? -1 : undefined}
               >
-                {checkoutOffer ? "Billing address" : "Grow with Pro"}
+                {checkoutOffer?.gateway.key === "codingfrontend"
+                  ? "Checkout details"
+                  : checkoutOffer ? "Billing address" : "Grow with Pro"}
               </CardTitle>
               <CardDescription>
                 {checkoutOffer
@@ -371,25 +408,70 @@ export function BillingCard({
               {checkoutOffer ? (
                 <>
                   <p className="text-muted-foreground text-sm">
-                    Enter your billing details before continuing to checkout.
-                    Your plan changes after payment is confirmed.
+                    {checkoutOffer.gateway.key === "codingfrontend"
+                      ? "We’ll save these details for your next checkout."
+                      : "Enter your billing details before continuing to checkout. Your plan changes after payment is confirmed."}
                   </p>
                   {checkoutOffer.gateway.mode === "test" ? (
                     <Alert tone="warning">
                       Test checkout — no real payment will be collected.
                     </Alert>
                   ) : null}
-                  <BillingAddressForm
-                    initial={billingAddress}
-                    checkout
-                    onSaved={() => checkout(checkoutOffer)}
-                    onBack={() => {
-                      setCheckoutOffer(null);
-                      requestAnimationFrame(() =>
-                        upgradeButton.current?.focus(),
-                      );
-                    }}
-                  />
+                  {checkoutOffer.gateway.key === "codingfrontend" ? (
+                    <form onSubmit={(event) => {
+                      event.preventDefault();
+                      openHostedCheckout(checkoutOffer, "pay", checkoutDetails);
+                    }}>
+                      <fieldset disabled={openingCheckout} className="space-y-4">
+                        {(["name", "phone"] as const).map((field) => missingDetails[field] && (
+                          <div key={field} className="space-y-1">
+                            <label htmlFor={`${detailsId}-${field}`} className="block text-sm font-medium">
+                              {field === "name" ? "Billing name" : "Phone number with country code"}
+                            </label>
+                            <Input
+                              id={`${detailsId}-${field}`}
+                              name={field}
+                              type={field === "phone" ? "tel" : "text"}
+                              autoComplete={field === "phone" ? "tel" : "name"}
+                              maxLength={field === "phone" ? 32 : 120}
+                              value={checkoutDetails[field] ?? ""}
+                              onChange={(event) => setCheckoutDetails({
+                                ...checkoutDetails,
+                                [field]: event.target.value,
+                              })}
+                              aria-invalid={detailsSubmitted || undefined}
+                              aria-describedby={`${detailsId}-${field}-help`}
+                              required
+                            />
+                            <span id={`${detailsId}-${field}-help`} className="text-muted-foreground block text-xs"
+                              role={detailsSubmitted ? "alert" : undefined}>
+                              {missingDetails[field]}
+                            </span>
+                          </div>
+                        ))}
+                        {checkoutError ? <Alert tone="danger">{checkoutError}</Alert> : null}
+                        <div className="flex flex-wrap gap-3">
+                          <Button type="submit" loading={openingCheckout} loadingText="Opening checkout…">
+                            Save and pay
+                          </Button>
+                          <Button type="button" variant="outline" onClick={backToPlans}>
+                            Back to plans
+                          </Button>
+                        </div>
+                        <Button type="button" variant="link" className="h-auto px-0"
+                          onClick={() => openHostedCheckout(checkoutOffer, "review")}>
+                          Review checkout or apply coupon
+                        </Button>
+                      </fieldset>
+                    </form>
+                  ) : (
+                    <BillingAddressForm
+                      initial={billingAddress}
+                      checkout
+                      onSaved={() => checkout(checkoutOffer)}
+                      onBack={backToPlans}
+                    />
+                  )}
                 </>
               ) : (
                 <>
@@ -397,7 +479,10 @@ export function BillingCard({
                     <BillingFrequencyPicker
                       offers={offers}
                       interval={selectedOffer.option.interval}
-                      onChange={setChosenInterval}
+                      onChange={(interval) => {
+                        setChosenInterval(interval);
+                        setCheckoutError(undefined);
+                      }}
                     />
                   ) : (
                     <p className="text-muted-foreground text-sm">
@@ -418,16 +503,23 @@ export function BillingCard({
                       Test checkout — no real payment will be collected.
                     </Alert>
                   ) : null}
+                  {checkoutError ? <Alert tone="danger">{checkoutError}</Alert> : null}
                   <Button
                     ref={upgradeButton}
                     size="lg"
                     className="w-full"
-                    onClick={startCheckout}
+                    onClick={() => startCheckout()}
                     disabled={!selectedOffer || openingCheckout}
                   >
-                    {openingCheckout ? "Opening checkout…" : "Upgrade to Pro"}
+                    {openingCheckout ? "Opening checkout…" : selectedOffer?.gateway.key === "codingfrontend" ? "Pay" : "Upgrade to Pro"}
                     <ArrowRight aria-hidden="true" />
                   </Button>
+                  {selectedOffer?.gateway.key === "codingfrontend" ? (
+                    <Button type="button" variant="link" className="h-auto px-0"
+                      disabled={openingCheckout} onClick={() => startCheckout("review")}>
+                      Review checkout or apply coupon
+                    </Button>
+                  ) : null}
                   <p className="text-muted-foreground text-xs leading-5">
                     {selectedOffer?.gateway.key === "codingfrontend"
                       ? "Continue to CodingFrontend to review your billing details and pay for the selected period."

@@ -29,6 +29,14 @@ const gateways = [
     ],
   },
 ];
+const hostedGateways = [{ ...gateways[0], key: "codingfrontend" as const }];
+const hostedUrl = "https://codingfrontend.in/checkout/actorconsole?token=signed";
+function hostedResponse() {
+  return Response.json({ data: { checkoutUrl: hostedUrl, checkoutPrefill: "encrypted" } });
+}
+function missingDetails(fields: { name?: string; phone?: string }) {
+  return Response.json({ error: { code: "checkout_details_required", fields } }, { status: 422 });
+}
 function continueCheckout() {
   fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
   fireEvent.click(screen.getByRole("button", { name: "Continue to checkout" }));
@@ -56,22 +64,83 @@ describe("BillingCard purchase choices", () => {
 
   it.each(["month", "year"] as const)("opens the %s hosted checkout without saving a billing address", async (interval) => {
     const navigate = vi.spyOn(window.location, "href", "set").mockImplementation(() => {});
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      data: { checkoutUrl: "https://codingfrontend.in/checkout/actorconsole?token=signed", checkoutPrefill: "encrypted" },
-    })));
+    const fetchMock = vi.fn().mockResolvedValue(hostedResponse());
     vi.stubGlobal("fetch", fetchMock);
     render(
       <BillingCard plan="FREE" initialInterval={interval} canCancelSubscription={false}
-        gateways={[{ ...gateways[0], key: "codingfrontend" }]} />,
+        gateways={hostedGateways} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pay" }));
     expect(screen.queryByLabelText("Address")).toBeNull();
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith("https://codingfrontend.in/checkout/actorconsole?token=signed#prefill=encrypted"),
+      expect(navigate).toHaveBeenCalledWith(`${hostedUrl}#prefill=encrypted`),
     );
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0][0]).toMatch(/billing\/checkout$/);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ plan: "PRO", interval, gateway: "codingfrontend" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      plan: "PRO", interval, gateway: "codingfrontend", hostedCheckoutFlow: "pay",
+    });
+  });
+
+  it("prompts only for the missing phone and submits it to checkout", async () => {
+    const navigate = vi.spyOn(window.location, "href", "set").mockImplementation(() => {});
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(missingDetails({ phone: "Include the country code." }))
+      .mockResolvedValueOnce(hostedResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BillingCard plan="FREE" canCancelSubscription={false} gateways={hostedGateways} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Pay" }));
+    const phone = await screen.findByLabelText("Phone number with country code");
+    expect(screen.queryByLabelText("Billing name")).toBeNull();
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    expect(screen.queryByLabelText("Address")).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+    fireEvent.change(phone, { target: { value: "+1 (415) 555-2671" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and pay" }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(`${hostedUrl}#prefill=encrypted`));
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      hostedCheckoutFlow: "pay", checkoutDetails: { phone: "+1 (415) 555-2671" },
+    });
+  });
+
+  it("preserves the name while correcting an invalid phone", async () => {
+    const navigate = vi.spyOn(window.location, "href", "set").mockImplementation(() => {});
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(missingDetails({ name: "Enter your name.", phone: "Include the country code." }))
+      .mockResolvedValueOnce(missingDetails({ phone: "Enter a valid phone number." }))
+      .mockResolvedValueOnce(hostedResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BillingCard plan="FREE" canCancelSubscription={false} gateways={hostedGateways} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Pay" }));
+    fireEvent.change(await screen.findByLabelText("Billing name"), { target: { value: "Payer" } });
+    fireEvent.change(screen.getByLabelText("Phone number with country code"), { target: { value: "bad" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and pay" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Enter a valid phone number.");
+    expect(screen.queryByLabelText("Billing name")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Phone number with country code"), { target: { value: "+14155552671" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and pay" }));
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body).checkoutDetails).toEqual({ name: "Payer", phone: "+14155552671" });
+  });
+
+  it.each([false, true])("offers manual coupon review even with incomplete details (%s)", async (showDetails) => {
+    const navigate = vi.spyOn(window.location, "href", "set").mockImplementation(() => {});
+    const fetchMock = vi.fn();
+    if (showDetails) fetchMock.mockResolvedValueOnce(missingDetails({ phone: "Include the country code." }));
+    fetchMock.mockResolvedValueOnce(hostedResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BillingCard plan="FREE" canCancelSubscription={false} gateways={hostedGateways} />);
+    if (showDetails) {
+      fireEvent.click(screen.getByRole("button", { name: "Pay" }));
+      await screen.findByLabelText("Phone number with country code");
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Review checkout or apply coupon" }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(`${hostedUrl}#prefill=encrypted`));
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)![1].body)).toEqual({
+      plan: "PRO", interval: "month", gateway: "codingfrontend", hostedCheckoutFlow: "review",
+    });
   });
 
   it("honors yearly intent passed from pricing and displays the full charge", () => {
