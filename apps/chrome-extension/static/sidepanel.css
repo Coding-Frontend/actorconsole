@@ -403,7 +403,6 @@ body[data-view="box"] main { max-width: 540px; }
 .status { margin: 0; font-size: 12px; font-weight: 700; }
 .detail { margin: 6px 0 0 15px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .workspace { display: inline-block; margin: 8px 0 0 15px; font-size: 11px; font-weight: 700; }
-.consent { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .domains { margin-top: 16px; border-top: 1px solid var(--line); }
 .domains summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; cursor: pointer; list-style: none; font-size: 12px; font-weight: 650; }
 .domains summary::-webkit-details-marker { display: none; }

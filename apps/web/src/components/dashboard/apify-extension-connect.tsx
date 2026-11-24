@@ -173,7 +173,7 @@ export function ApifyExtensionConnect({
         if (registrationTimerRef.current) clearTimeout(registrationTimerRef.current);
         if (data.payload.ok === true) {
           setExtensionDetected(true);
-          setMessage("Approve cookie access at the top of the extension sidebar to finish connecting.");
+          setMessage("Keep the extension sidebar open. If it asks you to connect the account, approve Chrome’s permission prompt.");
           return;
         }
         handoffRef.current = null;

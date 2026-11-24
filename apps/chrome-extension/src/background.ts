@@ -531,6 +531,7 @@ async function handleMessage(message: unknown, sender: chrome.runtime.MessageSen
     payload?: unknown;
     apifyRt?: string;
     expectedApifyUserId?: string;
+    expectedHandoffId?: string;
     workspaceId?: string;
     workspaceName?: string;
     connectAfterCreate?: boolean;
@@ -991,6 +992,7 @@ async function handleMessage(message: unknown, sender: chrome.runtime.MessageSen
   }
 
   if (input.type === DELIVER_COOKIE) {
+    if (sender.tab) return { ok: false, error: "Connect from the extension sidebar." };
     if (!(await verifiedDevice())) {
       return { ok: false, error: deviceVerificationError ?? "ActorConsole pairing is unavailable. Sign in again." };
     }
@@ -1003,6 +1005,9 @@ async function handleMessage(message: unknown, sender: chrome.runtime.MessageSen
     }
     const pending = await currentPending();
     if (!pending) return { ok: false, error: "Start a connection from ActorConsole first." };
+    if (pending.handoffId !== input.expectedHandoffId) {
+      return { ok: false, error: "The connection request changed. Try connecting again." };
+    }
     const selected = selectedApifyAccount(account);
     const requested = pending.account ?? { id: account.userId, type: "PERSONAL" as const };
     if (selected.id !== requested.id || selected.type !== requested.type) {

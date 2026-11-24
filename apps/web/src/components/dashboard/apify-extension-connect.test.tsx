@@ -50,7 +50,7 @@ describe("extension connection recovery", () => {
     await start();
     act(() => bridge("HANDOFF_REGISTERED", { handoffId: "handoff-1", ok: true }));
     await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
-    expect(screen.getByText(/Approve cookie access at the top/)).toBeTruthy();
+    expect(screen.getByText(/Keep the extension sidebar open/)).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
     await act(async () => { await vi.advanceTimersByTimeAsync(280_000); });
     expect(screen.getByRole("alert").textContent).toContain("connection expired");
