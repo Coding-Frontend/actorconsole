@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarketingHeader } from "@/components/marketing/header";
 
@@ -26,19 +26,21 @@ describe("MarketingHeader", () => {
     expect(screen.queryByRole("link", { name: "Go to console" })).toBeNull();
   });
 
-  it("keeps the header action's label and color when scrolling", () => {
-    const { container } = render(<MarketingHeader />);
-    const fullAction = container.querySelector<HTMLAnchorElement>(".marketing-header-full-actions a");
-    const compactAction = container.querySelector<HTMLAnchorElement>(".marketing-header-compact-actions a");
+  it("keeps primary navigation and the account action available while scrolling", () => {
+    render(<MarketingHeader />);
+    const navigation = screen.getByRole("navigation", { name: "Primary navigation" });
+    const links = within(navigation).getAllByRole("link");
+    const action = screen.getByRole("link", { name: "Get started" });
 
-    expect(fullAction?.textContent).toBe("Get started");
-    expect(compactAction?.textContent).toBe("Get started");
-    expect(compactAction?.getAttribute("href")).toBe(fullAction?.getAttribute("href"));
-    expect(compactAction?.className).toBe(fullAction?.className);
+    for (const scrollY of [100, 600, 0]) {
+      vi.stubGlobal("scrollY", scrollY);
+      fireEvent.scroll(window);
 
-    vi.stubGlobal("scrollY", 100);
-    fireEvent.scroll(window);
-    expect(container.querySelector("header")?.className).toContain("marketing-header--scrolled");
+      expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBe(navigation);
+      expect(navigation.hasAttribute("inert")).toBe(false);
+      expect(within(navigation).getAllByRole("link")).toEqual(links);
+      expect(screen.getByRole("link", { name: "Get started" })).toBe(action);
+    }
   });
 
   it("only shows the console action to authenticated visitors", () => {

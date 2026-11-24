@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Container, NavLink } from "@/components/ui/layout";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import { ActorMark } from "@/components/brand/actor-mark";
 import { NavigationDrawer } from "@/components/ui/navigation-drawer";
 import { useSession } from "@/lib/session-client";
 
@@ -32,15 +31,9 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
   const pathname = usePathname();
   const { status } = useSession();
   const authenticated = isAuthenticated ?? status === "authenticated";
+  const actionHref = authenticated ? "/dashboard" : "/signup";
+  const actionLabel = authenticated ? "Go to console" : "Get started";
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const updateHeader = () => setIsScrolled(window.scrollY > 72);
-    updateHeader();
-    window.addEventListener("scroll", updateHeader, { passive: true });
-    return () => window.removeEventListener("scroll", updateHeader);
-  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -48,38 +41,23 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
 
   return (
     <>
-      <header
-        className={cn(
-          "marketing-header border-border/80 sticky top-0 z-50 w-full border-b",
-          isScrolled && "marketing-header--scrolled",
-        )}
-      >
+      <header className="marketing-header border-border/80 sticky top-0 z-50 w-full border-b">
         <Container className="marketing-header-inner flex items-center justify-between gap-6">
           <Link
             prefetch={false}
             href="/"
             aria-label="ActorConsole home"
-            className="marketing-header-brand text-foreground group relative flex shrink-0 items-center"
+            className="text-foreground group flex h-12 min-w-0 items-center lg:w-56 lg:shrink-0"
           >
-            <span className="marketing-header-lockup" aria-hidden={isScrolled}>
-              <BrandLogo
-                size="md"
-                showDescriptor
-                descriptor="Apify operations"
-                markClassName="transition-transform duration-200 group-hover:rotate-3"
-              />
-            </span>
-            <span className="marketing-header-symbol" aria-hidden="true">
-              <ActorMark size={40} />
-            </span>
+            <BrandLogo
+              size="md"
+              showDescriptor
+              descriptor="Apify operations"
+              markClassName="transition-transform duration-200 group-hover:rotate-3"
+            />
           </Link>
 
-          <nav
-            className="marketing-header-nav hidden items-center gap-5 lg:flex"
-            aria-label="Primary navigation"
-            aria-hidden={isScrolled}
-            inert={isScrolled}
-          >
+          <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary navigation">
             {navLinks.map(({ href, label }) => (
               <NavLink key={href} href={href} active={isNavLinkActive(pathname, href)}>
                 {label}
@@ -87,40 +65,17 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
             ))}
           </nav>
 
-          <div className="marketing-header-actions hidden lg:grid">
-            <div
-              className="marketing-header-full-actions flex items-center gap-4"
-              aria-hidden={isScrolled}
-              inert={isScrolled}
-            >
-              {authenticated ? (
-                <Button size="sm" className="rounded-full" asChild>
-                  <Link prefetch={false} href="/dashboard">Go to console</Link>
-                </Button>
-              ) : (
-                <Button size="sm" className="rounded-full" asChild>
-                  <Link prefetch={false} href="/signup">Get started</Link>
-                </Button>
-              )}
-            </div>
-            <div
-              className="marketing-header-compact-actions"
-              aria-hidden={!isScrolled}
-              inert={!isScrolled}
-            >
-              <Button size="sm" className="rounded-full" asChild>
-                <Link prefetch={false} href={authenticated ? "/dashboard" : "/signup"}>
-                  {authenticated ? "Go to console" : "Get started"}
-                </Link>
-              </Button>
-            </div>
-          </div>
+          <Button size="sm" className="hidden rounded-full lg:inline-flex" asChild>
+            <Link prefetch={false} href={actionHref}>
+              {actionLabel}
+            </Link>
+          </Button>
 
           {/* Mobile hamburger */}
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="workbench-control text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring focus-visible:ring-offset-background inline-flex h-10 w-10 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 lg:hidden"
+            className="workbench-control text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring focus-visible:ring-offset-background inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 lg:hidden"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
             aria-haspopup="dialog"
@@ -131,7 +86,6 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
         <span className="marketing-header-frame-marks" aria-hidden="true" />
       </header>
 
-      {/* Mobile drawer lives outside the blurred header so fixed positioning uses the viewport. */}
       <NavigationDrawer
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
@@ -183,19 +137,11 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
             <div className="border-border/70 mt-auto border-t pt-5">
               <p className="text-muted-foreground type-kicker">Account</p>
               <div className="mt-3 grid gap-4">
-                {authenticated ? (
-                  <Button size="lg" className="w-full" asChild>
-                    <Link prefetch={false} href="/dashboard" onClick={() => setMobileOpen(false)}>
-                      Go to console
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button size="lg" className="w-full" asChild>
-                    <Link prefetch={false} href="/signup" onClick={() => setMobileOpen(false)}>
-                      Get started
-                    </Link>
-                  </Button>
-                )}
+                <Button size="lg" className="w-full" asChild>
+                  <Link prefetch={false} href={actionHref} onClick={() => setMobileOpen(false)}>
+                    {actionLabel}
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
