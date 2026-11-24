@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 export type BillingAddress = {
   company?: string | null;
   gstin?: string | null;
+  phone?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
@@ -32,6 +33,7 @@ export function BillingAddressForm({
   const [form, setForm] = useState({
     company: initial?.company ?? "",
     gstin: initial?.gstin ?? "",
+    phone: initial?.phone ?? "",
     address: initial?.address ?? "",
     city: initial?.city ?? "",
     state: initial?.state ?? "",
@@ -55,6 +57,11 @@ export function BillingAddressForm({
     }
     if (!/^[A-Z]{2}$/.test(address.country)) {
       setError("Enter a two-letter country code, such as IN, US, or GB.");
+      return;
+    }
+    address.phone = address.phone.replace(/[ ().-]/g, "");
+    if (address.phone && !/^\+[1-9]\d{6,14}$/.test(address.phone)) {
+      setError("Include your phone country code, such as +91.");
       return;
     }
     startTransition(async () => {
@@ -91,6 +98,7 @@ export function BillingAddressForm({
           [
             ["company", "Company (optional)"],
             ["gstin", "GSTIN (optional)"],
+            ["phone", "Checkout phone (optional)"],
             ["address", "Address"],
             ["city", "City"],
             ["state", "State / region (optional)"],
@@ -107,11 +115,14 @@ export function BillingAddressForm({
             <Input
               id={`${id}-${key}`}
               name={key}
+              type={key === "phone" ? "tel" : "text"}
+              placeholder={key === "phone" ? "+91" : undefined}
               required={checkout && ["address", "city", "country"].includes(key)}
               autoComplete={
                 {
                   company: "organization",
                   gstin: "off",
+                  phone: "tel",
                   address: "street-address",
                   city: "address-level2",
                   state: "address-level1",
@@ -123,6 +134,7 @@ export function BillingAddressForm({
                 {
                   company: 200,
                   gstin: 50,
+                  phone: 32,
                   address: 500,
                   city: 100,
                   state: 100,

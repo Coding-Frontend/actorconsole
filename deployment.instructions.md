@@ -28,13 +28,7 @@ Review draft policies before publishing in Admin. Preserve database, Redis and l
 
 ## VPS Next.js frontend
 
-Public catalog detail pages can use the VPS renderer through the Pages
-`PUBLIC_CATALOG_RENDER_ORIGIN=https://api.actorconsole.com` binding. Install
-`.deploy/nginx-catalog-render.conf` inside the API's TLS server. The endpoint
-accepts only public builder and actor document reads and removes credentials.
-VPS builds use `NEXT_PUBLIC_CATALOG_ASSET_ORIGIN` so those documents load the
-matching JavaScript and fonts. Verify the renderer and its assets before setting
-the Pages binding. Catalog navigation loads a complete document across builds.
+Next.js serves the public catalog and its assets through the website hostname.
 
 Redis is optional at the application level. Set `REDIS_ENABLED=false` for both
 API and worker to use the database queue, after running the database migration.
@@ -55,13 +49,13 @@ For the extension, copy `.env.extension.example` to `apps/chrome-extension/.env.
 
 CI uses synthetic credentials. Container publication is opt-in through `ENABLE_CONTAINER_RELEASES=true` or manual dispatch.
 
-The **Deploy VPS** workflow runs after a successful CI push to `main`; it also checks the matching **Secret scan** result. Fork PRs and superseded automatic revisions cannot deploy. Manual dispatch accepts only a commit on `main` with successful CI and secret scanning.
+Every push to `main`, including a merged pull request, triggers CI. **Deploy VPS** starts after CI passes and waits for the **Secret scan** for the same commit. It rechecks that the commit is still on the tip of `main` before transferring the release. Manual dispatch accepts only a commit on `main` with successful CI and secret scanning.
 
 Create a GitHub `production` environment restricted to the `main` branch. Set repository variable `ENABLE_VPS_CD=true`, variables `VPS_HOST`, `VPS_USER`, and protected environment secrets `VPS_SSH_PRIVATE_KEY`, `VPS_SSH_KNOWN_HOSTS`. Use a dedicated SSH key restricted to the forced command `.deploy/actorconsole-deploy`. Never put the server's general SSH key in GitHub.
 
 Install `.deploy/actorconsole-deploy` as `/usr/local/sbin/actorconsole-deploy` and `.deploy/verify-vps-bundle.py` as `/usr/local/lib/actorconsole/verify-vps-bundle.py`, owned by root with mode `700`. Review updates to these trusted entry points separately from application releases. Restrict the key in `authorized_keys` with `restrict,command="/usr/local/sbin/actorconsole-deploy"`.
 
-Set these public production environment variables for the image build: `NEXT_PUBLIC_SITE_URL` and the `NEXT_PUBLIC_FIREBASE_*` values from your own installation. `NEXT_PUBLIC_CHROME_EXTENSION_URL` is optional. Set `VERIFY_PUBLIC_WEB=true` after the hostname points to this VPS to enable the external revision probe.
+Set these public production environment variables for the image build: `NEXT_PUBLIC_SITE_URL` and the `NEXT_PUBLIC_FIREBASE_*` values from your own installation. `NEXT_PUBLIC_CHROME_EXTENSION_URL` is optional. Set `VERIFY_PUBLIC_WEB=true` after the hostname points to this VPS. The deployment will verify the public revision at `/api/health` and check API readiness at `/api/health/ready`.
 
 Images for API, worker, MCP and Next.js are built in GitHub Actions. The release contains source plus a compressed image archive, a full revision, SHA-256 checksums and image revision labels. The forced-command receiver validates the bundle, requires at least 4 GiB free space, loads the prebuilt images, backs up the database, applies migrations, starts the services and verifies API/web readiness. It does not build images on the VPS. The previous application's images are retained for rollback; other projects and data volumes are untouched.
 

@@ -220,6 +220,8 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      - name: Exercise the Chrome extension connection flow
+        run: pnpm --filter @actorconsole/chrome-extension test:browser
       - run: pnpm build
       - run: pnpm test:e2e:launch --workers=2
       - name: Upload launch-check diagnostics
