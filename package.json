@@ -73,7 +73,7 @@
     "tsx": "^4.23.15",
     "turbo": "^2.11.11",
     "typescript": "^6.0.3",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.11"
   },
   "license": "MIT"
 }
