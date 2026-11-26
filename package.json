@@ -67,7 +67,7 @@
     "dotenv-cli": "^11.1.0",
     "eslint": "^9.39.4",
     "eslint-plugin-unused-imports": "^4.3.0",
-    "globals": "^16.3.0",
+    "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tsx": "^4.23.15",
