@@ -92,7 +92,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.83.1",
     "@opentelemetry/exporter-trace-otlp-http": "^0.301.2",
     "@opentelemetry/sdk-node": "^0.301.2",
-    "@sentry/node": "^10.76.2",
+    "@sentry/node": "^11.16.0",
     "pino": "^10.4.0",
     "zod": "^4.6.7"
   },

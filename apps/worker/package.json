@@ -22,7 +22,7 @@
     "@actorconsole/db": "workspace:*",
     "@actorconsole/logo-catalog": "workspace:*",
     "@actorconsole/shared": "workspace:*",
-    "@sentry/node": "^10.76.2",
+    "@sentry/node": "^11.16.0",
     "bullmq": "^5.79.2",
     "cron-parser": "^5.10.6",
     "ioredis": "^5.11.1",
