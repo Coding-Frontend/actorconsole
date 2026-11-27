@@ -26,21 +26,31 @@ describe("MarketingHeader", () => {
     expect(screen.queryByRole("link", { name: "Go to console" })).toBeNull();
   });
 
-  it("keeps primary navigation and the account action available while scrolling", () => {
+  it("compacts on scroll, restores the links near the top, and keeps the account action available", () => {
+    vi.stubGlobal("scrollY", 0);
     render(<MarketingHeader />);
+    const header = screen.getByRole("banner");
     const navigation = screen.getByRole("navigation", { name: "Primary navigation" });
-    const links = within(navigation).getAllByRole("link");
+    const pricing = within(navigation).getByRole("link", { name: "Pricing" });
     const action = screen.getByRole("link", { name: "Get started" });
+    pricing.focus();
 
-    for (const scrollY of [100, 600, 0]) {
-      vi.stubGlobal("scrollY", scrollY);
-      fireEvent.scroll(window);
+    vi.stubGlobal("scrollY", 73);
+    fireEvent.scroll(window);
 
-      expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBe(navigation);
-      expect(navigation.hasAttribute("inert")).toBe(false);
-      expect(within(navigation).getAllByRole("link")).toEqual(links);
-      expect(screen.getByRole("link", { name: "Get started" })).toBe(action);
-    }
+    expect(header.classList.contains("marketing-header--scrolled")).toBe(true);
+    expect(navigation.hasAttribute("inert")).toBe(true);
+    expect(screen.queryByRole("navigation", { name: "Primary navigation" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "ActorConsole home" }));
+    expect(screen.getByRole("link", { name: "Get started" })).toBe(action);
+
+    vi.stubGlobal("scrollY", 72);
+    fireEvent.scroll(window);
+
+    expect(header.classList.contains("marketing-header--scrolled")).toBe(false);
+    expect(navigation.hasAttribute("inert")).toBe(false);
+    expect(screen.getByRole("link", { name: "Pricing" })).toBe(pricing);
+    expect(screen.getByRole("link", { name: "Get started" })).toBe(action);
   });
 
   it("only shows the console action to authenticated visitors", () => {

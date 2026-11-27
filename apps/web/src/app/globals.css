@@ -756,13 +756,19 @@
   --site-header-width: var(--site-frame-width);
   --site-header-gutter: var(--site-frame-gutter);
   --side-rail-max-width: 5.75rem;
-  --site-sticky-header-height: 5rem;
+  --site-header-expanded-height: 5rem;
+  --site-header-compact-height: 4.25rem;
+  --site-sticky-header-height: var(--site-header-expanded-height);
   --frame-margin: max(
     calc(var(--site-frame-gutter) / 2),
     calc((100% - var(--site-frame-width)) / 2)
   );
   --side-rail-width: min(var(--side-rail-max-width), calc(var(--frame-margin) - 0.5rem));
   background: hsl(var(--background));
+}
+
+:is(.home-grid-page, .marketing-grid-page):has(> .marketing-header--scrolled) {
+  --site-sticky-header-height: var(--site-header-compact-height);
 }
 
 .home-grid-section {
@@ -949,12 +955,23 @@
 
 .marketing-header {
   background: hsl(var(--background));
+  /* Keep the space in the page constant so shrinking the bar cannot shift the scroll position. */
+  margin-bottom: calc(var(--site-header-expanded-height) - var(--site-sticky-header-height));
+  transition:
+    margin-bottom 260ms ease,
+    box-shadow 240ms ease;
+}
+
+.marketing-header--scrolled {
+  border-bottom-style: dashed;
+  box-shadow: 0 12px 30px hsl(var(--foreground) / 0.08);
 }
 
 .marketing-header-inner {
   min-height: calc(var(--site-sticky-header-height) - 1px);
   position: relative;
   z-index: 1;
+  transition: min-height 260ms ease;
 }
 
 .marketing-header-frame-marks {
@@ -1006,6 +1023,62 @@
 .marketing-header-inner > * {
   position: relative;
   z-index: 1;
+}
+
+.marketing-header-brand {
+  width: 100%;
+  max-width: 14rem;
+  transition: width 260ms ease;
+}
+
+.marketing-header--scrolled .marketing-header-brand {
+  width: 2.5rem;
+}
+
+.marketing-header-lockup,
+.marketing-header-symbol {
+  left: 0;
+  position: absolute;
+  top: 50%;
+  pointer-events: none;
+  white-space: nowrap;
+  transition:
+    opacity 200ms ease,
+    transform 260ms ease;
+}
+
+.marketing-header-lockup {
+  transform: translateY(-50%);
+}
+
+.marketing-header-symbol {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.75);
+}
+
+.marketing-header--scrolled .marketing-header-lockup {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.9);
+}
+
+.marketing-header--scrolled .marketing-header-symbol {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.marketing-header-nav {
+  /* Anchor the links to the expanded row as the bar and logo shrink. */
+  height: calc(var(--site-header-expanded-height) - 1px);
+  white-space: nowrap;
+  transition: opacity 180ms ease;
+}
+
+.marketing-header--scrolled .marketing-header-nav {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 180ms ease,
+    visibility 0s linear 180ms;
 }
 
 .marketing-grid-page .blueprint-section > .site-container,
@@ -1327,7 +1400,8 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
 @media (max-width: 1023px) {
   .home-grid-page,
   .marketing-grid-page {
-    --site-sticky-header-height: 4rem;
+    --site-header-expanded-height: 4rem;
+    --site-header-compact-height: 4rem;
   }
 }
 
@@ -1335,6 +1409,9 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
   .docs-sidebar {
     top: var(--site-sticky-header-height);
     height: calc(100dvh - var(--site-sticky-header-height));
+    transition:
+      top 260ms ease,
+      height 260ms ease;
   }
 }
 
@@ -1459,6 +1536,10 @@ html:not(.dark) .feature-visual [class*="bg-[#07101c]"][class*="text-[#f2f5f8]"]
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .marketing-header--scrolled .marketing-header-nav {
+    transition-delay: 0s;
   }
 
   [class*="before:animate-[shimmer"]::before {

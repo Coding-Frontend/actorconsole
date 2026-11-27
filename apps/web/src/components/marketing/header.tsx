@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, NavLink } from "@/components/ui/layout";
 import { cn } from "@/lib/utils";
+import { ActorMark } from "@/components/brand/actor-mark";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { NavigationDrawer } from "@/components/ui/navigation-drawer";
 import { useSession } from "@/lib/session-client";
@@ -34,6 +35,23 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
   const actionHref = authenticated ? "/dashboard" : "/signup";
   const actionLabel = authenticated ? "Go to console" : "Get started";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const homeLinkRef = useRef<HTMLAnchorElement>(null);
+  const navigationRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const updateHeader = () => {
+      const scrolled = window.scrollY > 72;
+      if (scrolled && navigationRef.current?.contains(document.activeElement)) {
+        homeLinkRef.current?.focus({ preventScroll: true });
+      }
+      setIsScrolled(scrolled);
+    };
+
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+    return () => window.removeEventListener("scroll", updateHeader);
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -41,29 +59,48 @@ export function MarketingHeader({ isAuthenticated }: { isAuthenticated?: boolean
 
   return (
     <>
-      <header className="marketing-header border-border/80 sticky top-0 z-50 w-full border-b">
-        <Container className="marketing-header-inner flex items-center justify-between gap-6">
+      <header
+        className={cn(
+          "marketing-header border-border/80 sticky top-0 z-50 w-full border-b",
+          isScrolled && "marketing-header--scrolled",
+        )}
+      >
+        <Container className="marketing-header-inner flex items-center justify-between gap-6 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)_auto]">
           <Link
+            ref={homeLinkRef}
             prefetch={false}
             href="/"
             aria-label="ActorConsole home"
-            className="text-foreground group flex h-12 min-w-0 items-center lg:w-56 lg:shrink-0"
+            className="marketing-header-brand text-foreground group h-12 min-w-0"
           >
-            <BrandLogo
-              size="md"
-              showDescriptor
-              descriptor="Apify operations"
-              markClassName="transition-transform duration-200 group-hover:rotate-3"
-            />
+            <span className="marketing-header-lockup" aria-hidden="true">
+              <BrandLogo
+                size="md"
+                showDescriptor
+                descriptor="Apify operations"
+                markClassName="transition-transform duration-200 group-hover:rotate-3"
+              />
+            </span>
+            <span className="marketing-header-symbol" aria-hidden="true">
+              <ActorMark size={40} />
+            </span>
           </Link>
 
-          <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary navigation">
-            {navLinks.map(({ href, label }) => (
-              <NavLink key={href} href={href} active={isNavLinkActive(pathname, href)}>
-                {label}
-              </NavLink>
-            ))}
-          </nav>
+          <div className="hidden self-start lg:block">
+            <nav
+              ref={navigationRef}
+              className="marketing-header-nav absolute inset-x-0 top-0 flex items-center justify-center gap-5"
+              aria-label="Primary navigation"
+              inert={isScrolled}
+              aria-hidden={isScrolled}
+            >
+              {navLinks.map(({ href, label }) => (
+                <NavLink key={href} href={href} active={isNavLinkActive(pathname, href)}>
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
 
           <Button size="sm" className="hidden rounded-full lg:inline-flex" asChild>
             <Link prefetch={false} href={actionHref}>
