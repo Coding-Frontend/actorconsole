@@ -20,6 +20,9 @@ describe("proxyApiRequest", () => {
     { method: "POST", path: ["actors", "fixture", "rewrite-copy"], status: 200 },
     { method: "GET", path: ["actors", "fixture", "rewrite-copy"], status: 502 },
     { method: "POST", path: ["actors", "fixture", "copy"], status: 502 },
+    // Applying a logo makes several Apify calls; it gets a longer deadline too.
+    { method: "POST", path: ["actors", "logo-recommendations", "r1", "apply"], status: 200 },
+    { method: "POST", path: ["actors", "logo-recommendations", "r1", "dismiss"], status: 502 },
   ])("allows a 35-second copy generation while retaining ordinary deadlines ($method $path)", async ({ method, path, status }) => {
     vi.useFakeTimers();
     vi.spyOn(AbortSignal, "timeout").mockImplementation((delay) => {

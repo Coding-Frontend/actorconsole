@@ -176,6 +176,19 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
     setWorking(null);
   }
 
+  async function reject(websiteId: string, logoId: string) {
+    setWorking(logoId);
+    const response = await api<unknown>(
+      `/admin/website-logos/${websiteId}/logos/${logoId}/reject`,
+      { method: "POST", headers: { "content-type": "application/json" }, body: "{}" },
+    );
+    if (response.ok) {
+      toast.success("Logo candidate rejected");
+      await reload();
+    } else toast.error(response.error.message);
+    setWorking(null);
+  }
+
   async function mergeWebsite(sourceWebsiteId: string) {
     const targetWebsiteId = mergeTargets[sourceWebsiteId];
     if (!targetWebsiteId) return;
@@ -396,29 +409,44 @@ export function WebsiteLogoCatalog({ initialData }: { initialData: WebsiteLogoCa
                     Upload reviewed file
                     <input
                       type="file"
-                      accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon"
+                      accept="image/png,image/jpeg,image/webp,image/avif,image/gif,image/svg+xml,image/x-icon"
                       className="sr-only"
                       onChange={(event) => void uploadLogo(event.target.files?.[0], website.id)}
                     />
                   </label>
-                  {website.logos.map((logo) => (
-                    <Button
-                      key={logo.id}
-                      size="sm"
-                      variant={website.currentLogo?.id === logo.id ? "signal" : "outline"}
-                      disabled={working === logo.id || website.currentLogo?.id === logo.id}
-                      onClick={() => void activate(website.id, logo.id)}
-                    >
-                      {website.currentLogo?.id === logo.id ? (
-                        "Active"
-                      ) : (
-                        <>
-                          <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                          Activate {logo.sourceKind.toLowerCase().replaceAll("_", " ")}
-                        </>
-                      )}
-                    </Button>
-                  ))}
+                  {website.logos
+                    .filter((logo) => logo.reviewStatus !== "REJECTED")
+                    .map((logo) => (
+                      <span key={logo.id} className="inline-flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant={website.currentLogo?.id === logo.id ? "signal" : "outline"}
+                          disabled={working === logo.id || website.currentLogo?.id === logo.id}
+                          onClick={() => void activate(website.id, logo.id)}
+                        >
+                          {website.currentLogo?.id === logo.id ? (
+                            "Active"
+                          ) : (
+                            <>
+                              <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                              Activate {logo.sourceKind.toLowerCase().replaceAll("_", " ")}
+                              {logo.reviewStatus === "PENDING" ? " (needs review)" : ""}
+                            </>
+                          )}
+                        </Button>
+                        {website.currentLogo?.id === logo.id ? null : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={working === logo.id}
+                            aria-label={`Reject ${logo.sourceKind.toLowerCase().replaceAll("_", " ")} logo candidate`}
+                            onClick={() => void reject(website.id, logo.id)}
+                          >
+                            Reject
+                          </Button>
+                        )}
+                      </span>
+                    ))}
                 </div>
                 <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row">
                   <select

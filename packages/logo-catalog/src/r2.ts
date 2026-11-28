@@ -50,11 +50,47 @@ class WebsiteLogoR2Storage {
     }
   }
 
+  /** List objects under a prefix (S3 ListObjectsV2), following continuation tokens. */
+  async *list(prefix: string): AsyncGenerator<{ key: string; lastModified: Date }> {
+    let token: string | null = null;
+    do {
+      const params = new URLSearchParams({ "list-type": "2", prefix, "max-keys": "1000" });
+      if (token) params.set("continuation-token", token);
+      const response = await this.client.fetch(`${this.endpoint}/${this.bucket}?${params}`, {
+        method: "GET",
+        redirect: "error",
+        signal: AbortSignal.timeout(30_000),
+      });
+      const xml = (
+        await readLimitedResponse(response, 4 * 1024 * 1024, "R2 listing exceeded the size limit")
+      ).toString("utf8");
+      if (!response.ok) throw new Error(`R2 logo listing failed (HTTP ${response.status})`);
+      for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+        const key = /<Key>([^<]+)<\/Key>/.exec(match[1] ?? "")?.[1];
+        const modified = /<LastModified>([^<]+)<\/LastModified>/.exec(match[1] ?? "")?.[1];
+        if (key) yield { key: decodeXml(key), lastModified: new Date(modified ?? 0) };
+      }
+      token = /<IsTruncated>true<\/IsTruncated>/.test(xml)
+        ? (/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/.exec(xml)?.[1] ?? null)
+        : null;
+      if (token) token = decodeXml(token);
+    } while (token);
+  }
+
   async remove(key: string) {
     const response = await this.request(key, { method: "DELETE" });
     await response.body?.cancel();
     if (!response.ok) throw new Error(`R2 probe cleanup failed (HTTP ${response.status})`);
   }
+}
+
+function decodeXml(value: string) {
+  return value
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&amp;", "&");
 }
 
 let storage: WebsiteLogoR2Storage | undefined;

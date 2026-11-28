@@ -37,6 +37,12 @@ import {
   dispatchPendingActorStatusOperations,
   claimActorStatusOperation,
 } from "./lib/operation-dispatch.js";
+import {
+  dispatchPendingLogoApplyBatches,
+  recoverStaleLogoApplyBatches,
+  runLogoApplyBatch,
+} from "./lib/logo-apply-batches.js";
+import { readWebsiteLogo } from "@actorconsole/logo-catalog";
 import { syncActorOperationalData } from "./lib/operational-usage.js";
 import { reconcileExpiredSubscriptions } from "./lib/subscription-expiry.js";
 import { claimManualPublishingRun } from "./lib/publishing-authorization.js";
@@ -53,7 +59,11 @@ import {
   syncStoreActorDetails,
   syncStoreSearchCatalog,
 } from "./lib/store-catalog.js";
-import { classifyWebsiteCatalog, enrichWebsiteLogos } from "./lib/website-catalog.js";
+import {
+  classifyWebsiteCatalog,
+  cleanupWebsiteLogoStorage,
+  enrichWebsiteLogos,
+} from "./lib/website-catalog.js";
 import { syncActorInsights } from "./lib/actor-insights.js";
 import { actorReadinessData, loadActorPublishReadiness } from "./lib/publish-readiness.js";
 import { publishAndRecordActor } from "./lib/publication-event.js";
@@ -1477,6 +1487,8 @@ async function tickScheduleQueue() {
       // closing the queue, or BullMQ can emit an unhandled late init error.
       await q.waitUntilReady();
       await dispatchPendingActorStatusOperations(q);
+      await recoverStaleLogoApplyBatches();
+      await dispatchPendingLogoApplyBatches(q);
       for (const schedule of dueBulk) {
         await q.add(
           "bulk-publishing",
@@ -1543,6 +1555,11 @@ async function start() {
     "daily-website-logo-enrichment",
     { pattern: "0 4 * * *", tz: "UTC" },
     { name: "website-logo-enrichment", data: { catalog: "logos" } },
+  );
+  await catalogQueue?.upsertJobScheduler(
+    "weekly-website-logo-cleanup",
+    { pattern: "30 5 * * 0", tz: "UTC" },
+    { name: "website-logo-cleanup", data: { catalog: "logo-cleanup" } },
   );
   // A deployment or a temporary worker outage should not leave the public
   // leaderboard stale until the following day's fixed cron time. The job ID
@@ -1623,6 +1640,14 @@ async function start() {
     async (job) => {
       const payload = publishingJobSchema.parse(job.data);
       if ("bulkActorStatus" in payload) return runBulkActorStatusOperation(job, payload.bulkActorStatus);
+      if ("logoApplyBatch" in payload) {
+        const batch = payload.logoApplyBatch;
+        return runLogoApplyBatch(String(job.id), batch, {
+          getApify: () => getUserApifyClient(batch.userId, batch.businessProfileId),
+          readLogo: readWebsiteLogo,
+          delay: delayApifyBulkOperation,
+        });
+      }
       return runBulkPublishSchedule(job, payload.bulkPublishScheduleId, payload.manualRunAuthorizationId);
     },
     {
@@ -1683,9 +1708,17 @@ async function start() {
     "catalog",
     async (job) => {
       const { catalog } = job.data as {
-        catalog?: "search" | "details" | "websites" | "logos";
+        catalog?: "search" | "details" | "websites" | "logos" | "logo-cleanup";
       };
       if (!catalog) throw new Error("Catalog job is missing its sync mode");
+      if (catalog === "logo-cleanup") {
+        // Deleting files is opt-in; otherwise the run only reports what it would remove.
+        const result = await cleanupWebsiteLogoStorage({
+          remove: process.env.WEBSITE_LOGO_CLEANUP === "delete",
+        });
+        log.info({ result }, "Website logo storage cleanup finished");
+        return result;
+      }
       if (catalog === "websites") {
         const result = await classifyWebsiteCatalog({
           concurrency: Number(process.env.WEBSITE_CLASSIFICATION_CONCURRENCY ?? 25),

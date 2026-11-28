@@ -11,7 +11,10 @@ vi.mock("@actorconsole/logo-catalog", () => ({
   readWebsiteLogo: (...args: unknown[]) => readWebsiteLogo(...args),
 }));
 
-import { websiteLogoAssetRoutes } from "../../src/routes/website-logo-assets.js";
+import {
+  clearWebsiteLogoAssetCache,
+  websiteLogoAssetRoutes,
+} from "../../src/routes/website-logo-assets.js";
 import { apiSecurityHeaders } from "../../src/middleware/security-headers.js";
 
 function app() {
@@ -25,6 +28,8 @@ function app() {
 describe("Website logo assets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearWebsiteLogoAssetCache();
+    delete process.env.WEBSITE_LOGO_PUBLIC_BASE_URL;
     db.websiteLogo.findUnique.mockResolvedValue({
       storagePath: `website-logos/site_1/${"a".repeat(64)}.webp`,
       contentType: "image/webp",
@@ -53,5 +58,31 @@ describe("Website logo assets", () => {
     const response = await app().request("/website-logo-assets/logo_version_1");
     expect(response.status).toBe(503);
     expect(response.headers.get("cache-control")).toBeNull();
+  });
+
+  it("answers a matching ETag with 304 without reading storage", async () => {
+    const response = await app().request("/website-logo-assets/logo_version_1", {
+      headers: { "if-none-match": `"${"a".repeat(64)}"` },
+    });
+    expect(response.status).toBe(304);
+    expect(readWebsiteLogo).not.toHaveBeenCalled();
+  });
+
+  it("reuses recently served bytes instead of reading storage again", async () => {
+    await app().request("/website-logo-assets/logo_version_1");
+    const second = await app().request("/website-logo-assets/logo_version_1");
+    expect(await second.text()).toBe("normalized-logo");
+    expect(readWebsiteLogo).toHaveBeenCalledTimes(1);
+  });
+
+  it("redirects to a configured public logo origin", async () => {
+    process.env.WEBSITE_LOGO_PUBLIC_BASE_URL = "https://logos.example.com/";
+    const response = await app().request("/website-logo-assets/logo_version_1");
+    expect(response.status).toBe(302);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(response.headers.get("location")).toBe(
+      `https://logos.example.com/website-logos/site_1/${"a".repeat(64)}.webp`,
+    );
+    expect(readWebsiteLogo).not.toHaveBeenCalled();
   });
 });

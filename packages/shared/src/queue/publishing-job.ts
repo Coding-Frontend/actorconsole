@@ -8,5 +8,10 @@ export const publishingJobSchema = z.union([
       bulkActorStatus: z.object({ operationId: id, userId: id, businessProfileId: id }).strict(),
     })
     .strict(),
+  z
+    .object({
+      logoApplyBatch: z.object({ batchId: id, userId: id, businessProfileId: id }).strict(),
+    })
+    .strict(),
 ]);
 export type PublishingJobPayload = z.infer<typeof publishingJobSchema>;

@@ -102,6 +102,7 @@ model User {
   subscriptions             Subscription[]
   bulkPublishSchedules      BulkPublishSchedule[]
   bulkActorStatusOperations BulkActorStatusOperation[]
+  logoApplyBatches          ActorLogoApplyBatch[]
   actors                    Actor[]
   notifications             Notification[]
   payments                  Payment[]
@@ -170,6 +171,7 @@ model BusinessProfile {
   actors                    Actor[]
   bulkPublishSchedules      BulkPublishSchedule[]
   bulkActorStatusOperations BulkActorStatusOperation[]
+  logoApplyBatches          ActorLogoApplyBatch[]
   apifyTokens               ApifyToken[]
   apifyExtensionSessions    ApifyExtensionSession[]
   keywordWatches            KeywordWatch[]
@@ -960,6 +962,11 @@ model WebsiteIdentity {
   status          String   @default("ACTIVE")
   currentLogoId   String?  @unique
   logoError       String?  @db.Text
+  // Logo discovery bookkeeping: failed lookups back off exponentially, and
+  // websites with a logo are re-checked periodically for brand changes.
+  logoAttempts      Int       @default(0)
+  logoNextAttemptAt DateTime?
+  logoCheckedAt     DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -970,6 +977,7 @@ model WebsiteIdentity {
 
   @@index([canonicalDomain])
   @@index([status, updatedAt])
+  @@index([status, logoNextAttemptAt])
 }
 
 // Immutable logo versions. WebsiteIdentity.currentLogoId selects the active
@@ -1012,13 +1020,43 @@ model ActorLogoRecommendation {
   updatedAt   DateTime  @updatedAt
   appliedAt   DateTime?
   dismissedAt DateTime?
+  // Set while a background bulk apply owns this recommendation.
+  batchId     String?
 
-  actor Actor       @relation(fields: [actorId], references: [id], onDelete: Cascade)
-  logo  WebsiteLogo @relation(fields: [logoId], references: [id], onDelete: Cascade)
+  actor Actor                @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  logo  WebsiteLogo          @relation(fields: [logoId], references: [id], onDelete: Cascade)
+  batch ActorLogoApplyBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@unique([actorId, logoId])
   @@index([actorId, status])
   @@index([logoId, status])
+  @@index([batchId, status])
+}
+
+// A bulk "apply logos to Apify" request processed by the background worker,
+// so it keeps running when the reviewer closes the page.
+model ActorLogoApplyBatch {
+  id                String    @id @default(cuid())
+  userId            String
+  businessProfileId String
+  status            String    @default("QUEUED")
+  jobId             String?   @unique
+  total             Int
+  succeededCount    Int       @default(0)
+  failedCount       Int       @default(0)
+  stopRequested     Boolean   @default(false)
+  error             String?   @db.Text
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile           @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  recommendations ActorLogoRecommendation[]
+
+  @@index([businessProfileId, status, createdAt])
+  @@index([status, createdAt])
 }
 
 model StoreActorSnapshot {

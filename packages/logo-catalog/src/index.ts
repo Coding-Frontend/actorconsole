@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import sharp from "sharp";
+import { decodeIco, isIco } from "./ico";
 import { requireWebsiteLogoR2 } from "./r2";
 import { assertSafeLogoUrl, fetchLogoResource, readLimitedResponse } from "./safe-fetch";
 export { assertSafeLogoUrl } from "./safe-fetch";
@@ -15,9 +16,16 @@ const ACCEPTED_TYPES = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
+  "image/avif",
+  "image/gif",
   "image/svg+xml",
   "image/x-icon",
   "image/vnd.microsoft.icon",
+  "image/ico",
+  "image/icon",
+  // Many servers send favicon.ico without an image type. The bytes are still
+  // decoded and validated before anything is stored.
+  "application/octet-stream",
 ]);
 
 export type LogoSourceKind =
@@ -38,6 +46,23 @@ export function isAutomaticallyTrustedLogoSource(kind: LogoSourceKind) {
   );
 }
 
+/** Raster sources smaller than this look blurry once scaled to 512 px. */
+export const MIN_AUTO_TRUST_SOURCE_SIZE = 192;
+/** Wider marks (wordmarks, banners) become a thin strip in a square thumbnail. */
+export const MAX_AUTO_TRUST_ASPECT_RATIO = 2;
+
+export type LogoSourceInfo = { width: number; height: number; vector: boolean };
+
+/**
+ * Whether a logo is good enough to approve without an admin looking at it.
+ * Trusted sources that fail this still become candidates, but wait for review.
+ */
+export function meetsAutoTrustQuality(source: LogoSourceInfo) {
+  const ratio = Math.max(source.width, source.height) / Math.max(1, Math.min(source.width, source.height));
+  if (ratio > MAX_AUTO_TRUST_ASPECT_RATIO) return false;
+  return source.vector || Math.min(source.width, source.height) >= MIN_AUTO_TRUST_SOURCE_SIZE;
+}
+
 export type StoredLogo = {
   storagePath: string;
   checksum: string;
@@ -45,6 +70,11 @@ export type StoredLogo = {
   width: number;
   height: number;
   byteSize: number;
+};
+
+export type NormalizedLogo = Omit<StoredLogo, "storagePath"> & {
+  bytes: Buffer;
+  source: LogoSourceInfo;
 };
 
 function logoStorageMode() {
@@ -63,7 +93,7 @@ function logoStorageRoot() {
 }
 
 function assertLogoStoragePath(storagePath: string) {
-  if (!/^website-logos\/[a-zA-Z0-9_-]+\/[a-f0-9]{64}\.webp$/.test(storagePath)) {
+  if (!isWebsiteLogoStoragePath(storagePath)) {
     throw new Error("Invalid website logo storage path");
   }
 }
@@ -180,23 +210,54 @@ export async function downloadLogoSource(rawUrl: string, fetchImpl?: typeof fetc
   throw new Error("Logo source exceeded the redirect limit");
 }
 
-export async function normalizeWebsiteLogo(
-  bytes: Buffer,
-): Promise<Omit<StoredLogo, "storagePath"> & { bytes: Buffer }> {
-  if (!bytes.length || bytes.length > MAX_SOURCE_BYTES) throw new Error("Logo source exceeds 5 MB");
-  const sourceText = bytes.toString("utf8").toLowerCase();
-  if (
-    sourceText.includes("<svg") &&
-    /<!doctype|<!entity|<script|<foreignobject|(?:href|xlink:href)\s*=\s*["'](?:https?:|file:|data:)|url\s*\(/i.test(
-      sourceText,
-    )
-  ) {
-    throw new Error("Unsafe SVG content was rejected");
+/**
+ * Reject SVG features that could reach the network or run code. Local
+ * references such as `fill="url(#gradient)"` and embedded raster images are
+ * common in brand marks and are safe to rasterize.
+ */
+export function assertSafeSvg(text: string) {
+  const unsafe = () => new Error("Unsafe SVG content was rejected");
+  if (/<!doctype|<!entity|<script|<foreignobject|@import|\bon[a-z]+\s*=/i.test(text)) throw unsafe();
+  for (const match of text.matchAll(/(?:href|xlink:href)\s*=\s*(["'])([\s\S]*?)\1/gi)) {
+    const value = (match[2] ?? "").trim().toLowerCase();
+    if (value.startsWith("#")) continue;
+    if (/^data:image\/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]*$/.test(value)) continue;
+    throw unsafe();
   }
-  const image = sharp(bytes, { failOn: "error", limitInputPixels: 16_777_216 });
-  const metadata = await image.metadata();
-  if (!metadata.width || !metadata.height)
-    throw new Error("Logo dimensions could not be determined");
+  for (const match of text.matchAll(/url\s*\(\s*(["']?)([^)]*?)\1\s*\)/gi)) {
+    if (!(match[2] ?? "").trim().startsWith("#")) throw unsafe();
+  }
+}
+
+export async function normalizeWebsiteLogo(bytes: Buffer): Promise<NormalizedLogo> {
+  if (!bytes.length || bytes.length > MAX_SOURCE_BYTES) throw new Error("Logo source exceeds 5 MB");
+  let image: ReturnType<typeof sharp>;
+  let source: LogoSourceInfo;
+  if (isIco(bytes)) {
+    const decoded = decodeIco(bytes);
+    image =
+      decoded.kind === "png"
+        ? sharp(decoded.bytes, { failOn: "error", limitInputPixels: 16_777_216 })
+        : sharp(decoded.pixels, {
+            raw: { width: decoded.width, height: decoded.height, channels: 4 },
+          });
+    source = { width: decoded.width, height: decoded.height, vector: false };
+  } else {
+    const sourceText = bytes.toString("utf8").toLowerCase();
+    const vector = sourceText.includes("<svg");
+    if (vector) assertSafeSvg(sourceText);
+    // Animated GIF/WebP sources use their first frame (sharp's default).
+    image = sharp(bytes, { failOn: "error", limitInputPixels: 16_777_216 });
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height)
+      throw new Error("Logo dimensions could not be determined");
+    const rotated = (metadata.orientation ?? 1) >= 5;
+    source = {
+      width: rotated ? metadata.height : metadata.width,
+      height: rotated ? metadata.width : metadata.height,
+      vector: vector || metadata.format === "svg",
+    };
+  }
   const normalized = await image
     .rotate()
     .resize(512, 512, {
@@ -213,6 +274,7 @@ export async function normalizeWebsiteLogo(
     width: 512,
     height: 512,
     byteSize: normalized.byteLength,
+    source,
   };
 }
 
@@ -220,14 +282,75 @@ export async function storeWebsiteLogo(
   websiteIdentityId: string,
   source: Buffer,
 ): Promise<StoredLogo> {
-  const normalized = await normalizeWebsiteLogo(source);
+  return storeNormalizedWebsiteLogo(websiteIdentityId, await normalizeWebsiteLogo(source));
+}
+
+/** Store a logo that was already normalized, e.g. while choosing a candidate. */
+export async function storeNormalizedWebsiteLogo(
+  websiteIdentityId: string,
+  normalized: NormalizedLogo,
+): Promise<StoredLogo> {
   const storagePath = websiteLogoStoragePath(websiteIdentityId, normalized.checksum);
   const mode = logoStorageMode();
   const r2 = mode === "filesystem" ? null : requireWebsiteLogoR2();
   if (mode !== "r2") await writeFilesystemLogo(storagePath, normalized.bytes);
   if (r2) await r2.put(storagePath, normalized.bytes);
-  const { bytes: _bytes, ...result } = normalized;
+  const { bytes: _bytes, source: _source, ...result } = normalized;
   return { ...result, storagePath };
+}
+
+export function isWebsiteLogoStoragePath(storagePath: string) {
+  return /^website-logos\/[a-zA-Z0-9_-]+\/[a-f0-9]{64}\.webp$/.test(storagePath);
+}
+
+/** Every stored logo object in the active backend(s), for orphan cleanup. */
+export async function* listStoredWebsiteLogos(): AsyncGenerator<{
+  storagePath: string;
+  lastModified: Date;
+}> {
+  const mode = logoStorageMode();
+  if (mode !== "filesystem") {
+    for await (const object of requireWebsiteLogoR2().list("website-logos/")) {
+      if (isWebsiteLogoStoragePath(object.key)) {
+        yield { storagePath: object.key, lastModified: object.lastModified };
+      }
+    }
+    return;
+  }
+  const root = logoStorageRoot();
+  const base = join(root, "website-logos");
+  let websites: string[];
+  try {
+    websites = await readdir(base);
+  } catch {
+    return;
+  }
+  for (const website of websites) {
+    let files: string[];
+    try {
+      files = await readdir(join(base, website));
+    } catch {
+      continue;
+    }
+    for (const file of files) {
+      const storagePath = relative(root, join(base, website, file)).split(sep).join("/");
+      if (!isWebsiteLogoStoragePath(storagePath)) continue;
+      const info = await stat(join(base, website, file));
+      yield { storagePath, lastModified: info.mtime };
+    }
+  }
+}
+
+/** Remove a stored logo object from every backend that holds a copy. */
+export async function deleteStoredWebsiteLogo(storagePath: string) {
+  assertLogoStoragePath(storagePath);
+  const mode = logoStorageMode();
+  if (mode !== "filesystem") await requireWebsiteLogoR2().remove(storagePath);
+  if (mode !== "r2") {
+    await unlink(absoluteLogoPath(storagePath)).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+  }
 }
 
 async function writeFilesystemLogo(storagePath: string, bytes: Buffer) {
@@ -470,16 +593,35 @@ export async function discoverOfficialLogo(domain: string, fetchImpl?: typeof fe
   candidates.push(...iconCandidatesFromHtml(page.text, page.finalUrl));
   candidates.sort((left, right) => right.score - left.score);
   const errors: string[] = [];
+  type Found = Awaited<ReturnType<typeof downloadLogoSource>> & {
+    sourceKind: LogoSourceKind;
+    normalized: NormalizedLogo;
+  };
+  let fallback: Found | null = null;
+  const seen = new Set<string>();
   for (const candidate of candidates) {
+    if (seen.has(candidate.url)) continue;
+    seen.add(candidate.url);
+    // Once a trusted logo is in hand, lower-priority icons can't beat it.
+    if (fallback && isAutomaticallyTrustedLogoSource(fallback.sourceKind) && !isAutomaticallyTrustedLogoSource(candidate.kind)) {
+      break;
+    }
     try {
       const downloaded = await downloadLogoSource(candidate.url, fetchImpl);
       // A successful response can still contain an unsupported or unsafe image.
       // Validate it before selecting the candidate so another icon can be tried.
-      await normalizeWebsiteLogo(downloaded.bytes);
-      return { ...downloaded, sourceKind: candidate.kind };
+      const normalized = await normalizeWebsiteLogo(downloaded.bytes);
+      const found = { ...downloaded, sourceKind: candidate.kind, normalized };
+      // Keep looking for a trusted source that is also sharp and square enough;
+      // otherwise the best-ranked usable image is returned for admin review.
+      if (!isAutomaticallyTrustedLogoSource(candidate.kind) || meetsAutoTrustQuality(normalized.source)) {
+        return found;
+      }
+      fallback ??= found;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
   }
+  if (fallback) return fallback;
   throw new Error(errors[0] ?? "Official website does not expose a usable logo");
 }

@@ -84,3 +84,8 @@ export function retryPolicyFor(queue: string): RetryPolicy | undefined {
 export function bulkActorStatusJobId(operationId: string) {
   return `actor-status-${encodeURIComponent(operationId)}`;
 }
+
+/** Bulk logo apply batches use one job per batch, shared by API and worker. */
+export function logoApplyBatchJobId(batchId: string) {
+  return `logo-apply-${encodeURIComponent(batchId)}`;
+}

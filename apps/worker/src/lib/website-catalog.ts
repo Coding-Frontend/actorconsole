@@ -7,9 +7,12 @@ import {
   type WebsiteIdentitySeed,
 } from "@actorconsole/shared";
 import {
+  deleteStoredWebsiteLogo,
   discoverOfficialLogo,
   isAutomaticallyTrustedLogoSource,
-  storeWebsiteLogo,
+  listStoredWebsiteLogos,
+  meetsAutoTrustQuality,
+  storeNormalizedWebsiteLogo,
   verifyWebsiteLogoStorage,
 } from "@actorconsole/logo-catalog";
 
@@ -518,23 +521,61 @@ async function activateTrustedLogo(input: {
   });
 }
 
+/** Failed lookups wait 1, 2, 4… days (capped) before the next attempt. */
+export function nextLogoAttemptAt(attempts: number, now = new Date()) {
+  const days = Math.min(LOGO_RETRY_MAX_DAYS, 2 ** Math.max(0, attempts - 1));
+  return new Date(now.getTime() + days * DAY_MS);
+}
+
+const DAY_MS = 24 * 60 * 60 * 1_000;
+const LOGO_RETRY_MAX_DAYS = 30;
+const LOGO_REFRESH_DAYS = 90;
+
 export async function enrichWebsiteLogos(
-  options: { limit?: number; retryCount?: number; delayMs?: number } = {},
+  options: { limit?: number; retryCount?: number; delayMs?: number; now?: Date } = {},
 ) {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
   const delayMs = Math.min(Math.max(options.delayMs ?? 150, 0), 10_000);
-  const websites = await db.websiteIdentity.findMany({
+  const now = options.now ?? new Date();
+  const eligible: Prisma.WebsiteIdentityWhereInput = {
+    status: { in: ["ACTIVE", "LOGO_FAILED"] },
+    logos: { none: { reviewStatus: "PENDING" } },
+    canonicalDomain: { not: null },
+    slug: { notIn: [GENERIC_SLUG, "multi-site"] },
+    OR: [{ storeActors: { some: {} } }, { actors: { some: {} } }],
+  };
+  // Websites without a logo come first; failed ones only after their backoff.
+  const missing = await db.websiteIdentity.findMany({
     where: {
-      status: { in: ["ACTIVE", "LOGO_FAILED"] },
+      ...eligible,
       currentLogoId: null,
-      logos: { none: { reviewStatus: "PENDING" } },
-      canonicalDomain: { not: null },
-      slug: { notIn: [GENERIC_SLUG, "multi-site"] },
-      OR: [{ storeActors: { some: {} } }, { actors: { some: {} } }],
+      AND: [{ OR: [{ logoNextAttemptAt: null }, { logoNextAttemptAt: { lte: now } }] }],
     },
-    orderBy: { updatedAt: "asc" },
+    orderBy: [{ logoAttempts: "asc" }, { updatedAt: "asc" }],
     take: limit,
   });
+  // Spare capacity re-checks websites whose logo has not been looked at for a while.
+  const refresh =
+    missing.length < limit
+      ? await db.websiteIdentity.findMany({
+          where: {
+            ...eligible,
+            status: "ACTIVE",
+            currentLogoId: { not: null },
+            AND: [
+              {
+                OR: [
+                  { logoCheckedAt: null },
+                  { logoCheckedAt: { lt: new Date(now.getTime() - LOGO_REFRESH_DAYS * DAY_MS) } },
+                ],
+              },
+            ],
+          },
+          orderBy: [{ logoCheckedAt: "asc" }, { updatedAt: "asc" }],
+          take: limit - missing.length,
+        })
+      : [];
+  const websites = [...missing, ...refresh];
   const run = await createRun("WEBSITE_LOGO_ENRICHMENT", websites.length);
   const result: WebsiteCatalogResult = {
     expectedCount: websites.length,
@@ -556,46 +597,92 @@ export async function enrichWebsiteLogos(
   }
   try {
     for (const website of websites) {
+      const refreshing = website.currentLogoId !== null;
       try {
         const discovered = await discoverOfficialLogo(website.canonicalDomain!);
-        const stored = await storeWebsiteLogo(website.id, discovered.bytes);
-        const automaticallyTrusted = isAutomaticallyTrustedLogoSource(discovered.sourceKind);
-        const logo = await db.websiteLogo.upsert({
+        const existing = await db.websiteLogo.findUnique({
           where: {
             websiteIdentityId_checksum: {
               websiteIdentityId: website.id,
-              checksum: stored.checksum,
+              checksum: discovered.normalized.checksum,
             },
           },
-          create: {
-            websiteIdentityId: website.id,
-            ...stored,
-            sourceUrl: discovered.finalUrl,
-            sourceDomain: website.canonicalDomain,
-            sourceKind: discovered.sourceKind,
-            reviewStatus: automaticallyTrusted ? "APPROVED" : "PENDING",
-            reviewedAt: automaticallyTrusted ? new Date() : null,
-          },
-          update: {},
+          select: { id: true, reviewStatus: true },
         });
-        if (automaticallyTrusted) {
-          await activateTrustedLogo({ website, logoId: logo.id });
-        } else {
+        if (existing?.reviewStatus === "REJECTED") {
+          // An admin already turned this exact image down; never re-approve it.
+          throw new Error("The website still shows a logo that was rejected in review");
+        }
+        if (refreshing && existing) {
+          // Unchanged (or a known older version): nothing new to review.
           await db.websiteIdentity.update({
             where: { id: website.id },
-            data: { status: "ACTIVE", logoError: null },
+            data: { logoCheckedAt: now, logoError: null },
           });
+          result.matchedCount += 1;
+        } else {
+          const stored = existing
+            ? null
+            : await storeNormalizedWebsiteLogo(website.id, discovered.normalized);
+          // A changed logo on a website that already has one always waits for
+          // review: the current logo keeps working, and a rebrand is worth a look.
+          const automaticallyTrusted =
+            !refreshing &&
+            isAutomaticallyTrustedLogoSource(discovered.sourceKind) &&
+            meetsAutoTrustQuality(discovered.normalized.source);
+          const logo = existing
+            ? existing
+            : await db.websiteLogo.upsert({
+                where: {
+                  websiteIdentityId_checksum: {
+                    websiteIdentityId: website.id,
+                    checksum: stored!.checksum,
+                  },
+                },
+                create: {
+                  websiteIdentityId: website.id,
+                  ...stored!,
+                  sourceUrl: discovered.finalUrl,
+                  sourceDomain: website.canonicalDomain,
+                  sourceKind: discovered.sourceKind,
+                  reviewStatus: automaticallyTrusted ? "APPROVED" : "PENDING",
+                  reviewedAt: automaticallyTrusted ? new Date() : null,
+                  reviewNotes:
+                    !automaticallyTrusted && isAutomaticallyTrustedLogoSource(discovered.sourceKind)
+                      ? refreshing
+                        ? "The website now shows a different logo."
+                        : `Held for review: the source image is ${discovered.normalized.source.width}×${discovered.normalized.source.height}.`
+                      : null,
+                },
+                update: {},
+              });
+          const reset = { logoAttempts: 0, logoNextAttemptAt: null, logoCheckedAt: now };
+          if (automaticallyTrusted) {
+            await activateTrustedLogo({ website, logoId: logo.id });
+            await db.websiteIdentity.update({ where: { id: website.id }, data: reset });
+          } else {
+            await db.websiteIdentity.update({
+              where: { id: website.id },
+              data: { status: "ACTIVE", logoError: null, ...reset },
+            });
+          }
+          result.matchedCount += 1;
         }
-        result.matchedCount += 1;
       } catch (error) {
         result.failedCount += 1;
         result.unresolvedCount += 1;
+        const logoError = (error instanceof Error ? error.message : String(error)).slice(0, 65_535);
         await db.websiteIdentity.update({
           where: { id: website.id },
-          data: {
-            status: "LOGO_FAILED",
-            logoError: (error instanceof Error ? error.message : String(error)).slice(0, 65_535),
-          },
+          data: refreshing
+            ? // Keep the working logo; just try again at the next refresh.
+              { logoError, logoCheckedAt: now }
+            : {
+                status: "LOGO_FAILED",
+                logoError,
+                logoAttempts: website.logoAttempts + 1,
+                logoNextAttemptAt: nextLogoAttemptAt(website.logoAttempts + 1, now),
+              },
         });
       }
       result.processedCount += 1;
@@ -608,4 +695,66 @@ export async function enrichWebsiteLogos(
     await saveRun(run.id, result, "FAILED", error instanceof Error ? error.message : String(error));
     throw error;
   }
+}
+
+/**
+ * Delete stored logo files that no database row refers to, and rejected logos
+ * nobody can use any more. Files younger than the grace period are kept: a
+ * logo is written to storage just before its database row is created.
+ * Runs as a dry run (counting only) unless `remove` is set.
+ */
+export async function cleanupWebsiteLogoStorage(
+  options: { remove?: boolean; graceMs?: number; rejectedRetentionDays?: number; now?: Date } = {},
+) {
+  const now = options.now ?? new Date();
+  const graceMs = options.graceMs ?? DAY_MS;
+  const rejectedBefore = new Date(now.getTime() - (options.rejectedRetentionDays ?? 30) * DAY_MS);
+  const remove = options.remove ?? false;
+  const summary = { scanned: 0, orphaned: 0, rejectedLogos: 0, deleted: 0, dryRun: !remove };
+
+  const rejected = await db.websiteLogo.findMany({
+    where: {
+      reviewStatus: "REJECTED",
+      reviewedAt: { lt: rejectedBefore },
+      currentFor: null,
+      recommendations: { none: { status: { in: ["PENDING", "QUEUED", "APPLYING", "APPLIED"] } } },
+    },
+    select: { id: true },
+    take: 1_000,
+  });
+  summary.rejectedLogos = rejected.length;
+  // Removing the row turns its file into an orphan, which the sweep deletes.
+  if (remove && rejected.length) {
+    await db.websiteLogo.deleteMany({ where: { id: { in: rejected.map((logo) => logo.id) } } });
+  }
+
+  let page: Array<{ storagePath: string; lastModified: Date }> = [];
+  const flush = async () => {
+    if (!page.length) return;
+    const known = new Set(
+      (
+        await db.websiteLogo.findMany({
+          where: { storagePath: { in: page.map((object) => object.storagePath) } },
+          select: { storagePath: true },
+        })
+      ).map((logo) => logo.storagePath),
+    );
+    for (const object of page) {
+      if (known.has(object.storagePath)) continue;
+      if (now.getTime() - object.lastModified.getTime() < graceMs) continue;
+      summary.orphaned += 1;
+      if (remove) {
+        await deleteStoredWebsiteLogo(object.storagePath);
+        summary.deleted += 1;
+      }
+    }
+    page = [];
+  };
+  for await (const object of listStoredWebsiteLogos()) {
+    summary.scanned += 1;
+    page.push(object);
+    if (page.length >= 500) await flush();
+  }
+  await flush();
+  return summary;
 }

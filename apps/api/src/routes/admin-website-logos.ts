@@ -1,11 +1,36 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { db, Prisma, reconcileActorLogoRecommendations } from "@actorconsole/db";
 import { downloadLogoSource, storeWebsiteLogo } from "@actorconsole/logo-catalog";
+import { getLogger } from "@actorconsole/shared";
 import { requireAdmin } from "../middleware/admin.js";
+import { AppError } from "../middleware/error.js";
 import { enqueue } from "../lib/queue.js";
+import { verifiedClientIp } from "../lib/client-ip.js";
 import type { AppEnv } from "../app.js";
+
+const log = getLogger("api:admin-website-logos");
+
+/** Record who changed the logo catalog. Never fails the admin action itself. */
+async function auditAdmin(c: Context<any>, action: string, resource: string, after?: unknown) {
+  const admin = c.get("adminSession");
+  try {
+    await db.auditLog.create({
+      data: {
+        adminId: admin?.viaApiKey ? null : (admin?.adminId ?? null),
+        action,
+        resource,
+        after: after as Prisma.InputJsonValue | undefined,
+        source: admin?.viaApiKey ? "api-key" : "ui",
+        ip: verifiedClientIp(c),
+        userAgent: c.req.header("user-agent") ?? null,
+      },
+    });
+  } catch (error) {
+    log.warn({ err: error, action }, "Could not record admin logo audit entry");
+  }
+}
 
 const importBody = z.object({ sourceUrl: z.string().url(), activate: z.boolean().default(false) });
 const assignBody = z
@@ -33,7 +58,14 @@ async function activateLogo(websiteId: string, logoId: string, adminId: string |
   const logo = await db.websiteLogo.findFirst({
     where: { id: logoId, websiteIdentityId: websiteId },
   });
-  if (!logo) throw new Error("Logo candidate was not found");
+  if (!logo) throw new AppError("not_found", "Logo candidate was not found", 404);
+  if (logo.reviewStatus === "REJECTED") {
+    throw new AppError(
+      "logo_rejected",
+      "This logo was rejected. Import or upload it again to review it as a new candidate.",
+      409,
+    );
+  }
   const actors = await db.actor.findMany({
     where: { websiteIdentityId: websiteId, apifyRemovedAt: null },
     select: { id: true, userId: true, businessProfileId: true },
@@ -43,7 +75,7 @@ async function activateLogo(websiteId: string, logoId: string, adminId: string |
       where: { id: websiteId },
       select: { currentLogoId: true, name: true },
     });
-    if (!website) throw new Error("Website was not found");
+    if (!website) throw new AppError("not_found", "Website was not found", 404);
     if (website.currentLogoId && website.currentLogoId !== logoId) {
       await tx.websiteLogo.update({
         where: { id: website.currentLogoId },
@@ -187,13 +219,16 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
   })
   .patch("/:id", zValidator("json", updateBody), async (c) => {
     const body = c.req.valid("json");
+    const retryDiscovery = body.status === "ACTIVE" || body.canonicalDomain !== undefined;
     const item = await db.websiteIdentity.update({
       where: { id: c.req.param("id") },
       data: {
         ...body,
         ...(body.aliases ? { aliases: body.aliases as Prisma.InputJsonValue } : {}),
+        ...(retryDiscovery ? { logoAttempts: 0, logoNextAttemptAt: null } : {}),
       },
     });
+    await auditAdmin(c, "website.updated", `website:${item.id}`, body);
     return c.json({ ok: true, data: item });
   })
   .post("/:id/import", zValidator("json", importBody), async (c) => {
@@ -211,9 +246,15 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
         ...stored,
         sourceUrl: source.finalUrl,
         sourceDomain: new URL(source.finalUrl).hostname.toLowerCase(),
-        sourceKind: "OFFICIAL_BRAND",
+        // An admin chose this URL; it was not discovered on the official site.
+        sourceKind: "ADMIN_URL",
       },
       update: {},
+    });
+    await auditAdmin(c, "website.logo.imported", `website:${website.id}`, {
+      logoId: logo.id,
+      sourceUrl: source.finalUrl,
+      activate: body.activate,
     });
     let affectedActors = 0;
     if (body.activate) {
@@ -246,6 +287,10 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
       create: { websiteIdentityId: website.id, ...stored, sourceKind: "ADMIN_UPLOAD" },
       update: {},
     });
+    await auditAdmin(c, "website.logo.uploaded", `website:${website.id}`, {
+      logoId: logo.id,
+      fileName: file.name,
+    });
     return c.json({ ok: true, data: { ...logo, assetUrl: assetUrl(logo.id) } });
   })
   .post("/:id/logos/:logoId/activate", async (c) => {
@@ -255,8 +300,48 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
       c.req.param("logoId"),
       admin.viaApiKey ? null : admin.adminId,
     );
+    await auditAdmin(c, "website.logo.activated", `website:${c.req.param("id")}`, {
+      logoId: c.req.param("logoId"),
+      affectedActors,
+    });
     return c.json({ ok: true, data: { affectedActors } });
   })
+  // Reject a candidate so it no longer blocks discovery for this website and
+  // can be cleaned out of storage later. The active logo cannot be rejected.
+  .post(
+    "/:id/logos/:logoId/reject",
+    zValidator("json", z.object({ notes: z.string().trim().max(2_000).optional() }).optional()),
+    async (c) => {
+      const admin = c.get("adminSession");
+      const websiteId = c.req.param("id");
+      const logoId = c.req.param("logoId");
+      const notes = c.req.valid("json")?.notes;
+      const logo = await db.websiteLogo.findFirst({
+        where: { id: logoId, websiteIdentityId: websiteId },
+        include: { currentFor: { select: { id: true } } },
+      });
+      if (!logo) throw new AppError("not_found", "Logo candidate was not found", 404);
+      if (logo.currentFor) {
+        throw new AppError(
+          "logo_active",
+          "Activate a different logo before rejecting the active one.",
+          409,
+        );
+      }
+      const updated = await db.websiteLogo.update({
+        where: { id: logo.id },
+        data: {
+          reviewStatus: "REJECTED",
+          reviewedAt: new Date(),
+          reviewedById: admin.viaApiKey ? null : admin.adminId,
+          ...(notes ? { reviewNotes: notes } : {}),
+        },
+      });
+      await reconcileActorLogoRecommendations({ websiteIdentityId: websiteId });
+      await auditAdmin(c, "website.logo.rejected", `website:${websiteId}`, { logoId, notes });
+      return c.json({ ok: true, data: { ...updated, assetUrl: assetUrl(updated.id) } });
+    },
+  )
   .post("/:id/assign", zValidator("json", assignBody), async (c) => {
     const websiteId = c.req.param("id");
     const { actorIds, workspaceActorIds } = c.req.valid("json");
@@ -294,6 +379,10 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
       }),
     ]);
     await reconcileActorLogoRecommendations({ websiteIdentityId: websiteId });
+    await auditAdmin(c, "website.actors.assigned", `website:${websiteId}`, {
+      actorIds,
+      workspaceActorIds,
+    });
     return c.json({ ok: true, data: { updated: actorIds.length + workspaceActorIds.length } });
   })
   .post(
@@ -316,6 +405,7 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
         db.websiteIdentity.update({ where: { id: sourceWebsiteId }, data: { status: "ARCHIVED" } }),
       ]);
       await reconcileActorLogoRecommendations({ websiteIdentityId: targetId });
+      await auditAdmin(c, "website.merged", `website:${targetId}`, { sourceWebsiteId });
       return c.json({ ok: true });
     },
   )
@@ -363,6 +453,10 @@ export const adminWebsiteLogoRoutes = new Hono<AppEnv>()
       { catalog: "websites" },
       { jobId: `website-reclassification-${Date.now()}` },
     );
+    await auditAdmin(c, "website.actors.reclassified", "websites", {
+      actorIds,
+      workspaceActorIds,
+    });
     return c.json(
       {
         ok: true,

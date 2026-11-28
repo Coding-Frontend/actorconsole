@@ -38,6 +38,12 @@ For the storage rollout, set `WEBSITE_LOGO_STORAGE_BACKEND=r2-mirror` on the API
 
 Production uses `r2` for website logos. The API and background worker use the private `actorconsole-website-logos` bucket. On November 14, 2026, the migration verified the byte count and SHA-256 checksum of all 3,679 database-referenced logos. The VPS volume still contains the files copied during the migration. Backfill any subsequent R2 writes to the volume before using it as the primary store.
 
+The API answers repeat logo requests from a small in-memory cache and replies `304 Not Modified` when the browser already has the version. To serve logos straight from Cloudflare instead, connect a custom domain to the bucket and set `WEBSITE_LOGO_PUBLIC_BASE_URL` (for example `https://logos.actorconsole.com`) on the API. Logo requests then redirect there. Leave it empty to keep the bucket private.
+
+A weekly worker job looks for logo files that no database row refers to. By default it only logs the count. Set `WEBSITE_LOGO_CLEANUP=delete` on the worker to remove them. Files younger than one day are always kept, and rejected logos are removed 30 days after rejection.
+
+The `20261128090000_logo_apply_batches` migration adds background bulk-apply batches and logo retry and refresh fields. Run `prisma migrate deploy` before starting the new API and worker.
+
 ## D1 rehearsal
 
 Create a dedicated D1 database named `actorconsole-d1-staging`. Set `CLOUDFLARE_ACCOUNT_ID` and run `node scripts/rehearse-d1-staging.mjs --remote` with Wrangler authenticated for that account. The script derives SQLite DDL from the current Prisma schema, imports it into an empty staging database, and exercises it with synthetic records.
