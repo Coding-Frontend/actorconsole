@@ -33,6 +33,7 @@ import { DashboardBreadcrumbs } from "./dashboard-workbench";
 import { WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
 import { cn } from "@/lib/utils";
 import {
+  activeLogoApplyBatch,
   logoReviewParams,
   logoReviewRequest,
   runLogoReviewBatch,
@@ -137,6 +138,8 @@ export function BulkLogoReview() {
   const selectionController = useRef<AbortController | null>(null);
   const batchController = useRef<AbortController | null>(null);
   const stopRequested = useRef(false);
+  const resumeChecked = useRef<string | null>(null);
+  const runRef = useRef<typeof run | null>(null);
 
   const changeFilters = useCallback((change: Partial<LogoReviewFilters>) => {
     setFilters((current) => ({ ...current, ...change }));
@@ -231,17 +234,32 @@ export function BulkLogoReview() {
     };
   }, []);
 
+  // A bulk apply runs on the server; reopening the page picks its progress back up.
   useEffect(() => {
-    if (!batch?.running) return;
+    if (!data || batchController.current || resumeChecked.current === data.workspaceId) return;
+    const workspaceId = data.workspaceId;
+    resumeChecked.current = workspaceId;
+    void activeLogoApplyBatch(workspaceId)
+      .then((result) => {
+        if (result.batch && result.workspaceId === workspaceId && !batchController.current)
+          void runRef.current?.("apply", { batchId: result.batch.id, total: result.batch.total });
+      })
+      .catch(() => undefined);
+  }, [data]);
+
+  useEffect(() => {
+    // Only dismissals run in this page; a bulk apply continues on the server.
+    if (!batch?.running || batch.action === "apply") return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [batch?.running]);
+  }, [batch?.running, batch?.action]);
 
   const busy = Boolean(batch?.running) || selecting;
+  const blockNavigation = selecting || Boolean(batch?.running && batch.action === "dismiss");
   const disabled =
     busy || loading || Boolean(loadError) || !data || search.trim() !== filters.query;
   const pending = filters.status === "PENDING";
@@ -280,9 +298,10 @@ export function BulkLogoReview() {
     }
   }
 
-  async function run(action: LogoReviewAction) {
-    if (!data || disabled || !selected.size || batchController.current) return;
-    const queue = [...selected.values()];
+  async function run(action: LogoReviewAction, resume?: { batchId: string; total: number }) {
+    if (!data || batchController.current) return;
+    if (!resume && (disabled || !selected.size)) return;
+    const queue = resume ? [] : [...selected.values()];
     const currentVersion = version.current;
     const workspaceId = data.workspaceId;
     const controller = new AbortController();
@@ -291,7 +310,7 @@ export function BulkLogoReview() {
     setConfirm(null);
     setBatch({
       action,
-      total: queue.length,
+      total: resume?.total ?? queue.length,
       running: true,
       stopping: false,
       current: null,
@@ -303,11 +322,17 @@ export function BulkLogoReview() {
       workspaceId,
       signal: controller.signal,
       shouldStop: () => stopRequested.current,
-      onProgress: (current, completed) => {
+      resumeBatchId: resume?.batchId,
+      onProgress: (current, completed, total) => {
         if (currentVersion === version.current && !controller.signal.aborted)
           setBatch((previous) =>
             previous
-              ? { ...previous, current: current ? actorTitle(current) : null, results: completed }
+              ? {
+                  ...previous,
+                  current: current ? actorTitle(current) : null,
+                  results: completed,
+                  ...(total === undefined ? {} : { total }),
+                }
               : previous,
           );
       },
@@ -335,6 +360,7 @@ export function BulkLogoReview() {
       );
     window.dispatchEvent(new CustomEvent(WORKSPACE_DATA_REFRESHED_EVENT));
   }
+  runRef.current = run;
 
   return (
     <section className="min-w-0 space-y-6 pb-6" aria-label="Bulk logo review workspace">
@@ -345,9 +371,9 @@ export function BulkLogoReview() {
           />
           <Link
             href="/dashboard/actors"
-            aria-disabled={busy}
+            aria-disabled={blockNavigation}
             onClick={(event) => {
-              if (busy) event.preventDefault();
+              if (blockNavigation) event.preventDefault();
             }}
             className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
@@ -537,8 +563,10 @@ export function BulkLogoReview() {
           />
           {batch.running ? (
             <p className="text-xs leading-5 text-muted-foreground">
-              {batch.current ? `Processing ${batch.current}. ` : ""}Keep this page open while
-              updates run. Completed changes are saved.
+              {batch.current ? `Processing ${batch.current}. ` : ""}
+              {batch.action === "apply"
+                ? "Logos keep applying in the background if you leave this page."
+                : "Keep this page open while updates run. Completed changes are saved."}
             </p>
           ) : null}
           {batch.results.length ? (
@@ -927,8 +955,9 @@ export function BulkLogoReview() {
             ))}
           </ul>
           <p className="text-xs leading-5 text-muted-foreground">
-            Keep this page open while the selected updates run. You can stop after the current
-            Actor.
+            {confirm === "apply"
+              ? "Updates run in the background, one Actor at a time. You can leave this page, or stop after the current Actor."
+              : "Keep this page open while the selected recommendations are dismissed."}
           </p>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setConfirm(null)}>

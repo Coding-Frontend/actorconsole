@@ -27,9 +27,12 @@ const state = vi.hoisted(() => ({
 }));
 
 const logoCatalog = vi.hoisted(() => ({
+  deleteStoredWebsiteLogo: vi.fn(),
   discoverOfficialLogo: vi.fn(),
   isAutomaticallyTrustedLogoSource: vi.fn(),
-  storeWebsiteLogo: vi.fn(),
+  listStoredWebsiteLogos: vi.fn(),
+  meetsAutoTrustQuality: vi.fn(),
+  storeNormalizedWebsiteLogo: vi.fn(),
   verifyWebsiteLogoStorage: vi.fn(),
 }));
 const reconcileActorLogoRecommendations = vi.hoisted(() =>
@@ -80,7 +83,15 @@ const db = vi.hoisted(() => ({
       return identity;
     }),
     findUnique: vi.fn(async ({ where }: any) => state.identities.get(where.slug) ?? null),
-    findMany: vi.fn(async () => [...state.identities.values()]),
+    findMany: vi.fn(async ({ where }: any = {}) =>
+      [...state.identities.values()]
+        .filter((identity) => {
+          if (where?.currentLogoId === null) return !identity.currentLogoId;
+          if (where?.currentLogoId?.not === null) return Boolean(identity.currentLogoId);
+          return true;
+        })
+        .map((identity) => ({ logoAttempts: 0, ...identity })),
+    ),
     update: vi.fn(async ({ where, data }: any) => {
       const identity = [...state.identities.values()].find((item) => item.id === where.id);
       if (identity) Object.assign(identity, data);
@@ -89,6 +100,20 @@ const db = vi.hoisted(() => ({
     updateMany: vi.fn(async () => ({ count: 0 })),
   },
   websiteLogo: {
+    findUnique: vi.fn(
+      async ({ where }: any) =>
+        state.logos.find(
+          (logo) =>
+            logo.websiteIdentityId === where.websiteIdentityId_checksum.websiteIdentityId &&
+            logo.checksum === where.websiteIdentityId_checksum.checksum,
+        ) ?? null,
+    ),
+    findMany: vi.fn(async ({ where }: any) =>
+      where?.storagePath
+        ? state.logos.filter((logo) => where.storagePath.in.includes(logo.storagePath))
+        : [],
+    ),
+    deleteMany: vi.fn(async () => ({ count: 0 })),
     upsert: vi.fn(async ({ where, create }: any) => {
       const existing = state.logos.find(
         (logo) =>
@@ -170,7 +195,49 @@ vi.mock("@actorconsole/db", () => ({
 }));
 vi.mock("@actorconsole/logo-catalog", () => logoCatalog);
 
-import { classifyWebsiteCatalog, enrichWebsiteLogos } from "../../src/lib/website-catalog.js";
+import {
+  classifyWebsiteCatalog,
+  cleanupWebsiteLogoStorage,
+  enrichWebsiteLogos,
+  nextLogoAttemptAt,
+} from "../../src/lib/website-catalog.js";
+
+const checksum = "a".repeat(64);
+const discovered = (overrides: Record<string, unknown> = {}) => ({
+  bytes: Buffer.from("official-logo"),
+  finalUrl: "https://maps.google.com/logo.svg",
+  sourceKind: "OFFICIAL_BRAND",
+  normalized: {
+    bytes: Buffer.from("normalized"),
+    checksum,
+    contentType: "image/webp",
+    width: 512,
+    height: 512,
+    byteSize: 1_024,
+    source: { width: 512, height: 512, vector: false },
+  },
+  ...overrides,
+});
+const storedLogo = {
+  storagePath: `website-logos/website_google-maps/${checksum}.webp`,
+  checksum,
+  contentType: "image/webp",
+  width: 512,
+  height: 512,
+  byteSize: 1_024,
+};
+function googleMaps(extra: Record<string, unknown> = {}) {
+  state.identities.set("google-maps", {
+    id: "website_google-maps",
+    slug: "google-maps",
+    name: "Google Maps",
+    canonicalDomain: "maps.google.com",
+    status: "ACTIVE",
+    currentLogoId: null,
+    logoAttempts: 0,
+    ...extra,
+  });
+}
 
 function rows(count: number): StoreRow[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -423,20 +490,10 @@ describe("website catalog backfill", () => {
         websiteAdminOverride: false,
       },
     ];
-    logoCatalog.discoverOfficialLogo.mockResolvedValue({
-      bytes: Buffer.from("official-logo"),
-      finalUrl: "https://maps.google.com/logo.svg",
-      sourceKind: "OFFICIAL_BRAND",
-    });
-    logoCatalog.storeWebsiteLogo.mockResolvedValue({
-      storagePath: `website-logos/website_google-maps/${"a".repeat(64)}.webp`,
-      checksum: "a".repeat(64),
-      contentType: "image/webp",
-      width: 512,
-      height: 512,
-      byteSize: 1_024,
-    });
+    logoCatalog.discoverOfficialLogo.mockResolvedValue(discovered());
+    logoCatalog.storeNormalizedWebsiteLogo.mockResolvedValue(storedLogo);
     logoCatalog.isAutomaticallyTrustedLogoSource.mockReturnValue(true);
+    logoCatalog.meetsAutoTrustQuality.mockReturnValue(true);
 
     const result = await enrichWebsiteLogos({ limit: 10, delayMs: 0 });
 
@@ -459,6 +516,148 @@ describe("website catalog backfill", () => {
         }),
       ],
       skipDuplicates: true,
+    });
+  });
+
+  it("holds a trusted but low-quality logo for admin review instead of activating it", async () => {
+    googleMaps();
+    logoCatalog.discoverOfficialLogo.mockResolvedValue(
+      discovered({
+        normalized: { ...discovered().normalized, source: { width: 32, height: 32, vector: false } },
+      }),
+    );
+    logoCatalog.storeNormalizedWebsiteLogo.mockResolvedValue(storedLogo);
+    logoCatalog.isAutomaticallyTrustedLogoSource.mockReturnValue(true);
+    logoCatalog.meetsAutoTrustQuality.mockReturnValue(false);
+
+    await enrichWebsiteLogos({ limit: 10, delayMs: 0 });
+
+    expect(state.logos[0]).toMatchObject({
+      reviewStatus: "PENDING",
+      reviewNotes: expect.stringContaining("32×32"),
+    });
+    expect(state.identities.get("google-maps").currentLogoId).toBeNull();
+    expect(db.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  it("backs off exponentially after failed lookups", async () => {
+    googleMaps({ logoAttempts: 2 });
+    logoCatalog.discoverOfficialLogo.mockRejectedValue(new Error("HTTP 503"));
+    const now = new Date("2026-11-28T00:00:00Z");
+
+    await enrichWebsiteLogos({ limit: 10, delayMs: 0, now });
+
+    expect(state.identities.get("google-maps")).toMatchObject({
+      status: "LOGO_FAILED",
+      logoError: "HTTP 503",
+      logoAttempts: 3,
+      logoNextAttemptAt: new Date("2026-12-02T00:00:00Z"),
+    });
+    expect(nextLogoAttemptAt(1, now)).toEqual(new Date("2026-11-29T00:00:00Z"));
+    expect(nextLogoAttemptAt(20, now)).toEqual(new Date("2026-12-28T00:00:00Z"));
+  });
+
+  it("re-checks an existing logo and only records the check when it is unchanged", async () => {
+    googleMaps({ currentLogoId: "logo_1", logoCheckedAt: null });
+    state.logos.push({ id: "logo_1", websiteIdentityId: "website_google-maps", checksum });
+    logoCatalog.discoverOfficialLogo.mockResolvedValue(discovered());
+    const now = new Date("2026-11-28T00:00:00Z");
+
+    const result = await enrichWebsiteLogos({ limit: 10, delayMs: 0, now });
+
+    expect(result).toMatchObject({ processedCount: 1, matchedCount: 1 });
+    expect(logoCatalog.storeNormalizedWebsiteLogo).not.toHaveBeenCalled();
+    expect(state.identities.get("google-maps")).toMatchObject({
+      currentLogoId: "logo_1",
+      logoCheckedAt: now,
+    });
+  });
+
+  it("sends a changed logo on a refreshed website to review without replacing the current one", async () => {
+    googleMaps({ currentLogoId: "logo_1", logoCheckedAt: null });
+    state.logos.push({
+      id: "logo_1",
+      websiteIdentityId: "website_google-maps",
+      checksum: "b".repeat(64),
+    });
+    logoCatalog.discoverOfficialLogo.mockResolvedValue(discovered());
+    logoCatalog.storeNormalizedWebsiteLogo.mockResolvedValue(storedLogo);
+    logoCatalog.isAutomaticallyTrustedLogoSource.mockReturnValue(true);
+    logoCatalog.meetsAutoTrustQuality.mockReturnValue(true);
+
+    await enrichWebsiteLogos({ limit: 10, delayMs: 0 });
+
+    expect(state.logos[1]).toMatchObject({
+      reviewStatus: "PENDING",
+      reviewNotes: expect.stringContaining("different logo"),
+    });
+    expect(state.identities.get("google-maps").currentLogoId).toBe("logo_1");
+    expect(db.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps a working logo when a refresh lookup fails", async () => {
+    googleMaps({ currentLogoId: "logo_1", logoCheckedAt: null });
+    logoCatalog.discoverOfficialLogo.mockRejectedValue(new Error("timeout"));
+    await enrichWebsiteLogos({ limit: 10, delayMs: 0 });
+    expect(state.identities.get("google-maps")).toMatchObject({
+      status: "ACTIVE",
+      currentLogoId: "logo_1",
+    });
+  });
+
+  it("never re-approves a logo an admin rejected when the website still shows it", async () => {
+    googleMaps();
+    state.logos.push({
+      id: "logo_rejected",
+      websiteIdentityId: "website_google-maps",
+      checksum,
+      reviewStatus: "REJECTED",
+    });
+    logoCatalog.discoverOfficialLogo.mockResolvedValue(discovered());
+    logoCatalog.isAutomaticallyTrustedLogoSource.mockReturnValue(true);
+    logoCatalog.meetsAutoTrustQuality.mockReturnValue(true);
+
+    const result = await enrichWebsiteLogos({ limit: 10, delayMs: 0 });
+
+    expect(result).toMatchObject({ failedCount: 1 });
+    expect(state.identities.get("google-maps")).toMatchObject({
+      currentLogoId: null,
+      status: "LOGO_FAILED",
+      logoAttempts: 1,
+      logoError: expect.stringContaining("rejected"),
+    });
+    expect(state.logos[0]!.reviewStatus).toBe("REJECTED");
+    expect(db.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  describe("storage cleanup", () => {
+    const old = new Date("2026-10-01T00:00:00Z");
+    const now = new Date("2026-11-28T00:00:00Z");
+    const known = `website-logos/site_1/${"c".repeat(64)}.webp`;
+    const orphan = `website-logos/site_1/${"d".repeat(64)}.webp`;
+    const fresh = `website-logos/site_1/${"e".repeat(64)}.webp`;
+
+    beforeEach(() => {
+      state.logos.push({ id: "logo_known", storagePath: known });
+      logoCatalog.listStoredWebsiteLogos.mockImplementation(async function* () {
+        yield { storagePath: known, lastModified: old };
+        yield { storagePath: orphan, lastModified: old };
+        // Written moments ago, before its database row: must be kept.
+        yield { storagePath: fresh, lastModified: new Date(now.getTime() - 60_000) };
+      });
+    });
+
+    it("only reports orphaned files by default", async () => {
+      const summary = await cleanupWebsiteLogoStorage({ now });
+      expect(summary).toMatchObject({ scanned: 3, orphaned: 1, deleted: 0, dryRun: true });
+      expect(logoCatalog.deleteStoredWebsiteLogo).not.toHaveBeenCalled();
+    });
+
+    it("deletes only old files that no logo row refers to", async () => {
+      const summary = await cleanupWebsiteLogoStorage({ now, remove: true });
+      expect(summary).toMatchObject({ orphaned: 1, deleted: 1, dryRun: false });
+      expect(logoCatalog.deleteStoredWebsiteLogo).toHaveBeenCalledTimes(1);
+      expect(logoCatalog.deleteStoredWebsiteLogo).toHaveBeenCalledWith(orphan);
     });
   });
 });

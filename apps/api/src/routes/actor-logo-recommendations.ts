@@ -1,8 +1,19 @@
 import { Hono, type Context } from "hono";
-import { db, type Prisma } from "@actorconsole/db";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
+import {
+  applyActorLogoRecommendation,
+  db,
+  LogoApplyError,
+  logoBatchItemOutcome,
+  type Prisma,
+} from "@actorconsole/db";
 import { getUserApifyClient } from "@actorconsole/apify";
 import { readWebsiteLogo } from "@actorconsole/logo-catalog";
+import { logoApplyBatchJobId } from "@actorconsole/shared";
 import { AppError } from "../middleware/error.js";
+import { enqueue } from "../lib/queue.js";
+import { getLogger } from "@actorconsole/shared";
 import { businessProfileScope } from "../lib/business-profile.js";
 import { booleanQuery, enumQuery, integerQuery, limitQuery, stringQuery } from "../lib/query.js";
 import { recordUserAudit } from "../lib/user-audit.js";
@@ -11,6 +22,39 @@ import type { AppEnv } from "../app.js";
 
 const recommendationStatuses = ["PENDING", "APPLIED", "DISMISSED", "SUPERSEDED"] as const;
 const visibleStatuses = ["PENDING", "APPLIED", "DISMISSED"];
+
+type Session = AppEnv["Variables"]["session"];
+
+/** Actors this session may act on: its workspace and, for API keys, their Actor scope. */
+function workspaceActorScope(session: Session): Prisma.ActorWhereInput {
+  return {
+    userId: session.userId,
+    ...businessProfileScope(session),
+    apifyRemovedAt: null,
+    ...(session.authMethod === "api-key" && session.apiKeyActorIds?.length
+      ? { apifyActorId: { in: session.apiKeyActorIds } }
+      : {}),
+  };
+}
+
+function apifyClientFor(session: Session) {
+  return session.businessProfileId
+    ? getUserApifyClient(session.userId, session.businessProfileId)
+    : getUserApifyClient(session.userId);
+}
+
+/** Audit writes run after the Apify change, so they must never fail the request. */
+async function auditSafely(...args: Parameters<typeof recordUserAudit>) {
+  try {
+    await recordUserAudit(...args);
+  } catch (error) {
+    logger.warn({ err: error, action: args[2] }, "Could not record logo audit entry");
+  }
+}
+
+const logger = getLogger("api:logo-recommendations");
+const idsBody = z.object({ ids: z.array(z.string().min(1).max(191)).min(1).max(5_000) });
+const ACTIVE_BATCH_STATUSES = ["QUEUED", "RUNNING"];
 
 function recommendationFilters(c: Context<AppEnv>) {
   const session = c.get("session");
@@ -21,14 +65,7 @@ function recommendationFilters(c: Context<AppEnv>) {
     "missing",
     "existing",
   ]);
-  const actorScope: Prisma.ActorWhereInput = {
-    userId: session.userId,
-    ...businessProfileScope(session),
-    apifyRemovedAt: null,
-    ...(session.authMethod === "api-key" && session.apiKeyActorIds?.length
-      ? { apifyActorId: { in: session.apiKeyActorIds } }
-      : {}),
-  };
+  const actorScope = workspaceActorScope(session);
   const actor: Prisma.ActorWhereInput = {
     ...actorScope,
     ...(thumbnail === "missing"
@@ -176,106 +213,240 @@ export const actorLogoRecommendationRoutes = new Hono<AppEnv>()
       },
     });
   })
+  .post("/logo-recommendations/dismiss", zValidator("json", idsBody), async (c) => {
+    const session = c.get("session");
+    const ids = [...new Set(c.req.valid("json").ids)];
+    const where = { status: "PENDING", actor: workspaceActorScope(session) };
+    const eligible = await db.actorLogoRecommendation.findMany({
+      where: { ...where, id: { in: ids } },
+      select: { id: true },
+    });
+    const eligibleIds = eligible.map((item) => item.id);
+    // Conditional on PENDING so an apply that claimed a row meanwhile wins.
+    await db.actorLogoRecommendation.updateMany({
+      where: { ...where, id: { in: eligibleIds } },
+      data: { status: "DISMISSED", dismissedAt: new Date(), error: null },
+    });
+    const dismissed = (
+      await db.actorLogoRecommendation.findMany({
+        where: { id: { in: eligibleIds }, status: "DISMISSED" },
+        select: { id: true },
+      })
+    ).map((item) => item.id);
+    if (dismissed.length) {
+      await auditSafely(c, session, "actor.logo.bulk_dismissed", "actors", {
+        recommendationIds: dismissed,
+      });
+    }
+    return c.json({ ok: true, data: { dismissed } });
+  })
   .post("/logo-recommendations/:id/dismiss", async (c) => {
     const session = c.get("session");
     const item = await db.actorLogoRecommendation.findFirst({
-      where: {
-        id: c.req.param("id"),
-        status: "PENDING",
-        actor: { userId: session.userId, ...businessProfileScope(session), apifyRemovedAt: null },
-      },
+      where: { id: c.req.param("id"), status: "PENDING", actor: workspaceActorScope(session) },
       include: { actor: { select: { apifyActorId: true } } },
     });
     if (!item) throw new AppError("not_found", "Logo recommendation not found", 404);
     assertApiKeyActorScope(session, item.actor.apifyActorId);
-    const updated = await db.actorLogoRecommendation.update({
-      where: { id: item.id },
+    // Conditional on PENDING so an apply that claimed the row meanwhile wins.
+    const result = await db.actorLogoRecommendation.updateMany({
+      where: { id: item.id, status: "PENDING" },
       data: { status: "DISMISSED", dismissedAt: new Date(), error: null },
     });
-    await recordUserAudit(c, session, "actor.logo.dismissed", `actor:${item.actorId}`, {
+    if (!result.count) throw new AppError("not_found", "Logo recommendation not found", 404);
+    await auditSafely(c, session, "actor.logo.dismissed", `actor:${item.actorId}`, {
       recommendationId: item.id,
     });
+    const updated = await db.actorLogoRecommendation.findUniqueOrThrow({ where: { id: item.id } });
     return c.json({ ok: true, data: updated });
   })
   .post("/logo-recommendations/:id/apply", async (c) => {
     const session = c.get("session");
-    const item = await db.actorLogoRecommendation.findFirst({
+    // Resolve the Actor first so an API key scoped to other Actors gets a
+    // clear 403 before anything is claimed or uploaded.
+    const target = await db.actorLogoRecommendation.findFirst({
       where: {
         id: c.req.param("id"),
-        status: "PENDING",
         actor: { userId: session.userId, ...businessProfileScope(session), apifyRemovedAt: null },
       },
-      include: {
-        actor: { include: { websiteIdentity: { select: { status: true, currentLogoId: true } } } },
-        logo: true,
-      },
+      select: { actor: { select: { apifyActorId: true } } },
     });
-    if (!item) throw new AppError("not_found", "Logo recommendation not found", 404);
-    assertApiKeyActorScope(session, item.actor.apifyActorId);
-    if (
-      item.actor.websiteIdentityId !== item.logo.websiteIdentityId ||
-      item.actor.websiteIdentity?.status !== "ACTIVE" ||
-      item.actor.websiteIdentity.currentLogoId !== item.logoId ||
-      item.logo.reviewStatus !== "APPROVED"
-    ) {
-      await db.actorLogoRecommendation.update({
-        where: { id: item.id },
-        data: { status: "SUPERSEDED", error: null },
+    if (!target) throw new AppError("not_found", "Logo recommendation not found", 404);
+    assertApiKeyActorScope(session, target.actor.apifyActorId);
+    let applied: Awaited<ReturnType<typeof applyActorLogoRecommendation>>;
+    try {
+      applied = await applyActorLogoRecommendation({
+        recommendationId: c.req.param("id"),
+        actorWhere: workspaceActorScope(session),
+        getApify: () => apifyClientFor(session),
+        readLogo: readWebsiteLogo,
       });
-      throw new AppError(
-        "logo_recommendation_superseded",
-        "This logo recommendation is no longer current. Refresh the logo recommendations.",
-        409,
-      );
+    } catch (error) {
+      if (error instanceof LogoApplyError) {
+        throw new AppError(
+          error.code,
+          error.message,
+          error.status,
+          error.code === "apify_publishing_credentials_required"
+            ? { link: "/dashboard/apify" }
+            : undefined,
+        );
+      }
+      throw error;
     }
-    const apify = session.businessProfileId
-      ? await getUserApifyClient(session.userId, session.businessProfileId)
-      : await getUserApifyClient(session.userId);
-    if (!apify) {
-      await db.actorLogoRecommendation.update({
-        where: { id: item.id },
-        data: { error: "Apify publishing credentials are unavailable or expired" },
-      });
+    await auditSafely(c, session, "actor.logo.applied", `actor:${applied.actorId}`, {
+      recommendationId: c.req.param("id"),
+      logoId: applied.logoId,
+    });
+    return c.json({ ok: true, data: { pictureUrl: applied.pictureUrl } });
+  })
+  // Bulk apply runs in the background worker, so it keeps going when the
+  // reviewer closes the page and is not bound by the proxy's request timeout.
+  .post("/logo-recommendations/batches", zValidator("json", idsBody), async (c) => {
+    const session = c.get("session");
+    const businessProfileId = session.businessProfileId;
+    if (!businessProfileId) {
+      throw new AppError("workspace_required", "Select a workspace before applying logos", 400);
+    }
+    const ids = [...new Set(c.req.valid("json").ids)];
+    if (!(await apifyClientFor(session))) {
       throw new AppError(
         "apify_publishing_credentials_required",
-        "Reconnect your Apify publishing credential before applying this logo",
+        "Reconnect your Apify publishing credential before applying logos",
         409,
         { link: "/dashboard/apify" },
       );
     }
-    try {
-      const bytes = await readWebsiteLogo(item.logo.storagePath);
-      const result = await apify.updateActorMetadata(item.actor.apifyActorId, {
-        picture: {
-          fileName: `${item.logo.checksum.slice(0, 16)}.webp`,
-          contentType: item.logo.contentType,
-          body: bytes,
+    const batch = await db.$transaction(async (tx) => {
+      const created = await tx.actorLogoApplyBatch.create({
+        data: { userId: session.userId, businessProfileId, total: 0 },
+      });
+      const queued = await tx.actorLogoRecommendation.updateMany({
+        where: { id: { in: ids }, status: "PENDING", actor: workspaceActorScope(session) },
+        data: { status: "QUEUED", batchId: created.id, error: null },
+      });
+      return tx.actorLogoApplyBatch.update({
+        where: { id: created.id },
+        data: {
+          total: queued.count,
+          jobId: logoApplyBatchJobId(created.id),
+          ...(queued.count ? {} : { status: "COMPLETED", completedAt: new Date() }),
         },
       });
-      if (!result.verified || !result.pictureUrl) {
-        throw new Error("Apify did not verify the updated thumbnail. Try applying the logo again.");
-      }
+    });
+    if (!batch.total) {
+      throw new AppError(
+        "logo_recommendation_superseded",
+        "None of the selected logos are waiting for review any more. Refresh the list.",
+        409,
+      );
+    }
+    try {
+      await enqueue(
+        "schedules",
+        { logoApplyBatch: { batchId: batch.id, userId: session.userId, businessProfileId } },
+        { jobId: batch.jobId! },
+      );
+    } catch (error) {
+      // The QUEUED batch row is the durable intent; the worker tick re-dispatches it.
+      logger.warn({ err: error, batchId: batch.id }, "Logo apply batch enqueue is pending");
+    }
+    await auditSafely(c, session, "actor.logo.bulk_apply_queued", "actors", {
+      batchId: batch.id,
+      queued: batch.total,
+    });
+    return c.json({ ok: true, data: await batchView(batch.id, businessProfileId) }, 202);
+  })
+  .get("/logo-recommendations/batches/active", async (c) => {
+    const session = c.get("session");
+    const batch = session.businessProfileId
+      ? await db.actorLogoApplyBatch.findFirst({
+          where: {
+            userId: session.userId,
+            businessProfileId: session.businessProfileId,
+            status: { in: ACTIVE_BATCH_STATUSES },
+          },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        })
+      : null;
+    return c.json({
+      ok: true,
+      data: {
+        batch: batch ? await batchView(batch.id, session.businessProfileId!) : null,
+        workspaceId: session.businessProfileId,
+      },
+    });
+  })
+  .get("/logo-recommendations/batches/:batchId", async (c) => {
+    const session = c.get("session");
+    const view = session.businessProfileId
+      ? await batchView(c.req.param("batchId"), session.businessProfileId, session.userId)
+      : null;
+    if (!view) throw new AppError("not_found", "Logo apply batch not found", 404);
+    return c.json({ ok: true, data: view });
+  })
+  .post("/logo-recommendations/batches/:batchId/stop", async (c) => {
+    const session = c.get("session");
+    const batch = await db.actorLogoApplyBatch.findFirst({
+      where: {
+        id: c.req.param("batchId"),
+        userId: session.userId,
+        businessProfileId: session.businessProfileId ?? "",
+      },
+    });
+    if (!batch) throw new AppError("not_found", "Logo apply batch not found", 404);
+    if (ACTIVE_BATCH_STATUSES.includes(batch.status)) {
+      // Release everything not yet started; the worker finishes the current Actor.
       await db.$transaction([
-        db.actor.update({
-          where: { id: item.actorId },
-          data: { currentImageUrl: result.pictureUrl },
+        db.actorLogoApplyBatch.update({ where: { id: batch.id }, data: { stopRequested: true } }),
+        db.actorLogoRecommendation.updateMany({
+          where: { batchId: batch.id, status: "QUEUED" },
+          data: { status: "PENDING", batchId: null },
         }),
-        db.actorLogoRecommendation.update({
-          where: { id: item.id },
-          data: { status: "APPLIED", appliedAt: new Date(), error: null },
+        db.actorLogoApplyBatch.updateMany({
+          where: { id: batch.id, status: "QUEUED" },
+          data: { status: "STOPPED", completedAt: new Date() },
         }),
       ]);
-      await recordUserAudit(c, session, "actor.logo.applied", `actor:${item.actorId}`, {
-        recommendationId: item.id,
-        logoId: item.logoId,
+      await auditSafely(c, session, "actor.logo.bulk_apply_stopped", "actors", {
+        batchId: batch.id,
       });
-      return c.json({ ok: true, data: { pictureUrl: result.pictureUrl } });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Apify rejected the logo update";
-      await db.actorLogoRecommendation.update({
-        where: { id: item.id },
-        data: { error: message.slice(0, 65_535) },
-      });
-      throw new AppError("apify_logo_update_failed", message, 502);
     }
+    return c.json({ ok: true, data: await batchView(batch.id, batch.businessProfileId) });
   });
+
+async function batchView(batchId: string, businessProfileId: string, userId?: string) {
+  const batch = await db.actorLogoApplyBatch.findFirst({
+    where: { id: batchId, businessProfileId, ...(userId ? { userId } : {}) },
+  });
+  if (!batch) return null;
+  const items = await db.actorLogoRecommendation.findMany({
+    where: { batchId },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      status: true,
+      error: true,
+      actor: { select: { id: true, actorName: true, title: true } },
+    },
+  });
+  return {
+    id: batch.id,
+    status: batch.status,
+    total: batch.total,
+    stopRequested: batch.stopRequested,
+    error: batch.error,
+    createdAt: batch.createdAt,
+    completedAt: batch.completedAt,
+    workspaceId: businessProfileId,
+    items: items.map((item) => ({
+      id: item.id,
+      actor: item.actor,
+      outcome: logoBatchItemOutcome(item),
+      // Failed rows go back to PENDING and can be applied again.
+      retryable: item.status === "PENDING",
+      ...(item.status === "APPLIED" || !item.error ? {} : { message: item.error }),
+    })),
+  };
+}

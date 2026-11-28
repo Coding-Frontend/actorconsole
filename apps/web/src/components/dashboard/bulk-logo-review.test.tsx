@@ -3,13 +3,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BulkLogoReview } from "./bulk-logo-review";
 import { WORKSPACE_CHANGED_EVENT } from "./onboarding-gate";
 import { WORKSPACE_DATA_REFRESHED_EVENT } from "@/lib/actor-refresh";
-import type { LogoReviewItem } from "@/lib/logo-review";
+import { logoReviewTiming, type LogoReviewItem } from "@/lib/logo-review";
 
 const { toast } = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("sonner", () => ({ toast }));
 let records: LogoReviewItem[];
 let workspaceId: string;
 let fetchMock: ReturnType<typeof vi.fn>;
+type FakeBatch = {
+  id: string;
+  status: string;
+  total: number;
+  queue: string[];
+  done: Array<{ id: string; outcome: "applied" | "failed"; message?: string; retryable: boolean }>;
+};
+/** A stand-in for the background worker: each progress poll applies one logo. */
+let batches: Map<string, FakeBatch>;
+let failApply: Set<string>;
+let holdAfterFirst: boolean;
 const fixture = (id: number, title = `Actor ${id}`): LogoReviewItem => ({
   id: `r${id}`,
   status: "PENDING",
@@ -47,15 +58,73 @@ function filtered(params: URLSearchParams) {
       (params.get("thumbnail") !== "existing" || Boolean(item.actor.currentImageUrl)),
   );
 }
+function batchView(batch: FakeBatch) {
+  const actor = (id: string) => {
+    const record = records.find((row) => row.id === id)!;
+    return { id: record.actor.id, title: record.actor.title, actorName: record.actor.actorName };
+  };
+  return {
+    id: batch.id,
+    status: batch.status,
+    total: batch.total,
+    stopRequested: false,
+    error: null,
+    workspaceId,
+    items: [
+      ...batch.done.map((item) => ({ ...item, actor: actor(item.id) })),
+      ...batch.queue.map((id) => ({ id, actor: actor(id), outcome: "queued", retryable: false })),
+    ],
+  };
+}
+function step(batch: FakeBatch) {
+  const id = batch.queue.shift();
+  if (id) {
+    const record = records.find((row) => row.id === id)!;
+    if (failApply.has(id)) {
+      record.status = "PENDING";
+      batch.done.push({ id, outcome: "failed", message: "Apify rejected this logo", retryable: true });
+    } else {
+      record.status = "APPLIED";
+      record.actor.currentImageUrl = `https://images.apify.com/${id}.webp`;
+      batch.done.push({ id, outcome: "applied", retryable: false });
+    }
+  }
+  if (!batch.queue.length && batch.status === "RUNNING") batch.status = "COMPLETED";
+}
 async function handle(input: string | URL | Request, init?: RequestInit) {
   const url = new URL(String(input), "http://localhost");
-  if (init?.method === "POST") {
-    const match = /\/([^/]+)\/(apply|dismiss)$/.exec(url.pathname)!;
-    const item = records.find((row) => row.id === match[1])!;
-    item.status = match[2] === "apply" ? "APPLIED" : "DISMISSED";
-    if (match[2] === "apply")
-      item.actor.currentImageUrl = `https://images.apify.com/${item.id}.webp`;
-    return response({ pictureUrl: item.actor.currentImageUrl });
+  if (url.pathname.endsWith("/batches/active")) {
+    const active = [...batches.values()].find((batch) => batch.status === "RUNNING");
+    return response({ batch: active ? batchView(active) : null, workspaceId });
+  }
+  const batchMatch = /\/batches\/([^/]+)(\/stop)?$/.exec(url.pathname);
+  if (batchMatch) {
+    const batch = batches.get(batchMatch[1]!)!;
+    if (batchMatch[2]) {
+      for (const id of batch.queue) records.find((row) => row.id === id)!.status = "PENDING";
+      batch.queue = [];
+      batch.status = "STOPPED";
+    } else if (!holdAfterFirst) step(batch);
+    return response(batchView(batch));
+  }
+  if (init?.method === "POST" && url.pathname.endsWith("/batches")) {
+    const ids = JSON.parse(String(init.body)).ids as string[];
+    const batch: FakeBatch = {
+      id: `b${batches.size + 1}`,
+      status: "RUNNING",
+      total: ids.length,
+      queue: [...ids],
+      done: [],
+    };
+    for (const id of ids) records.find((row) => row.id === id)!.status = "QUEUED" as never;
+    batches.set(batch.id, batch);
+    if (holdAfterFirst) step(batch);
+    return new Response(JSON.stringify({ ok: true, data: batchView(batch) }), { status: 202 });
+  }
+  if (init?.method === "POST" && url.pathname.endsWith("/dismiss")) {
+    const ids = JSON.parse(String(init.body)).ids as string[];
+    for (const id of ids) records.find((row) => row.id === id)!.status = "DISMISSED";
+    return response({ dismissed: ids });
   }
   const matching = filtered(url.searchParams);
   if (url.pathname.endsWith("/selection")) {
@@ -92,6 +161,10 @@ async function handle(input: string | URL | Request, init?: RequestInit) {
 beforeEach(() => {
   records = [fixture(1, "Maps Actor"), fixture(2, "Clinic Actor"), fixture(3, "Reddit Actor")];
   workspaceId = "workspace-1";
+  batches = new Map();
+  failApply = new Set();
+  holdAfterFirst = false;
+  logoReviewTiming.pollMs = 1;
   fetchMock = vi.fn(handle);
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -158,12 +231,11 @@ describe("BulkLogoReview", () => {
         ).toHaveLength(2),
       );
       expect(records[2]?.status).toBe("PENDING");
-      expect(
-        fetchMock.mock.calls.filter(([, init]) => init?.method === "POST").map(([url]) => url),
-      ).toEqual([
-        expect.stringContaining(`/r1/${action}`),
-        expect.stringContaining(`/r2/${action}`),
+      const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
+      expect(posts.map(([url]) => url)).toEqual([
+        expect.stringMatching(action === "apply" ? /\/batches$/ : /\/dismiss$/),
       ]);
+      expect(JSON.parse(String(posts[0]![1].body))).toEqual({ ids: ["r1", "r2"] });
       expect(refreshed).toHaveBeenCalledTimes(1);
       fireEvent.click(
         screen.getByRole("button", {
@@ -198,18 +270,7 @@ describe("BulkLogoReview", () => {
   });
 
   it("retains failed Actors for an explicit retry while leaving successful Actors completed", async () => {
-    fetchMock.mockImplementation(async (input, init) => {
-      if (init?.method === "POST" && String(input).endsWith("/r2/apply")) {
-        records[1]!.error = "Apify rejected this logo";
-        return new Response(
-          JSON.stringify({
-            error: { code: "apify_logo_update_failed", message: records[1]!.error },
-          }),
-          { status: 502 },
-        );
-      }
-      return handle(input, init);
-    });
+    failApply.add("r2");
     render(<BulkLogoReview />);
     await select("Maps Actor");
     await select("Clinic Actor");
@@ -219,30 +280,40 @@ describe("BulkLogoReview", () => {
     expect(records[0]?.status).toBe("APPLIED");
     expect(records[1]?.status).toBe("PENDING");
     expect(await screen.findByText("1 Actor selected")).toBeTruthy();
-    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(2);
+    expect(screen.getByText("Apify rejected this logo")).toBeTruthy();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
   });
 
-  it("stops after the current request and does not submit the rest", async () => {
-    let complete!: () => void;
-    fetchMock.mockImplementation(async (input, init) => {
-      if (init?.method === "POST")
-        await new Promise<void>((resolve) => {
-          complete = resolve;
-        });
-      return handle(input, init);
-    });
+  it("stops the background batch after the current Actor and does not apply the rest", async () => {
+    holdAfterFirst = true;
     render(<BulkLogoReview />);
     await select("Maps Actor");
     await select("Clinic Actor");
     await confirmAction("apply", 2);
+    expect(
+      await screen.findByText("Logos keep applying in the background if you leave this page.", {
+        exact: false,
+      }),
+    ).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: "Stop after current" }));
-    await act(async () => complete());
     await screen.findByText("Bulk review stopped");
     expect(
       screen.getByText("1 of 2 processed · 1 applied · 0 failed · 1 not started"),
     ).toBeTruthy();
-    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "POST").map(([url]) => url),
+    ).toEqual([expect.stringMatching(/\/batches$/), expect.stringMatching(/\/batches\/b1\/stop$/)]);
     expect(records[1]?.status).toBe("PENDING");
+  });
+
+  it("picks up a bulk apply that is still running when the page is reopened", async () => {
+    records[0]!.status = "QUEUED" as never;
+    batches.set("b1", { id: "b1", status: "RUNNING", total: 1, queue: ["r1"], done: [] });
+    render(<BulkLogoReview />);
+    await screen.findByText("Bulk review complete");
+    expect(screen.getByText("1 of 1 processed · 1 applied · 0 failed")).toBeTruthy();
+    expect(records[0]?.status).toBe("APPLIED");
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
   });
 
   it("aborts an old workspace batch, ignores a late response and pins every submitted request to its original workspace", async () => {

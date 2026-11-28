@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onErrorHandler } from "../../src/middleware/error.js";
 
-const { db, getUserApifyClient, readWebsiteLogo, recordUserAudit, updateActorMetadata } =
+const { db, enqueue, getUserApifyClient, readWebsiteLogo, recordUserAudit, updateActorMetadata } =
   vi.hoisted(() => ({
     db: {
       actorLogoRecommendation: {
@@ -10,18 +10,32 @@ const { db, getUserApifyClient, readWebsiteLogo, recordUserAudit, updateActorMet
         count: vi.fn(),
         groupBy: vi.fn(),
         findFirst: vi.fn(),
+        findUniqueOrThrow: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
+      },
+      actorLogoApplyBatch: {
+        create: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+        findFirst: vi.fn(),
       },
       actor: { update: vi.fn() },
       $transaction: vi.fn(),
     },
+    enqueue: vi.fn(),
     getUserApifyClient: vi.fn(),
     readWebsiteLogo: vi.fn(),
     recordUserAudit: vi.fn(),
     updateActorMetadata: vi.fn(),
   }));
 
-vi.mock("@actorconsole/db", () => ({ db }));
+// Run the real shared apply logic against the mocked database.
+vi.mock("../../../../packages/db/src/client.js", () => ({ db }));
+vi.mock("@actorconsole/db", async () => ({
+  ...(await import("../../../../packages/db/src/actor-logo-recommendations.js")),
+  db,
+}));
 vi.mock("@actorconsole/apify", () => ({
   getUserApifyClient: (...args: unknown[]) => getUserApifyClient(...args),
 }));
@@ -30,6 +44,9 @@ vi.mock("@actorconsole/logo-catalog", () => ({
 }));
 vi.mock("../../src/lib/user-audit.js", () => ({
   recordUserAudit: (...args: unknown[]) => recordUserAudit(...args),
+}));
+vi.mock("../../src/lib/queue.js", () => ({
+  enqueue: (...args: unknown[]) => enqueue(...args),
 }));
 
 import { actorLogoRecommendationRoutes } from "../../src/routes/actor-logo-recommendations.js";
@@ -85,6 +102,16 @@ const recommendation = {
   },
 };
 
+const apply = (actorIds?: string[]) =>
+  app(actorIds).request("/actors/logo-recommendations/recommendation_1/apply", { method: "POST" });
+
+/** The conditional update that hands a claimed row back (or marks it superseded). */
+function releaseCall() {
+  return db.actorLogoRecommendation.updateMany.mock.calls.find(
+    ([options]) => options.where.status === "APPLYING",
+  )?.[0];
+}
+
 describe("Actor logo recommendation routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,12 +119,17 @@ describe("Actor logo recommendation routes", () => {
     db.actorLogoRecommendation.count.mockResolvedValue(1);
     db.actorLogoRecommendation.groupBy.mockResolvedValue([{ status: "PENDING", _count: 1 }]);
     db.actorLogoRecommendation.findFirst.mockResolvedValue(recommendation);
+    db.actorLogoRecommendation.findUniqueOrThrow.mockResolvedValue(recommendation);
     db.actorLogoRecommendation.update.mockResolvedValue(recommendation);
+    db.actorLogoRecommendation.updateMany.mockResolvedValue({ count: 1 });
     db.actor.update.mockResolvedValue({ id: "actor_1" });
-    db.$transaction.mockImplementation(async (operations: Array<Promise<unknown>>) =>
-      Promise.all(operations),
+    db.$transaction.mockImplementation(async (operations: unknown) =>
+      typeof operations === "function"
+        ? (operations as (tx: typeof db) => Promise<unknown>)(db)
+        : Promise.all(operations as Array<Promise<unknown>>),
     );
     recordUserAudit.mockResolvedValue(undefined);
+    enqueue.mockResolvedValue("job_1");
   });
 
   it("lists only scoped pending recommendations with immutable asset URLs", async () => {
@@ -211,20 +243,42 @@ describe("Actor logo recommendation routes", () => {
     expect(db.actorLogoRecommendation.findMany).not.toHaveBeenCalled();
   });
 
+  it("claims the recommendation with a conditional update before doing anything else", async () => {
+    getUserApifyClient.mockResolvedValue({ updateActorMetadata });
+    readWebsiteLogo.mockResolvedValue(Buffer.from("logo"));
+    updateActorMetadata.mockResolvedValue({ pictureUrl: "https://api.apify.com/logo.webp", verified: true });
+    await apply();
+    expect(db.actorLogoRecommendation.updateMany.mock.calls[0]![0]).toMatchObject({
+      where: {
+        id: "recommendation_1",
+        OR: [{ status: "PENDING" }, { status: "APPLYING", updatedAt: { lt: expect.any(Date) } }],
+      },
+      data: { status: "APPLYING", error: null },
+    });
+  });
+
+  it("does not upload twice when another request already claimed the logo", async () => {
+    db.actorLogoRecommendation.updateMany.mockResolvedValueOnce({ count: 0 });
+    db.actorLogoRecommendation.findFirst
+      .mockResolvedValueOnce(recommendation)
+      .mockResolvedValueOnce({ status: "APPLYING" });
+    const response = await apply();
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("logo_recommendation_in_progress");
+    expect(getUserApifyClient).not.toHaveBeenCalled();
+    expect(updateActorMetadata).not.toHaveBeenCalled();
+  });
+
   it("keeps a recommendation pending when publishing credentials are unavailable", async () => {
     getUserApifyClient.mockResolvedValue(null);
-    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
-      method: "POST",
-    });
+    const response = await apply();
     expect(response.status).toBe(409);
     const body = await response.json();
     expect(body.error.code).toBe("apify_publishing_credentials_required");
-    expect(db.actorLogoRecommendation.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "recommendation_1" },
-        data: expect.objectContaining({ error: expect.stringContaining("unavailable") }),
-      }),
-    );
+    expect(releaseCall()).toEqual({
+      where: { id: "recommendation_1", status: "APPLYING" },
+      data: { status: "PENDING", error: expect.stringContaining("unavailable") },
+    });
   });
 
   it("uploads the approved logo through Apify and records it as applied", async () => {
@@ -234,13 +288,13 @@ describe("Actor logo recommendation routes", () => {
       pictureUrl: "https://api.apify.com/logo.webp",
       verified: true,
     });
-    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
-      method: "POST",
-    });
+    const response = await apply();
     expect(response.status).toBe(200);
     expect(updateActorMetadata).toHaveBeenCalledWith(
       "apify_actor_1",
-      expect.objectContaining({ picture: expect.objectContaining({ contentType: "image/webp" }) }),
+      expect.objectContaining({
+        picture: expect.objectContaining({ contentType: "image/webp", fileName: "aaaaaaaaaaaaaaaa.webp" }),
+      }),
     );
     expect(db.actor.update).toHaveBeenCalledWith({
       where: { id: "actor_1" },
@@ -249,6 +303,24 @@ describe("Actor logo recommendation routes", () => {
     expect(db.actorLogoRecommendation.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "APPLIED" }) }),
     );
+    expect(recordUserAudit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      "actor.logo.applied",
+      "actor:actor_1",
+      expect.objectContaining({ logoId: "logo_1" }),
+    );
+  });
+
+  it("reports success when only the audit entry fails after Apify accepted the logo", async () => {
+    getUserApifyClient.mockResolvedValue({ updateActorMetadata });
+    readWebsiteLogo.mockResolvedValue(Buffer.from("logo"));
+    updateActorMetadata.mockResolvedValue({ pictureUrl: "https://api.apify.com/logo.webp", verified: true });
+    recordUserAudit.mockRejectedValue(new Error("audit table unavailable"));
+    const response = await apply();
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.pictureUrl).toBe("https://api.apify.com/logo.webp");
+    expect(releaseCall()).toBeUndefined();
   });
 
   it.each([
@@ -258,13 +330,11 @@ describe("Actor logo recommendation routes", () => {
     getUserApifyClient.mockResolvedValue({ updateActorMetadata });
     readWebsiteLogo.mockResolvedValue(Buffer.from("logo"));
     updateActorMetadata.mockRejectedValue(new Error(message));
-    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
-      method: "POST",
-    });
+    const response = await apply();
     expect(response.status).toBe(502);
-    expect(db.actorLogoRecommendation.update).toHaveBeenCalledWith({
-      where: { id: "recommendation_1" },
-      data: { error: message },
+    expect(releaseCall()).toEqual({
+      where: { id: "recommendation_1", status: "APPLYING" },
+      data: { status: "PENDING", error: message },
     });
     expect(db.actor.update).not.toHaveBeenCalled();
   });
@@ -274,9 +344,32 @@ describe("Actor logo recommendation routes", () => {
       method: "POST",
     });
     expect(response.status).toBe(200);
-    expect(db.actorLogoRecommendation.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: "DISMISSED" }) }),
-    );
+    expect(db.actorLogoRecommendation.updateMany).toHaveBeenCalledWith({
+      where: { id: "recommendation_1", status: "PENDING" },
+      data: expect.objectContaining({ status: "DISMISSED" }),
+    });
+    expect(getUserApifyClient).not.toHaveBeenCalled();
+  });
+
+  it("dismisses many recommendations in one scoped, conditional update", async () => {
+    db.actorLogoRecommendation.findMany
+      .mockResolvedValueOnce([{ id: "recommendation_1" }, { id: "recommendation_2" }])
+      .mockResolvedValueOnce([{ id: "recommendation_1" }]);
+    const response = await app().request("/actors/logo-recommendations/dismiss", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: ["recommendation_1", "recommendation_2", "recommendation_3"] }),
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.dismissed).toEqual(["recommendation_1"]);
+    expect(db.actorLogoRecommendation.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: "PENDING",
+        id: { in: ["recommendation_1", "recommendation_2"] },
+        actor: expect.objectContaining({ userId: "user_1", businessProfileId: "workspace_1" }),
+      }),
+      data: expect.objectContaining({ status: "DISMISSED" }),
+    });
     expect(getUserApifyClient).not.toHaveBeenCalled();
   });
 
@@ -285,27 +378,24 @@ describe("Actor logo recommendation routes", () => {
     { websiteIdentity: { status: "ACTIVE", currentLogoId: "new_logo" } },
     { websiteIdentity: { status: "ARCHIVED", currentLogoId: "logo_1" } },
   ])("rejects a stale recommendation before uploading: %j", async (actorChange) => {
-    db.actorLogoRecommendation.findFirst.mockResolvedValue({
+    db.actorLogoRecommendation.findUniqueOrThrow.mockResolvedValue({
       ...recommendation,
       actor: { ...recommendation.actor, ...actorChange },
     });
-    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
-      method: "POST",
-    });
+    const response = await apply();
     expect(response.status).toBe(409);
     expect((await response.json()).error.code).toBe("logo_recommendation_superseded");
+    expect(releaseCall()?.data).toEqual({ status: "SUPERSEDED", error: null });
     expect(readWebsiteLogo).not.toHaveBeenCalled();
     expect(getUserApifyClient).not.toHaveBeenCalled();
   });
 
   it("does not apply a logo that is awaiting review", async () => {
-    db.actorLogoRecommendation.findFirst.mockResolvedValue({
+    db.actorLogoRecommendation.findUniqueOrThrow.mockResolvedValue({
       ...recommendation,
       logo: { ...recommendation.logo, reviewStatus: "PENDING" },
     });
-    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
-      method: "POST",
-    });
+    const response = await apply();
     expect(response.status).toBe(409);
     expect(updateActorMetadata).not.toHaveBeenCalled();
   });
@@ -317,14 +407,12 @@ describe("Actor logo recommendation routes", () => {
     getUserApifyClient.mockResolvedValue({ updateActorMetadata });
     readWebsiteLogo.mockResolvedValue(Buffer.from("logo"));
     updateActorMetadata.mockResolvedValue(result);
-    const response = await app().request("/actors/logo-recommendations/recommendation_1/apply", {
-      method: "POST",
-    });
+    const response = await apply();
     expect(response.status).toBe(502);
     expect(db.actor.update).not.toHaveBeenCalled();
-    expect(db.actorLogoRecommendation.update).toHaveBeenCalledWith({
-      where: { id: recommendation.id },
-      data: { error: expect.stringContaining("did not verify") },
+    expect(releaseCall()).toEqual({
+      where: { id: recommendation.id, status: "APPLYING" },
+      data: { status: "PENDING", error: expect.stringContaining("did not verify") },
     });
   });
 
@@ -369,6 +457,7 @@ describe("Actor logo recommendation routes", () => {
       expect(updateActorMetadata).not.toHaveBeenCalled();
       expect(db.actor.update).not.toHaveBeenCalled();
       expect(db.actorLogoRecommendation.update).not.toHaveBeenCalled();
+      expect(db.actorLogoRecommendation.updateMany).not.toHaveBeenCalled();
     },
   );
 
@@ -378,12 +467,120 @@ describe("Actor logo recommendation routes", () => {
       { method: "POST" },
     );
     expect(permitted.status).toBe(200);
-    db.actorLogoRecommendation.update.mockClear();
+    db.actorLogoRecommendation.updateMany.mockClear();
     const denied = await app(["apify_actor_1"], ["actors:read"]).request(
       "/actors/logo-recommendations/recommendation_1/dismiss",
       { method: "POST" },
     );
     expect(denied.status).toBe(403);
-    expect(db.actorLogoRecommendation.update).not.toHaveBeenCalled();
+    expect(db.actorLogoRecommendation.updateMany).not.toHaveBeenCalled();
+  });
+
+  describe("background bulk apply", () => {
+    const batch = {
+      id: "batch_1",
+      userId: "user_1",
+      businessProfileId: "workspace_1",
+      status: "QUEUED",
+      total: 2,
+      jobId: "logo-apply-batch_1",
+      stopRequested: false,
+      error: null,
+      createdAt: new Date("2026-11-28T00:00:00Z"),
+      completedAt: null,
+    };
+
+    beforeEach(() => {
+      getUserApifyClient.mockResolvedValue({ updateActorMetadata });
+      db.actorLogoApplyBatch.create.mockResolvedValue({ ...batch, total: 0, jobId: null });
+      db.actorLogoApplyBatch.update.mockImplementation(async ({ data }) => ({ ...batch, ...data }));
+      db.actorLogoApplyBatch.findFirst.mockResolvedValue(batch);
+      db.actorLogoRecommendation.updateMany.mockResolvedValue({ count: 2 });
+      db.actorLogoRecommendation.findMany.mockResolvedValue([
+        { id: "recommendation_1", status: "APPLIED", error: null, actor: recommendation.actor },
+        { id: "recommendation_2", status: "PENDING", error: "Too Many Requests", actor: recommendation.actor },
+      ]);
+    });
+
+    const start = (ids = ["recommendation_1", "recommendation_2"]) =>
+      app().request("/actors/logo-recommendations/batches", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+    it("queues only scoped pending recommendations and hands them to the worker", async () => {
+      const response = await start();
+      expect(response.status).toBe(202);
+      expect(db.actorLogoRecommendation.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          id: { in: ["recommendation_1", "recommendation_2"] },
+          status: "PENDING",
+          actor: expect.objectContaining({ userId: "user_1", businessProfileId: "workspace_1" }),
+        }),
+        data: { status: "QUEUED", batchId: "batch_1", error: null },
+      });
+      expect(enqueue).toHaveBeenCalledWith(
+        "schedules",
+        { logoApplyBatch: { batchId: "batch_1", userId: "user_1", businessProfileId: "workspace_1" } },
+        { jobId: "logo-apply-batch_1" },
+      );
+      expect(updateActorMetadata).not.toHaveBeenCalled();
+      const data = (await response.json()).data;
+      expect(data.items).toEqual([
+        expect.objectContaining({ id: "recommendation_1", outcome: "applied", retryable: false }),
+        expect.objectContaining({
+          id: "recommendation_2",
+          outcome: "failed",
+          message: "Too Many Requests",
+          retryable: true,
+        }),
+      ]);
+    });
+
+    it("still accepts the batch when the queue is briefly unavailable", async () => {
+      enqueue.mockRejectedValue(new Error("Queue command timed out"));
+      const response = await start();
+      expect(response.status).toBe(202);
+    });
+
+    it("refuses to start without publishing credentials", async () => {
+      getUserApifyClient.mockResolvedValue(null);
+      const response = await start();
+      expect(response.status).toBe(409);
+      expect(db.actorLogoApplyBatch.create).not.toHaveBeenCalled();
+    });
+
+    it("reports when none of the selected logos can be queued", async () => {
+      db.actorLogoRecommendation.updateMany.mockResolvedValue({ count: 0 });
+      const response = await start();
+      expect(response.status).toBe(409);
+      expect(enqueue).not.toHaveBeenCalled();
+    });
+
+    it("stops a batch by releasing rows that have not started", async () => {
+      db.actorLogoApplyBatch.findFirst.mockResolvedValue({ ...batch, status: "RUNNING" });
+      const response = await app().request("/actors/logo-recommendations/batches/batch_1/stop", {
+        method: "POST",
+      });
+      expect(response.status).toBe(200);
+      expect(db.actorLogoApplyBatch.update).toHaveBeenCalledWith({
+        where: { id: "batch_1" },
+        data: { stopRequested: true },
+      });
+      expect(db.actorLogoRecommendation.updateMany).toHaveBeenCalledWith({
+        where: { batchId: "batch_1", status: "QUEUED" },
+        data: { status: "PENDING", batchId: null },
+      });
+    });
+
+    it("only shows batches from the current workspace and user", async () => {
+      db.actorLogoApplyBatch.findFirst.mockResolvedValue(null);
+      const response = await app().request("/actors/logo-recommendations/batches/batch_other");
+      expect(response.status).toBe(404);
+      expect(db.actorLogoApplyBatch.findFirst).toHaveBeenCalledWith({
+        where: { id: "batch_other", businessProfileId: "workspace_1", userId: "user_1" },
+      });
+    });
   });
 });

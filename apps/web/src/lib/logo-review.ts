@@ -113,9 +113,68 @@ export async function selectAllLogoReviews(
   return [...selected.values()];
 }
 
-/** Use the same verified per-Actor endpoint as individual reviews. Never retry
- * a potentially accepted external mutation automatically. Completed decisions
- * remain saved if the user stops or leaves the page. */
+export type LogoApplyBatchView = {
+  id: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "STOPPED" | "FAILED";
+  total: number;
+  stopRequested: boolean;
+  error: string | null;
+  workspaceId: string;
+  items: Array<
+    LogoReviewSelection & {
+      outcome: "applied" | "queued" | "running" | "failed";
+      message?: string;
+      retryable: boolean;
+    }
+  >;
+};
+
+/** Poll interval for following a background batch (adjustable in tests). */
+export const logoReviewTiming = { pollMs: 2_500 };
+const DISMISS_CHUNK = 500;
+
+function wait(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+export function activeLogoApplyBatch(workspaceId: string, signal?: AbortSignal) {
+  return logoReviewRequest<{ batch: LogoApplyBatchView | null; workspaceId: string }>(
+    "/batches/active",
+    { workspaceId, signal },
+  );
+}
+
+function batchResults(view: LogoApplyBatchView) {
+  const results: LogoReviewResult[] = [];
+  for (const item of view.items ?? []) {
+    if (item.outcome === "queued" || item.outcome === "running") continue;
+    results.push({
+      id: item.id,
+      actor: item.actor,
+      outcome: item.outcome === "applied" ? "applied" : "failed",
+      ...(item.message ? { message: item.message } : {}),
+      retryable: item.outcome === "failed" && item.retryable,
+    });
+  }
+  return results;
+}
+
+/**
+ * Apply runs as a background batch on the server: it keeps going if the page
+ * closes, and leaving only stops this view from following it. Dismiss is a
+ * database-only change sent in a few requests. Completed decisions remain
+ * saved if the user stops or leaves the page.
+ */
 export async function runLogoReviewBatch({
   action,
   items,
@@ -123,8 +182,88 @@ export async function runLogoReviewBatch({
   signal,
   shouldStop,
   onProgress,
+  resumeBatchId,
 }: {
   action: LogoReviewAction;
+  items: LogoReviewSelection[];
+  workspaceId: string;
+  signal: AbortSignal;
+  shouldStop: () => boolean;
+  onProgress: (current: LogoReviewSelection | null, results: LogoReviewResult[], total?: number) => void;
+  resumeBatchId?: string;
+}) {
+  if (action === "dismiss") return runDismissBatch({ items, workspaceId, signal, shouldStop, onProgress });
+
+  let view: LogoApplyBatchView;
+  try {
+    view = resumeBatchId
+      ? await logoReviewRequest<LogoApplyBatchView>(`/batches/${encodeURIComponent(resumeBatchId)}`, {
+          workspaceId,
+          signal,
+        })
+      : await logoReviewRequest<LogoApplyBatchView>("/batches", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ids: items.map((item) => item.id) }),
+          workspaceId,
+          signal,
+        });
+  } catch (error) {
+    if (signal.aborted) return [];
+    const known = error instanceof LogoReviewRequestError;
+    const message =
+      known && error.status !== 0
+        ? error.message
+        : "Could not start the logo updates. Refresh to check these Actors before trying again.";
+    return items.map((item) => ({
+      ...item,
+      outcome: "failed" as const,
+      message,
+      retryable: known && error.status !== 0 && error.code !== "logo_recommendation_superseded",
+    }));
+  }
+
+  // A reply that arrives after the page moved on (workspace change, unmount) is ignored.
+  if (signal.aborted) return [];
+  let stopSent = false;
+  for (;;) {
+    const running = (view.items ?? []).find((item) => item.outcome === "running");
+    onProgress(running ? { id: running.id, actor: running.actor } : null, batchResults(view), view.total);
+    if (!["QUEUED", "RUNNING"].includes(view.status)) break;
+    if (shouldStop() && !stopSent) {
+      stopSent = true;
+      try {
+        view = await logoReviewRequest<LogoApplyBatchView>(
+          `/batches/${encodeURIComponent(view.id)}/stop`,
+          { method: "POST", workspaceId, signal },
+        );
+        continue;
+      } catch {
+        if (signal.aborted) break;
+      }
+    }
+    await wait(logoReviewTiming.pollMs, signal);
+    if (signal.aborted) break;
+    try {
+      view = await logoReviewRequest<LogoApplyBatchView>(`/batches/${encodeURIComponent(view.id)}`, {
+        workspaceId,
+        signal,
+      });
+    } catch {
+      // A missed poll is harmless: the batch keeps running on the server.
+      if (signal.aborted) break;
+    }
+  }
+  return batchResults(view);
+}
+
+async function runDismissBatch({
+  items,
+  workspaceId,
+  signal,
+  shouldStop,
+  onProgress,
+}: {
   items: LogoReviewSelection[];
   workspaceId: string;
   signal: AbortSignal;
@@ -132,45 +271,50 @@ export async function runLogoReviewBatch({
   onProgress: (current: LogoReviewSelection | null, results: LogoReviewResult[]) => void;
 }) {
   const results: LogoReviewResult[] = [];
-  for (const item of items) {
+  for (let offset = 0; offset < items.length; offset += DISMISS_CHUNK) {
     if (signal.aborted || shouldStop()) break;
-    onProgress(item, [...results]);
-    let stop = false;
+    const chunk = items.slice(offset, offset + DISMISS_CHUNK);
+    onProgress(chunk[0] ?? null, [...results]);
     try {
-      await logoReviewRequest(`/${encodeURIComponent(item.id)}/${action}`, {
+      const { dismissed } = await logoReviewRequest<{ dismissed: string[] }>("/dismiss", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids: chunk.map((item) => item.id) }),
         workspaceId,
         signal,
       });
       if (signal.aborted) break;
-      results.push({
-        ...item,
-        outcome: action === "apply" ? "applied" : "dismissed",
-        retryable: false,
-      });
+      const done = new Set(dismissed);
+      for (const item of chunk) {
+        results.push(
+          done.has(item.id)
+            ? { ...item, outcome: "dismissed", retryable: false }
+            : {
+                ...item,
+                outcome: "failed",
+                message: "This recommendation is no longer waiting for review.",
+                retryable: false,
+              },
+        );
+      }
     } catch (error) {
       if (signal.aborted) break;
       const known = error instanceof LogoReviewRequestError;
-      stop =
-        !known ||
-        [0, 401, 403, 429].includes(error.status) ||
-        error.code === "apify_publishing_credentials_required";
-      results.push({
-        ...item,
-        outcome: "failed",
-        message:
-          known && error.status !== 0
-            ? error.message
-            : "Could not confirm this update. Refresh to check this Actor before trying again.",
-        retryable:
-          known &&
-          error.status !== 0 &&
-          error.status !== 404 &&
-          error.code !== "logo_recommendation_superseded",
-      });
+      for (const item of chunk) {
+        results.push({
+          ...item,
+          outcome: "failed",
+          message:
+            known && error.status !== 0
+              ? error.message
+              : "Could not confirm this update. Refresh to check this Actor before trying again.",
+          retryable: known && error.status !== 0 && error.status !== 404,
+        });
+      }
+      onProgress(null, [...results]);
+      break;
     }
     onProgress(null, [...results]);
-    if (stop) break;
   }
   return results;
 }

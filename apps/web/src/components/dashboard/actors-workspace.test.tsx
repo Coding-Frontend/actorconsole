@@ -365,9 +365,36 @@ describe("ActorsWorkspace", () => {
             JSON.stringify({ data: { connected: true, apiKeyConfigured: true } }),
           );
         }
-        if (url.includes("/logo-recommendations/rec_1/apply") && init?.method === "POST") {
+        if (url.includes("/logo-recommendations/batches/active")) {
+          return new Response(
+            JSON.stringify({ ok: true, data: { batch: null, workspaceId: "workspace-1" } }),
+          );
+        }
+        // Bulk apply runs as a background batch; this one finishes immediately.
+        if (url.endsWith("/logo-recommendations/batches") && init?.method === "POST") {
           applied = true;
-          return new Response(JSON.stringify({ ok: true, data: { pictureUrl } }));
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              data: {
+                id: "batch_1",
+                status: "COMPLETED",
+                total: 1,
+                stopRequested: false,
+                error: null,
+                workspaceId: "workspace-1",
+                items: [
+                  {
+                    id: "rec_1",
+                    actor: { id: "actor_1", actorName: "maps", title: "Maps" },
+                    outcome: "applied",
+                    retryable: false,
+                  },
+                ],
+              },
+            }),
+            { status: 202 },
+          );
         }
         if (url.includes("/logo-recommendations")) {
           if (applied) await reviewRefresh;

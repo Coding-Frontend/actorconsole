@@ -46,9 +46,17 @@ export async function proxyApiRequest(request: Request, path: string[]) {
   const isCopyGeneration =
     request.method === "POST" && path.length === 3 &&
     path[0] === "actors" && path[2] === "rewrite-copy";
+  // Applying a logo makes several Apify reads and writes (with retries) plus
+  // an R2 read; a 30-second cut-off could report a failure for an update that
+  // still completes upstream.
+  const isLogoApply =
+    request.method === "POST" && path.length === 4 && path[0] === "actors" &&
+    path[1] === "logo-recommendations" && path[3] === "apply";
   // AI routing has a bounded 180-second budget, plus Apify listing reads.
   // Ordinary API requests retain their shorter deadline.
-  const upstreamTimeout = AbortSignal.timeout(isCopyGeneration ? 210_000 : 30_000);
+  const upstreamTimeout = AbortSignal.timeout(
+    isCopyGeneration ? 210_000 : isLogoApply ? 120_000 : 30_000,
+  );
 
   const upstreamHeaders = new Headers();
   for (const [name, value] of request.headers) {

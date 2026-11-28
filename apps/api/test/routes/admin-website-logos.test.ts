@@ -13,7 +13,8 @@ const { db, tx, reconcileActorLogoRecommendations } = vi.hoisted(() => {
     tx: transactionClient,
     reconcileActorLogoRecommendations: vi.fn().mockResolvedValue({ created: 0 }),
     db: {
-      websiteLogo: { findFirst: vi.fn(), count: vi.fn(), upsert: vi.fn() },
+      websiteLogo: { findFirst: vi.fn(), count: vi.fn(), upsert: vi.fn(), update: vi.fn() },
+      auditLog: { create: vi.fn() },
       websiteIdentity: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
       actor: { findMany: vi.fn(), count: vi.fn(), updateMany: vi.fn() },
       storeActor: { count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
@@ -33,11 +34,19 @@ vi.mock("@actorconsole/logo-catalog", () => ({
   downloadLogoSource: vi.fn(),
   storeWebsiteLogo: vi.fn(),
 }));
+const stored = {
+  storagePath: "website-logos/website_1/checksum.webp",
+  checksum: "checksum",
+  contentType: "image/webp",
+  width: 512,
+  height: 512,
+  byteSize: 100,
+};
 const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn() }));
 vi.mock("../../src/lib/queue.js", () => ({ enqueue }));
 
 import { adminWebsiteLogoRoutes } from "../../src/routes/admin-website-logos.js";
-import { storeWebsiteLogo } from "@actorconsole/logo-catalog";
+import { downloadLogoSource, storeWebsiteLogo } from "@actorconsole/logo-catalog";
 
 function request(path: string, init?: RequestInit) {
   const app = new Hono();
@@ -75,6 +84,110 @@ describe("Admin website logo routes", () => {
     db.storeActor.updateMany.mockResolvedValue({ count: 0 });
     db.actor.updateMany.mockResolvedValue({ count: 0 });
     db.websiteIdentity.update.mockResolvedValue({});
+    db.auditLog.create.mockResolvedValue({});
+  });
+
+  it("labels a logo imported from an admin-chosen URL as ADMIN_URL and audits it", async () => {
+    db.websiteIdentity.findUnique.mockResolvedValue({ id: "website_1" });
+    vi.mocked(downloadLogoSource).mockResolvedValue({
+      bytes: Buffer.from("image"),
+      contentType: "image/png",
+      finalUrl: "https://cdn.example.com/press/logo.png",
+    });
+    vi.mocked(storeWebsiteLogo).mockResolvedValue(stored);
+    db.websiteLogo.upsert.mockResolvedValue({ id: "logo_9" });
+    const response = await request("/admin/website-logos/website_1/import", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sourceUrl: "https://cdn.example.com/press/logo.png" }),
+    });
+    expect(response.status).toBe(200);
+    expect(db.websiteLogo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ sourceKind: "ADMIN_URL", sourceDomain: "cdn.example.com" }),
+      }),
+    );
+    expect(db.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "website.logo.imported",
+        resource: "website:website_1",
+        source: "api-key",
+      }),
+    });
+  });
+
+  it("refuses to activate a rejected logo", async () => {
+    db.websiteLogo.findFirst.mockResolvedValue({
+      id: "logo_2",
+      websiteIdentityId: "website_1",
+      reviewStatus: "REJECTED",
+    });
+    const response = await request("/admin/website-logos/website_1/logos/logo_2/activate", {
+      method: "POST",
+    });
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("logo_rejected");
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for an unknown logo candidate", async () => {
+    db.websiteLogo.findFirst.mockResolvedValue(null);
+    const response = await request("/admin/website-logos/website_1/logos/missing/activate", {
+      method: "POST",
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it("rejects a pending candidate and refreshes recommendations", async () => {
+    db.websiteLogo.findFirst.mockResolvedValue({
+      id: "logo_2",
+      websiteIdentityId: "website_1",
+      reviewStatus: "PENDING",
+      currentFor: null,
+    });
+    db.websiteLogo.update.mockResolvedValue({ id: "logo_2", reviewStatus: "REJECTED" });
+    const response = await request("/admin/website-logos/website_1/logos/logo_2/reject", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ notes: "Wrong brand" }),
+    });
+    expect(response.status).toBe(200);
+    expect(db.websiteLogo.update).toHaveBeenCalledWith({
+      where: { id: "logo_2" },
+      data: expect.objectContaining({ reviewStatus: "REJECTED", reviewNotes: "Wrong brand" }),
+    });
+    expect(reconcileActorLogoRecommendations).toHaveBeenCalledWith({ websiteIdentityId: "website_1" });
+    expect(db.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "website.logo.rejected" }),
+    });
+  });
+
+  it("does not reject the active logo", async () => {
+    db.websiteLogo.findFirst.mockResolvedValue({
+      id: "logo_1",
+      websiteIdentityId: "website_1",
+      reviewStatus: "APPROVED",
+      currentFor: { id: "website_1" },
+    });
+    const response = await request("/admin/website-logos/website_1/logos/logo_1/reject", {
+      method: "POST",
+    });
+    expect(response.status).toBe(409);
+    expect(db.websiteLogo.update).not.toHaveBeenCalled();
+  });
+
+  it("resets the discovery backoff when an admin reactivates a website", async () => {
+    db.websiteIdentity.update.mockResolvedValue({ id: "website_1" });
+    const response = await request("/admin/website-logos/website_1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "ACTIVE" }),
+    });
+    expect(response.status).toBe(200);
+    expect(db.websiteIdentity.update).toHaveBeenCalledWith({
+      where: { id: "website_1" },
+      data: { status: "ACTIVE", logoAttempts: 0, logoNextAttemptAt: null },
+    });
   });
 
   afterEach(() => {
